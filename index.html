@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adyen Account Structure V22 (Auto-Save)</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root {
+            --line-color: #0b1e3b;
+            --text-color: #0b1e3b;
+            --card-bg: #ffffff;
+            --icon-color: #0b1e3b;
+            --bg-color: #ffffff;
+            --highlight-color: #00b67a;
+            --btn-bg: #ffffff;
+            --btn-border: #dbe1e8;
+            --danger-color: #d32f2f;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Toolbar --- */
+        .toolbar {
+            padding: 8px 20px;
+            background: var(--bg-color);
+            border-bottom: 1px solid var(--btn-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            flex-shrink: 0;
+        }
+
+        .toolbar-group { display: flex; gap: 10px; }
+
+        .tool-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--btn-border);
+            background: #f0f2f5;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .tool-btn:hover:not(:disabled) { background-color: #e4e8ed; border-color: #c8d0d9; }
+        .tool-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .reset-btn { color: #d32f2f; }
+        .reset-btn:hover { background-color: #fdecec; border-color: #fca5a5; }
+
+        .pdf-btn { background-color: var(--highlight-color); color: white; border: none; }
+        .pdf-btn:hover { background-color: #00a46e; }
+
+        /* --- Viewport --- */
+        .viewport {
+            flex: 1;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            position: relative;
+            cursor: grab;
+            padding: 40px 20px;
+        }
+        .viewport:active { cursor: grabbing; }
+
+        .tree-wrapper {
+            transform-origin: top center;
+            transition: transform 0.3s ease-out;
+            padding-bottom: 50px;
+        }
+
+        /* --- Tree Structure --- */
+        .tree { display: flex; justify-content: center; }
+
+        .tree ul {
+            padding-top: 30px; 
+            position: relative;
+            display: flex;
+            justify-content: center;
+            margin: 0;
+            padding-left: 0;
+        }
+
+        .tree li {
+            list-style-type: none;
+            position: relative;
+            padding: 30px 15px 0 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Drag Visuals */
+        .tree li.dragging > .node-card {
+            opacity: 0.5;
+            border-style: dashed;
+        }
+        
+        .tree li.drag-over > .node-card {
+            border-color: var(--highlight-color);
+            background-color: #f0fdf4;
+            transform: scale(1.05);
+        }
+
+        /* Connectors */
+        .tree li::before, .tree li::after {
+            content: '';
+            position: absolute; top: 0; right: 50%;
+            border-top: 2px solid var(--line-color);
+            width: 50%; height: 30px; z-index: 1;
+        }
+        .tree li::after { right: auto; left: 50%; border-left: 2px solid var(--line-color); }
+        .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
+        .tree li:last-child::before { border-right: 2px solid var(--line-color); border-radius: 0 8px 0 0; }
+        .tree li:first-child::after { border-radius: 8px 0 0 0; }
+        .tree li:only-child { padding-top: 30px; }
+        .tree li:only-child::after, .tree li:only-child::before { display: none; }
+
+        /* Downward connector */
+        .tree ul ul::before {
+            content: '';
+            position: absolute; top: 0; left: 50%;
+            border-left: 2px solid var(--line-color);
+            width: 0; height: 30px; z-index: 1;
+        }
+
+        .tree ul:empty::before, .tree ul.hidden::before { display: none; }
+
+        /* --- Card Styling --- */
+        .node-card {
+            border: 1px solid var(--btn-border);
+            padding: 20px 15px;
+            color: var(--text-color);
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            min-width: 140px;
+            box-shadow: 0 2px 8px rgba(11, 30, 59, 0.08);
+            transition: all 0.2s;
+            position: relative;
+            z-index: 10;
+            overflow: visible; 
+            cursor: default;
+        }
+
+        .node-card[draggable="true"] { cursor: grab; }
+        .node-card[draggable="true"]:active { cursor: grabbing; }
+
+        .node-card:hover {
+            box-shadow: 0 8px 20px rgba(11, 30, 59, 0.15);
+            border-color: #c8d0d9;
+            z-index: 20;
+        }
+
+        /* Icon Wrapper */
+        .icon-wrapper {
+            cursor: pointer;
+            border-radius: 4px;
+            padding: 4px;
+            transition: background 0.2s;
+        }
+        .icon-wrapper:hover { background-color: #f0f2f5; }
+
+        .icon { width: 40px; height: 40px; color: var(--icon-color); display: block; }
+        
+        .label {
+            font-size: 0.95rem; font-weight: 700; text-align: center;
+            border-bottom: 1px dashed transparent; cursor: text;
+            min-width: 60px; display: inline-block; line-height: 1.2;
+        }
+        .label:hover, .label:focus { border-bottom: 1px dashed var(--line-color); outline: none; }
+
+        .sub-label { font-size: 0.75rem; color: #687282; font-weight: 500; }
+
+        /* --- Hover Buttons --- */
+        .btn {
+            position: absolute;
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            background: var(--bg-color);
+            border: 1px solid;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 30;
+        }
+
+        .node-card:hover .btn { opacity: 1; pointer-events: auto; }
+
+        .btn-add {
+            bottom: -12px; left: 50%;
+            transform: translateX(-50%) scale(0.8);
+            color: var(--highlight-color); border-color: var(--highlight-color);
+        }
+        .node-card:hover .btn-add { transform: translateX(-50%) scale(1); }
+        .btn-add:hover { background-color: var(--highlight-color); color: white; }
+
+        .btn-del {
+            top: -12px; left: 50%;
+            transform: translateX(-50%) scale(0.8);
+            color: var(--danger-color); border-color: var(--danger-color);
+        }
+        .node-card:hover .btn-del { transform: translateX(-50%) scale(1); }
+        .btn-del:hover { background-color: var(--danger-color); color: white; }
+
+        #company-node .btn-del { display: none !important; }
+        .stores-container.hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <button class="tool-btn" id="undoBtn" onclick="undo()" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+                Undo
+            </button>
+            <button class="tool-btn" id="redoBtn" onclick="redo()" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>
+                Redo
+            </button>
+            <button class="tool-btn reset-btn" onclick="resetAll()">
+                Reset
+            </button>
+        </div>
+        <div class="toolbar-group">
+            <button class="tool-btn pdf-btn" onclick="exportPDF()">Share as PDF</button>
+        </div>
+    </div>
+
+    <div class="viewport" id="viewport">
+        <div class="tree-wrapper" id="tree-wrapper">
+            <div class="tree">
+                <ul id="root-ul">
+                    <li>
+                        <div class="node-card" id="company-node">
+                            <div class="icon-wrapper">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4 8 4v14"/><path d="M17 21v-8.8a1.2 1.2 0 0 0-1.2-1.2H8.2a1.2 1.2 0 0 0-1.2 1.2V21"/><path d="M9 10a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-2z"/></svg>
+                            </div>
+                            <span class="label" contenteditable="true" onblur="validateName(this, 'My Company')">My Company</span>
+                            <span class="sub-label">Company Account</span>
+                            <button class="btn btn-add" onclick="addMerchant(this)" title="Add Merchant">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                        </div>
+
+                        <ul id="merchant-level">
+                            <li draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" ondragend="dragEnd(event)">
+                                <div class="node-card">
+                                    <button class="btn btn-del" onclick="removeNode(this)" title="Remove">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                    </button>
+                                    <div class="icon-wrapper" onclick="toggleMerchantType(this)" data-type="pos">
+                                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
+                                    </div>
+                                    <span class="label" contenteditable="true" onblur="validateName(this, 'POS 1')">POS 1</span>
+                                    <span class="sub-label">Merchant Account</span>
+                                    <button class="btn btn-add btn-store-add" onclick="addStore(this)" title="Add Store">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                    </button>
+                                </div>
+                                <ul class="stores-container">
+                                    <li draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" ondragend="dragEnd(event)">
+                                        <div class="node-card">
+                                            <button class="btn btn-del" onclick="removeNode(this)" title="Remove">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                            </button>
+                                            <div class="icon-wrapper">
+                                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                                            </div>
+                                            <span class="label" contenteditable="true" onblur="validateName(this, 'Store 1')">Store 1</span>
+                                            <span class="sub-label">Store</span>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- ICONS ---
+        const icons = {
+            pos: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>`,
+            ecom: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`,
+            store: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`
+        };
+
+        // --- HISTORY & STORAGE ---
+        let historyStack = [];
+        let historyIndex = -1;
+        let isInternalUpdate = false;
+        
+        // Default Template if storage is empty
+        const defaultTemplate = document.getElementById('root-ul').innerHTML;
+
+        function loadFromStorage() {
+            const saved = localStorage.getItem('adyen_org_structure');
+            if (saved) {
+                isInternalUpdate = true;
+                document.getElementById('root-ul').innerHTML = saved;
+                
+                // Re-attach listeners after loading HTML string
+                reattachDragEvents();
+                
+                historyStack = [saved];
+                historyIndex = 0;
+                updateUndoUI();
+                isInternalUpdate = false;
+            } else {
+                // Save initial state
+                saveState();
+            }
+            requestAnimationFrame(fitToScreen);
+        }
+
+        function resetAll() {
+            if(confirm("Reset to default structure?")) {
+                localStorage.removeItem('adyen_org_structure');
+                isInternalUpdate = true;
+                document.getElementById('root-ul').innerHTML = defaultTemplate;
+                reattachDragEvents();
+                isInternalUpdate = false;
+                
+                // Reset history
+                historyStack = [defaultTemplate];
+                historyIndex = 0;
+                saveState(); // Save the reset state as new latest
+            }
+        }
+
+        function saveState() {
+            if (isInternalUpdate) return;
+            if (historyIndex < historyStack.length - 1) {
+                historyStack = historyStack.slice(0, historyIndex + 1);
+            }
+            
+            const state = document.getElementById('root-ul').innerHTML;
+            
+            // Persist to browser
+            localStorage.setItem('adyen_org_structure', state);
+
+            historyStack.push(state);
+            historyIndex++;
+            updateUndoUI();
+            requestAnimationFrame(fitToScreen);
+        }
+
+        function reattachDragEvents() {
+            // Find all draggable items and re-add listeners
+            const draggables = document.querySelectorAll('li[draggable="true"]');
+            draggables.forEach(li => setupDragEvents(li));
+        }
+
+        function updateUndoUI() {
+            document.getElementById('undoBtn').disabled = (historyIndex <= 0);
+            document.getElementById('redoBtn').disabled = (historyIndex >= historyStack.length - 1);
+        }
+
+        function undo() { if (historyIndex > 0) { historyIndex--; restoreState(); } }
+        function redo() { if (historyIndex < historyStack.length - 1) { historyIndex++; restoreState(); } }
+        
+        function restoreState() {
+            isInternalUpdate = true;
+            const state = historyStack[historyIndex];
+            document.getElementById('root-ul').innerHTML = state;
+            localStorage.setItem('adyen_org_structure', state); // Sync restoration to storage
+            reattachDragEvents();
+            updateUndoUI();
+            isInternalUpdate = false;
+            requestAnimationFrame(fitToScreen);
+        }
+
+        // Initialize
+        loadFromStorage();
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+            if ((e.metaKey || e.ctrlKey) && e.key === 'y') { e.preventDefault(); redo(); }
+        });
+
+        // --- ACTIONS ---
+        function validateName(el, defaultText) {
+            if (el.innerText.trim() === '') el.innerText = defaultText;
+            saveState();
+        }
+
+        function addMerchant(btn) {
+            const ul = document.getElementById('merchant-level');
+            const newLi = document.createElement('li');
+            newLi.draggable = true;
+            setupDragEvents(newLi);
+
+            const count = ul.querySelectorAll(':scope > li').length + 1;
+            
+            newLi.innerHTML = `
+                <div class="node-card">
+                    <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                    <div class="icon-wrapper" onclick="toggleMerchantType(this)" data-type="pos">
+                        ${icons.pos}
+                    </div>
+                    <span class="label" contenteditable="true" onblur="validateName(this, 'POS ${count}')">POS ${count}</span>
+                    <span class="sub-label">Merchant Account</span>
+                    <button class="btn btn-add btn-store-add" onclick="addStore(this)" title="Add Store"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                </div>
+                <ul class="stores-container"></ul>
+            `;
+            
+            ul.appendChild(newLi);
+            saveState();
+        }
+
+        function addStore(btn) {
+            const merchantLi = btn.closest('li');
+            const storesUl = merchantLi.querySelector('.stores-container');
+            const newLi = document.createElement('li');
+            newLi.draggable = true;
+            setupDragEvents(newLi);
+
+            const count = storesUl.querySelectorAll('li').length + 1;
+            
+            newLi.innerHTML = `
+                <div class="node-card">
+                    <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                    <div class="icon-wrapper">${icons.store}</div>
+                    <span class="label" contenteditable="true" onblur="validateName(this, 'Store ${count}')">Store ${count}</span>
+                    <span class="sub-label">Store</span>
+                </div>
+            `;
+            
+            storesUl.appendChild(newLi);
+            saveState();
+        }
+
+        function removeNode(btn) {
+            const li = btn.closest('li');
+            li.remove();
+            saveState();
+        }
+
+        function toggleMerchantType(wrapper) {
+            const card = wrapper.closest('.node-card');
+            const storeContainer = card.nextElementSibling; // The UL sibling
+            const addStoreBtn = card.querySelector('.btn-store-add');
+            const label = card.querySelector('.label');
+            
+            const currentType = wrapper.getAttribute('data-type');
+            
+            if (currentType === 'pos') {
+                wrapper.setAttribute('data-type', 'ecom');
+                wrapper.innerHTML = icons.ecom;
+                storeContainer.classList.add('hidden');
+                addStoreBtn.style.display = 'none';
+                if(label.innerText.toUpperCase().includes('POS')) label.innerText = label.innerText.replace(/POS/i, 'ECOM');
+            } else {
+                wrapper.setAttribute('data-type', 'pos');
+                wrapper.innerHTML = icons.pos;
+                storeContainer.classList.remove('hidden');
+                addStoreBtn.style.display = 'flex';
+                if(label.innerText.toUpperCase().includes('ECOM')) label.innerText = label.innerText.replace(/ECOM/i, 'POS');
+            }
+            saveState();
+        }
+
+        // --- DRAG AND DROP ---
+        let dragSrcEl = null;
+
+        function setupDragEvents(li) {
+            li.addEventListener('dragstart', dragStart);
+            li.addEventListener('dragover', dragOver);
+            li.addEventListener('drop', drop);
+            li.addEventListener('dragend', dragEnd);
+        }
+
+        function dragStart(e) {
+            e.stopPropagation();
+            dragSrcEl = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+            
+            const card = this.querySelector('.node-card');
+            e.dataTransfer.setDragImage(card, 70, 20);
+        }
+
+        function dragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const isSrcMerchant = dragSrcEl.parentNode.id === 'merchant-level';
+            const isTargetMerchant = this.parentNode.id === 'merchant-level';
+            
+            if (isSrcMerchant !== isTargetMerchant) return;
+            if (!isSrcMerchant && dragSrcEl.parentNode !== this.parentNode) return;
+
+            e.dataTransfer.dropEffect = 'move';
+            this.classList.add('drag-over');
+        }
+
+        function dragEnd(e) {
+            const listItems = document.querySelectorAll('.tree li');
+            [].forEach.call(listItems, function(item) {
+                item.classList.remove('dragging');
+                item.classList.remove('drag-over');
+            });
+        }
+
+        function drop(e) {
+            e.stopPropagation();
+            
+            if (dragSrcEl !== this) {
+                const isSrcMerchant = dragSrcEl.parentNode.id === 'merchant-level';
+                const isTargetMerchant = this.parentNode.id === 'merchant-level';
+                
+                if (isSrcMerchant === isTargetMerchant) {
+                    if (!isSrcMerchant && dragSrcEl.parentNode !== this.parentNode) return;
+
+                    const parent = this.parentNode;
+                    const children = Array.from(parent.children);
+                    const srcIndex = children.indexOf(dragSrcEl);
+                    const targetIndex = children.indexOf(this);
+
+                    if (srcIndex < targetIndex) {
+                        parent.insertBefore(dragSrcEl, this.nextSibling);
+                    } else {
+                        parent.insertBefore(dragSrcEl, this);
+                    }
+                    saveState();
+                }
+            }
+            return false;
+        }
+
+        // --- FIT TO SCREEN ---
+        function fitToScreen() {
+            const tree = document.querySelector('.tree');
+            const wrapper = document.getElementById('tree-wrapper');
+            const viewport = document.getElementById('viewport');
+            
+            wrapper.style.transform = 'scale(1)';
+            const treeWidth = tree.scrollWidth;
+            const containerWidth = viewport.clientWidth - 40;
+            
+            if (treeWidth > containerWidth) {
+                const scale = containerWidth / treeWidth;
+                wrapper.style.transform = `scale(${scale})`;
+            }
+        }
+
+        async function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            const treeElement = document.querySelector('.tree');
+            const btn = document.querySelector('.pdf-btn');
+            
+            const originalText = btn.innerText;
+            btn.innerText = "Generating...";
+            btn.disabled = true;
+
+            const wrapper = document.getElementById('tree-wrapper');
+            const currentTransform = wrapper.style.transform;
+            wrapper.style.transform = 'scale(1)'; 
+
+            try {
+                const canvas = await html2canvas(treeElement, {
+                    backgroundColor: '#ffffff',
+                    scale: 2
+                });
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'px',
+                    format: [canvas.width + 40, canvas.height + 40] 
+                });
+                pdf.addImage(imgData, 'PNG', 20, 20, canvas.width, canvas.height);
+                pdf.save('adyen-structure.pdf');
+            } catch (err) {
+                console.error(err);
+                alert("Error generating PDF");
+            } finally {
+                wrapper.style.transform = currentTransform;
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        window.addEventListener('resize', fitToScreen);
+    </script>
+</body>
+</html>
