@@ -3,326 +3,323 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adyen Account Structure V23</title>
+    <title>Adyen Account Structure V40</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 
     <style>
         :root {
             --line-color: #0b1e3b;
             --text-color: #0b1e3b;
             --card-bg: #ffffff;
-            --icon-color: #0b1e3b;
             --bg-color: #ffffff;
             --highlight-color: #00b67a;
-            --btn-bg: #ffffff;
-            --btn-border: #dbe1e8;
+            --highlight-light: #e6fcf0;
             --danger-color: #d32f2f;
+            --btn-border: #dbe1e8;
+            
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --blur: blur(30px);
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: var(--text-color);
             margin: 0;
-            display: flex;
-            flex-direction: column;
             height: 100vh;
             overflow: hidden;
-        }
-
-        /* --- Toolbar --- */
-        .toolbar {
-            padding: 8px 20px;
-            background: var(--bg-color);
-            border-bottom: 1px solid var(--btn-border);
+            background-color: var(--bg-color);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 100;
-            flex-shrink: 0;
+            flex-direction: column;
         }
 
-        .toolbar-group { display: flex; gap: 10px; }
-
-        .tool-btn {
-            padding: 6px 12px;
-            border: 1px solid var(--btn-border);
-            background: #f0f2f5;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            color: var(--text-color);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: 0.2s;
-            font-size: 0.85rem;
+        /* --- Floating Toolbars --- */
+        .float-bar {
+            position: fixed; top: 20px; z-index: 1000;
+            display: flex; gap: 10px;
         }
+        .bar-left { left: 20px; }
+        .bar-right { right: 20px; }
 
-        .tool-btn:hover:not(:disabled) { background-color: #e4e8ed; border-color: #c8d0d9; }
-        .tool-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .reset-btn { color: #d32f2f; }
-        .reset-btn:hover { background-color: #fdecec; border-color: #fca5a5; }
-
-        .action-btn { background-color: var(--highlight-color); color: white; border: none; }
-        .action-btn:hover { background-color: #00a46e; }
+        .glass-btn {
+            background: rgba(245, 245, 245, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0,0,0,0.05);
+            border-radius: 12px; padding: 10px; cursor: pointer; color: #333;
+            transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05); min-width: 40px; height: 40px;
+        }
+        .glass-btn:hover:not(:disabled) { background: white; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .glass-btn:disabled { opacity: 0.4; cursor: default; }
+        .glass-btn svg { width: 20px; height: 20px; display: block; }
 
         /* --- Viewport --- */
         .viewport {
-            flex: 1;
-            overflow: auto;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            position: relative;
-            cursor: grab;
-            padding: 40px 20px;
+            flex: 1; width: 100%; overflow: auto;
+            display: flex; justify-content: center; align-items: flex-start;
+            position: relative; background: white;
         }
-        .viewport:active { cursor: grabbing; }
 
         .tree-wrapper {
-            transform-origin: top center;
+            transform-origin: top center; 
             transition: transform 0.3s ease-out;
-            padding-bottom: 50px;
-        }
-
-        /* --- Tree Structure --- */
-        .tree { display: flex; justify-content: center; }
-
-        .tree ul {
-            padding-top: 30px; 
-            position: relative;
-            display: flex;
+            padding: 40px; 
+            display: inline-flex;
             justify-content: center;
-            margin: 0;
-            padding-left: 0;
+            min-width: 100%;
+            box-sizing: border-box;
         }
 
+        /* --- Tree CSS --- */
+        .tree { display: flex; justify-content: center; padding: 20px; }
+        .tree ul { padding-top: 40px; position: relative; display: flex; justify-content: center; margin: 0; padding-left: 0; }
         .tree li {
-            list-style-type: none;
-            position: relative;
-            padding: 30px 15px 0 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        /* Drag Visuals */
-        .tree li.dragging > .node-card {
-            opacity: 0.5;
-            border-style: dashed;
-        }
-        
-        .tree li.drag-over > .node-card {
-            border-color: var(--highlight-color);
-            background-color: #f0fdf4;
-            transform: scale(1.05);
+            list-style-type: none; position: relative; padding: 40px 20px 0 20px;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: flex-start;
         }
 
         /* Connectors */
         .tree li::before, .tree li::after {
-            content: '';
-            position: absolute; top: 0; right: 50%;
-            border-top: 2px solid var(--line-color);
-            width: 50%; height: 30px; z-index: 1;
+            content: ''; position: absolute; top: 0; right: 50%;
+            border-top: 2px solid var(--line-color); width: 50%; height: 40px; z-index: 1;
         }
         .tree li::after { right: auto; left: 50%; border-left: 2px solid var(--line-color); }
         .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
-        .tree li:last-child::before { border-right: 2px solid var(--line-color); border-radius: 0 8px 0 0; }
-        .tree li:first-child::after { border-radius: 8px 0 0 0; }
-        .tree li:only-child { padding-top: 30px; }
+        .tree li:last-child::before { border-right: 2px solid var(--line-color); border-radius: 0 12px 0 0; }
+        .tree li:first-child::after { border-radius: 12px 0 0 0; }
+        .tree li:only-child { padding-top: 0; }
         .tree li:only-child::after, .tree li:only-child::before { display: none; }
 
-        /* Downward connector */
+        /* Downward Connector */
         .tree ul ul::before {
-            content: '';
-            position: absolute; top: 0; left: 50%;
-            border-left: 2px solid var(--line-color);
-            width: 0; height: 30px; z-index: 1;
+            content: ''; position: absolute; top: 0; left: 50%;
+            border-left: 2px solid var(--line-color); width: 0; height: 40px; z-index: 1;
         }
+        .tree > ul::before { display: none; }
+        .tree ul:empty::before { display: none; }
+        .tree ul.hidden { display: none; }
 
-        .tree ul:empty::before, .tree ul.hidden::before { display: none; }
-
-        /* --- Card Styling --- */
+        /* --- Node Card --- */
         .node-card {
-            border: 1px solid var(--btn-border);
-            padding: 20px 15px;
-            color: var(--text-color);
-            background-color: var(--card-bg);
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            min-width: 140px;
+            background: white;
+            border: 2px solid transparent; 
+            outline: 1px solid var(--btn-border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
+            gap: 8px; min-width: 160px;
             box-shadow: 0 2px 8px rgba(11, 30, 59, 0.08);
             transition: all 0.2s;
-            position: relative;
-            z-index: 10;
-            overflow: visible; 
-            cursor: default;
-        }
-
-        .node-card[draggable="true"] { cursor: grab; }
-        .node-card[draggable="true"]:active { cursor: grabbing; }
-
-        .node-card:hover {
-            box-shadow: 0 8px 20px rgba(11, 30, 59, 0.15);
-            border-color: #c8d0d9;
-            z-index: 20;
-        }
-
-        /* Icon Wrapper */
-        .icon-wrapper {
+            position: relative; z-index: 10;
             cursor: pointer;
-            border-radius: 4px;
-            padding: 4px;
-            transition: background 0.2s;
         }
-        .icon-wrapper:hover { background-color: #f0f2f5; }
+        .node-card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(11, 30, 59, 0.15); z-index: 20; }
+        .node-card.active-card { border-color: var(--highlight-color); background-color: var(--highlight-light); outline: none; }
 
-        .icon { width: 40px; height: 40px; color: var(--icon-color); display: block; }
+        /* Drag Visuals */
+        .tree li.dragging .node-card { opacity: 0.4; }
+        .tree li.drag-over > .node-card { border-color: var(--highlight-color); background-color: var(--highlight-light); transform: scale(1.05); }
+
+        /* Icons */
+        .icon-wrapper { 
+            border-radius: 12px; padding: 8px; transition: background 0.2s; 
+        }
         
-        .label {
-            font-size: 0.95rem; font-weight: 700; text-align: center;
-            border-bottom: 1px dashed transparent; cursor: text;
-            min-width: 60px; display: inline-block; line-height: 1.2;
-        }
-        .label:hover, .label:focus { border-bottom: 1px dashed var(--line-color); outline: none; }
-
-        .sub-label { font-size: 0.75rem; color: #687282; font-weight: 500; }
+        /* UPDATED: Only show hover effect on interactive wrappers (not static ones) */
+        .icon-wrapper:not(.static-icon) { cursor: pointer; }
+        .icon-wrapper:not(.static-icon):hover { background: #f5f5f7; }
+        
+        .static-icon { pointer-events: none; padding: 8px; }
+        
+        .icon { width: 44px; height: 44px; color: var(--text-color); display: block; pointer-events: none; }
+        .label { font-size: 0.95rem; font-weight: 700; text-align: center; border-bottom: 1px dashed transparent; cursor: text; min-width: 60px; display: inline-block; line-height: 1.3; color: #000; }
+        .label:hover, .label:focus { border-bottom: 1px dashed #999; outline: none; }
+        .sub-label { font-size: 0.75rem; color: #6e6e73; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; pointer-events: none;}
 
         /* --- Hover Buttons --- */
-        .btn {
-            position: absolute;
-            width: 24px; height: 24px;
-            border-radius: 50%;
-            background: var(--bg-color);
-            border: 1px solid;
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        .btn-float {
+            position: absolute; width: 28px; height: 28px;
+            border-radius: 50%; background: white; border: 1px solid #ddd;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
             opacity: 0; pointer-events: none;
-            transition: opacity 0.2s ease, transform 0.2s ease;
-            z-index: 30;
+            transition: all 0.2s; z-index: 30;
+            color: #333;
         }
+        .node-card:hover .btn-float { opacity: 1; pointer-events: auto; }
+        
+        .btn-add { bottom: -14px; left: 50%; margin-left: -14px; color: var(--highlight-color); border-color: var(--highlight-color); }
+        .btn-del { top: -14px; left: 50%; margin-left: -14px; color: var(--danger-color); border-color: var(--danger-color); }
+        .btn-add:hover { background: var(--highlight-color); color: white; transform: scale(1.1); }
+        .btn-del:hover { background: var(--danger-color); color: white; transform: scale(1.1); }
+        .btn-float svg { width: 14px; height: 14px; stroke-width: 3px; display: block; stroke: currentColor; fill: none; }
 
-        .node-card:hover .btn { opacity: 1; pointer-events: auto; }
+        .note-indicator { position: absolute; top: 10px; right: 10px; width: 16px; height: 16px; color: #666; display: none; pointer-events: none; }
+        .node-card.has-note .note-indicator { display: block; }
 
-        .btn-add {
-            bottom: -12px; left: 50%;
-            transform: translateX(-50%) scale(0.8);
-            color: var(--highlight-color); border-color: var(--highlight-color);
+        /* Terminals */
+        .terminals-row { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin-top: 5px; min-height: 20px; align-items: center; }
+        .term-icon-sm { width: 18px; height: 22px; color: #333; opacity: 0.7; cursor: pointer; }
+        .term-icon-sm:hover { color: var(--danger-color); opacity: 1; }
+        .btn-add-term { width: 20px; height: 20px; border-radius: 4px; border: 1px dashed #ccc; background: transparent; color: #999; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; opacity: 0; transition: opacity 0.2s; }
+        .node-card:hover .btn-add-term { opacity: 1; }
+        .btn-add-term:hover { background: #f0f0f0; color: #000; border-color: #999; }
+
+        /* --- Info Sheet --- */
+        #info-sheet {
+            position: fixed; bottom: 30px; right: 30px; width: 320px;
+            background: var(--glass-bg); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+            border: 1px solid var(--glass-border); border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15); padding: 24px; z-index: 2000;
+            display: flex; flex-direction: column; gap: 16px;
+            transform: translateY(20px); opacity: 0; pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
         }
-        .node-card:hover .btn-add { transform: translateX(-50%) scale(1); }
-        .btn-add:hover { background-color: var(--highlight-color); color: white; }
+        #info-sheet.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        .sheet-header { display: flex; justify-content: space-between; align-items: center; }
+        .sheet-title { font-size: 1.1rem; font-weight: 700; color: var(--text-color); }
+        .section-label { font-size: 0.75rem; font-weight: 600; color: #888; text-transform: uppercase; margin-bottom: 8px; margin-top: 5px; }
 
-        .btn-del {
-            top: -12px; left: 50%;
-            transform: translateX(-50%) scale(0.8);
-            color: var(--danger-color); border-color: var(--danger-color);
+        .type-switch { display: flex; background: rgba(0,0,0,0.05); border-radius: 10px; padding: 3px; }
+        .type-opt { flex: 1; text-align: center; padding: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; border-radius: 8px; color: #666; transition: 0.2s; }
+        .type-opt.active { background: white; color: black; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        .note-area { width: 100%; height: 100px; border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; padding: 12px; font-family: inherit; font-size: 0.9rem; background: rgba(255,255,255,0.5); resize: none; box-sizing: border-box; }
+        .note-area:focus { outline: none; background: white; border-color: #bbb; }
+
+        /* --- Terminal Modal --- */
+        #term-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.5); backdrop-filter: blur(5px);
+            display: none; justify-content: center; align-items: center; z-index: 3000;
         }
-        .node-card:hover .btn-del { transform: translateX(-50%) scale(1); }
-        .btn-del:hover { background-color: var(--danger-color); color: white; }
+        .term-picker { background: white; padding: 24px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); width: 280px; border: 1px solid #f0f0f0; }
+        .term-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .term-opt { padding: 12px; border: 1px solid #f0f0f0; border-radius: 16px; cursor: pointer; text-align: center; font-size: 0.8rem; font-weight: 500; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .term-opt:hover { background: #fafafa; border-color: var(--highlight-color); color: var(--highlight-color); transform: translateY(-2px); }
+        .term-opt svg { width: 28px; height: 36px; margin: 0 auto; display: block; color: inherit; }
 
-        #company-node .btn-del { display: none !important; }
-        .stores-container.hidden { display: none !important; }
-
-        /* Toast Notification */
-        #toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #333;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-size: 0.9rem;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-            z-index: 1000;
-        }
+        #toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #fff; padding: 10px 24px; border-radius: 30px; font-size: 0.9rem; font-weight: 500; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 3000; backdrop-filter: blur(10px); }
         #toast.show { opacity: 1; }
 
     </style>
 </head>
 <body>
 
-    <div class="toolbar">
-        <div class="toolbar-group">
-            <button class="tool-btn" id="undoBtn" onclick="undo()" disabled>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
-                Undo
-            </button>
-            <button class="tool-btn" id="redoBtn" onclick="redo()" disabled>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>
-                Redo
-            </button>
-            <button class="tool-btn reset-btn" onclick="resetAll()">
-                Reset
-            </button>
-        </div>
-        <div class="toolbar-group">
-            <button class="tool-btn" onclick="generateShareLink()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                Get Link
-            </button>
-            <button class="tool-btn action-btn pdf-btn" onclick="exportPDF()">Share as PDF</button>
-        </div>
+    <div class="float-bar bar-left">
+        <button class="glass-btn" onclick="undo()" title="Undo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+        </button>
+        <button class="glass-btn" onclick="redo()" title="Redo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>
+        </button>
+        <button class="glass-btn" onclick="resetAll()">Reset</button>
+    </div>
+
+    <div class="float-bar bar-right">
+        <button class="glass-btn" onclick="generateShareLink()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
     </div>
 
     <div class="viewport" id="viewport">
         <div class="tree-wrapper" id="tree-wrapper">
             <div class="tree">
-                <ul id="root-ul">
-                    </ul>
+                <ul id="root-ul"></ul>
             </div>
         </div>
     </div>
 
-    <div id="toast">Link copied to clipboard!</div>
+    <div id="info-sheet">
+        <div class="sheet-header">
+            <div class="sheet-title" id="sheet-title">Card Name</div>
+        </div>
+        
+        <div id="type-section" style="display:none;">
+            <div class="section-label">Account Type</div>
+            <div class="type-switch">
+                <div class="type-opt" id="opt-ecom" onclick="setSheetType('ecom')">Ecommerce</div>
+                <div class="type-opt" id="opt-pos" onclick="setSheetType('pos')">Point of Sale</div>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-label">Notes</div>
+            <textarea class="note-area" id="sheet-note" placeholder="Add details..."></textarea>
+        </div>
+    </div>
+
+    <div id="term-modal" onclick="closeTermModal(event)">
+        <div class="term-picker">
+            <h3 style="margin:0; text-align:center; font-size:1rem; color:#333;">Add Terminal</h3>
+            <div class="term-grid">
+                <div class="term-opt" onclick="addTerminal('counter')">
+                    <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="6" y="5" width="12" height="10" rx="1" fill="#e0e0e0" stroke="none"/><path d="M6 20h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z"/></svg> Counter
+                </div>
+                <div class="term-opt" onclick="addTerminal('mobile')">
+                    <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="4" y="2" width="16" height="24" rx="2" fill="#0abf53" stroke="none" opacity="0.2"/></svg> Mobile
+                </div>
+                <div class="term-opt" onclick="addTerminal('reader')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><path d="M12 18h.01"/><path d="M10 6c2 0 4 .5 4 2"/><path d="M9 9c1.5 0 3 .5 3 1.5"/></svg> TTP
+                </div>
+                <div class="term-opt" onclick="addTerminal('unattended')">
+                    <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="24" rx="2"/><rect x="5" y="9" width="14" height="14" rx="1" fill="#0abf53" opacity="0.2"/></svg> Kiosk
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast">Link copied!</div>
 
     <script>
-        // --- ICONS ---
         const icons = {
-            pos: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>`,
-            ecom: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`,
-            store: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
-            company: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4 8 4v14"/><path d="M17 21v-8.8a1.2 1.2 0 0 0-1.2-1.2H8.2a1.2 1.2 0 0 0-1.2 1.2V21"/><path d="M9 10a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-2z"/></svg>`
+            pos: `<svg class="icon" viewBox="0 0 48 48" fill="none"><path d="M10 40H38" stroke="#0b1e3b" stroke-width="2" stroke-linecap="round"/><path d="M14 40V20H34V40Z" stroke="#0b1e3b" stroke-width="2" fill="#fff3e0"/><path d="M10 20L24 10L38 20H10Z" stroke="#0b1e3b" stroke-width="2" stroke-linejoin="round" fill="#fff3e0"/><path d="M22 40V28H26V40" stroke="#0b1e3b" stroke-width="2"/></svg>`,
+            ecom: `<svg class="icon" viewBox="0 0 48 48" fill="none"><rect x="6" y="10" width="36" height="28" rx="3" stroke="#0b1e3b" stroke-width="2" fill="#f3e5f5"/><path d="M6 18H42" stroke="#0b1e3b" stroke-width="2"/><path d="M16 18V38" stroke="#0b1e3b" stroke-width="2"/><circle cx="11" cy="14" r="1" fill="#0b1e3b"/><circle cx="15" cy="14" r="1" fill="#0b1e3b"/></svg>`,
+            store: `<svg class="icon" viewBox="0 0 48 48" fill="none"><path d="M8 16L14 10H34L40 16V36H8V16Z" stroke="#0b1e3b" stroke-width="2" fill="#e8f5e9"/><path d="M8 16H40" stroke="#0b1e3b" stroke-width="2"/><path d="M24 36V16" stroke="#0b1e3b" stroke-width="2"/><path d="M16 22H32" stroke="#0b1e3b" stroke-width="2"/></svg>`,
+            company: `<svg class="icon" viewBox="0 0 48 48" fill="none"><path d="M16 38V16H32V38" stroke="#0b1e3b" stroke-width="2" fill="#e3f2fd"/><path d="M12 38H36" stroke="#0b1e3b" stroke-width="2"/><path d="M24 16V10" stroke="#0b1e3b" stroke-width="2"/><path d="M20 10H28" stroke="#0b1e3b" stroke-width="2"/><path d="M16 22H32" stroke="#0b1e3b" stroke-width="2"/><path d="M16 28H32" stroke="#0b1e3b" stroke-width="2"/><path d="M16 34H32" stroke="#0b1e3b" stroke-width="2"/></svg>`,
+            note: `<svg class="note-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`
         };
 
-        // Default Template
+        const termIcons = {
+            counter: `<svg class="term-icon-sm" viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="6" y="5" width="12" height="10" rx="1" fill="#e0e0e0" stroke="none"/><path d="M6 20h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z"/></svg>`,
+            mobile: `<svg class="term-icon-sm" viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="4" y="2" width="16" height="24" rx="2" fill="#0abf53" stroke="none" opacity="0.4"/></svg>`,
+            reader: `<svg class="term-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><path d="M12 18h.01"/><path d="M10 6c2 0 4 .5 4 2"/><path d="M9 9c1.5 0 3 .5 3 1.5"/></svg>`,
+            unattended: `<svg class="term-icon-sm" viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="24" rx="2"/><rect x="5" y="9" width="14" height="14" rx="1" fill="#0abf53" opacity="0.4"/></svg>`
+        };
+
         const defaultTemplate = `
             <li>
-                <div class="node-card" id="company-node">
-                    <div class="icon-wrapper">${icons.company}</div>
+                <div class="node-card" id="company-node" data-type="company" data-note="">
+                    ${icons.note}
+                    <div class="static-icon icon-wrapper">${icons.company}</div>
                     <span class="label" contenteditable="true" onblur="validateName(this, 'My Company')">My Company</span>
                     <span class="sub-label">Company Account</span>
-                    <button class="btn btn-add" onclick="addMerchant(this)" title="Add Merchant">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    </button>
+                    <button class="btn-float btn-add" onclick="addMerchant(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                 </div>
                 <ul id="merchant-level">
                     <li draggable="true">
-                        <div class="node-card">
-                            <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                            <div class="icon-wrapper" onclick="toggleMerchantType(this)" data-type="pos">${icons.pos}</div>
+                        <div class="node-card" data-type="pos" data-note="" data-terms="">
+                            ${icons.note}
+                            <button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                            <div class="icon-wrapper" onclick="toggleMerchantType(this)">${icons.pos}</div>
                             <span class="label" contenteditable="true" onblur="validateName(this, 'POS 1')">POS 1</span>
                             <span class="sub-label">Merchant Account</span>
-                            <button class="btn btn-add btn-store-add" onclick="addStore(this)" title="Add Store"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                            <div class="terminals-row"><button class="btn-add-term" onclick="openTermModal(this)">+</button></div>
+                            <button class="btn-float btn-add" onclick="addStore(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                         </div>
                         <ul class="stores-container">
                             <li draggable="true">
-                                <div class="node-card">
-                                    <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                                    <div class="icon-wrapper">${icons.store}</div>
+                                <div class="node-card" data-type="store" data-note="" data-terms="">
+                                    ${icons.note}
+                                    <button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                                    <div class="static-icon icon-wrapper">${icons.store}</div>
                                     <span class="label" contenteditable="true" onblur="validateName(this, 'Store 1')">Store 1</span>
                                     <span class="sub-label">Store</span>
+                                    <div class="terminals-row"><button class="btn-add-term" onclick="openTermModal(this)">+</button></div>
                                 </div>
                             </li>
                         </ul>
@@ -331,64 +328,38 @@
             </li>
         `;
 
-        // --- HISTORY & STORAGE ---
         let historyStack = [];
         let historyIndex = -1;
         let isInternalUpdate = false;
+        let activeCard = null;
+        let activeCardForTerm = null;
 
         function init() {
-            // Check URL Params first
-            const params = new URLSearchParams(window.location.search);
-            const configParam = params.get('cfg');
-
-            if (configParam) {
-                // Load from URL
+            const hash = window.location.hash.substring(1);
+            if (hash.startsWith('cfg=')) {
                 try {
-                    const jsonStr = atob(configParam);
-                    const config = JSON.parse(jsonStr);
-                    rebuildTreeFromConfig(config);
-                    
-                    // Clear URL so refreshing doesn't stick
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                } catch (e) {
-                    console.error("Invalid config in URL", e);
-                    loadFromStorage();
-                }
-            } else {
-                loadFromStorage();
+                    const compressed = hash.replace('cfg=', '');
+                    const jsonStr = LZString.decompressFromEncodedURIComponent(compressed);
+                    if(jsonStr) {
+                        const config = JSON.parse(jsonStr);
+                        rebuildTreeFromConfig(config);
+                        history.replaceState(null, null, ' ');
+                        return;
+                    }
+                } catch(e) {}
             }
+            loadFromStorage();
         }
 
         function loadFromStorage() {
-            const saved = localStorage.getItem('adyen_org_structure');
+            const saved = localStorage.getItem('adyen_v40');
             const root = document.getElementById('root-ul');
-            if (saved) {
-                root.innerHTML = saved;
-            } else {
-                root.innerHTML = defaultTemplate;
-            }
-            // Hydrate logic
-            reattachDragEvents();
-            
-            // Push to history
+            root.innerHTML = saved || defaultTemplate;
+            reattachEvents();
             historyStack = [root.innerHTML];
             historyIndex = 0;
             updateUndoUI();
-            requestAnimationFrame(fitToScreen);
-        }
-
-        function resetAll() {
-            if(confirm("Reset to default structure?")) {
-                localStorage.removeItem('adyen_org_structure');
-                isInternalUpdate = true;
-                document.getElementById('root-ul').innerHTML = defaultTemplate;
-                reattachDragEvents();
-                isInternalUpdate = false;
-                
-                historyStack = [defaultTemplate];
-                historyIndex = 0;
-                saveState();
-            }
+            setTimeout(fitToScreen, 50);
         }
 
         function saveState() {
@@ -396,359 +367,343 @@
             if (historyIndex < historyStack.length - 1) {
                 historyStack = historyStack.slice(0, historyIndex + 1);
             }
-            
             const state = document.getElementById('root-ul').innerHTML;
-            localStorage.setItem('adyen_org_structure', state);
-
+            localStorage.setItem('adyen_v40', state);
             historyStack.push(state);
             historyIndex++;
             updateUndoUI();
-            requestAnimationFrame(fitToScreen);
+            setTimeout(fitToScreen, 10);
         }
 
-        function reattachDragEvents() {
-            const draggables = document.querySelectorAll('li[draggable="true"]');
-            draggables.forEach(li => setupDragEvents(li));
+        function resetAll() {
+            if(confirm("Reset structure?")) {
+                localStorage.removeItem('adyen_v40');
+                location.reload();
+            }
         }
 
-        function updateUndoUI() {
-            document.getElementById('undoBtn').disabled = (historyIndex <= 0);
-            document.getElementById('redoBtn').disabled = (historyIndex >= historyStack.length - 1);
+        function openCard(card) {
+            if(activeCard) activeCard.classList.remove('active-card');
+            activeCard = card;
+            activeCard.classList.add('active-card');
+            
+            document.getElementById('sheet-title').innerText = card.querySelector('.label').innerText;
+            document.getElementById('sheet-note').value = card.getAttribute('data-note') || '';
+
+            const type = card.getAttribute('data-type');
+            const typeSec = document.getElementById('type-section');
+            if(type === 'pos' || type === 'ecom') {
+                typeSec.style.display = 'block';
+                document.getElementById('opt-ecom').className = (type === 'ecom' ? 'type-opt active' : 'type-opt');
+                document.getElementById('opt-pos').className = (type === 'pos' ? 'type-opt active' : 'type-opt');
+            } else {
+                typeSec.style.display = 'none';
+            }
+            document.getElementById('info-sheet').classList.add('active');
         }
 
-        function undo() { if (historyIndex > 0) { historyIndex--; restoreState(); } }
-        function redo() { if (historyIndex < historyStack.length - 1) { historyIndex++; restoreState(); } }
-        
-        function restoreState() {
-            isInternalUpdate = true;
-            const state = historyStack[historyIndex];
-            document.getElementById('root-ul').innerHTML = state;
-            localStorage.setItem('adyen_org_structure', state);
-            reattachDragEvents();
-            updateUndoUI();
-            isInternalUpdate = false;
-            requestAnimationFrame(fitToScreen);
+        function closeCard() {
+            if(activeCard) activeCard.classList.remove('active-card');
+            activeCard = null;
+            document.getElementById('info-sheet').classList.remove('active');
         }
 
-        // --- URL SHARING LOGIC ---
-        function generateShareLink() {
-            // 1. Serialize Tree
-            const root = document.getElementById('root-ul');
-            const companyName = root.querySelector('#company-node .label').innerText;
-            const merchants = [];
+        document.getElementById('sheet-note').addEventListener('input', (e) => {
+            if(activeCard) {
+                const val = e.target.value;
+                activeCard.setAttribute('data-note', val);
+                if(val.trim() !== '') activeCard.classList.add('has-note');
+                else activeCard.classList.remove('has-note');
+                saveState();
+            }
+        });
+
+        function setSheetType(type) {
+            if(!activeCard) return;
+            const current = activeCard.getAttribute('data-type');
+            if(current === type) return;
+
+            document.getElementById('opt-ecom').className = (type === 'ecom' ? 'type-opt active' : 'type-opt');
+            document.getElementById('opt-pos').className = (type === 'pos' ? 'type-opt active' : 'type-opt');
+
+            const wrapper = activeCard.querySelector('.icon-wrapper');
+            activeCard.setAttribute('data-type', type);
+            wrapper.innerHTML = (type === 'pos' ? icons.pos : icons.ecom);
             
-            const merchantLis = document.querySelectorAll('#merchant-level > li');
-            merchantLis.forEach(li => {
-                const card = li.querySelector('.node-card');
-                const name = card.querySelector('.label').innerText;
-                const wrapper = card.querySelector('.icon-wrapper');
-                const type = wrapper.getAttribute('data-type'); // pos/ecom
-                
-                const stores = [];
-                const storeLis = li.querySelectorAll('.stores-container > li');
-                storeLis.forEach(sLi => {
-                    const sName = sLi.querySelector('.label').innerText;
-                    stores.push(sName);
-                });
-                
-                // Minified object: n=name, t=type(0=pos,1=ecom), s=stores
-                merchants.push({ n: name, t: (type === 'ecom' ? 1 : 0), s: stores });
-            });
-            
-            const data = { c: companyName, m: merchants };
-            
-            // 2. Encode
-            const jsonStr = JSON.stringify(data);
-            const b64 = btoa(jsonStr);
-            
-            // 3. Create URL
-            const url = window.location.origin + window.location.pathname + '?cfg=' + b64;
-            
-            // 4. Copy to Clipboard
-            navigator.clipboard.writeText(url).then(() => {
-                const toast = document.getElementById('toast');
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 2000);
-            });
+            const ul = activeCard.nextElementSibling;
+            const btn = activeCard.querySelector('.btn-add');
+            const termRow = activeCard.querySelector('.terminals-row');
+            const lbl = activeCard.querySelector('.label');
+
+            if(type === 'ecom') {
+                if(ul) ul.classList.add('hidden');
+                if(btn) btn.style.display = 'none';
+                if(termRow) termRow.style.display = 'none';
+                if(lbl.innerText.includes('POS')) lbl.innerText = lbl.innerText.replace('POS','ECOM');
+            } else {
+                if(ul) ul.classList.remove('hidden');
+                if(btn) btn.style.display = 'flex';
+                if(termRow) termRow.style.display = 'flex';
+                else {
+                    const row = document.createElement('div'); row.className = 'terminals-row';
+                    row.innerHTML = `<button class="btn-add-term" onclick="openTermModal(this)">+</button>`;
+                    activeCard.insertBefore(row, btn);
+                }
+                if(lbl.innerText.includes('ECOM')) lbl.innerText = lbl.innerText.replace('ECOM','POS');
+            }
+            saveState();
         }
 
-        function rebuildTreeFromConfig(config) {
-            const root = document.getElementById('root-ul');
-            root.innerHTML = '';
+        function openTermModal(btnOrCard) {
+            event.stopPropagation();
+            activeCardForTerm = btnOrCard.closest('.node-card');
+            document.getElementById('term-modal').style.display = 'flex';
+        }
+        function closeTermModal(e) {
+            if(e.target.id === 'term-modal') document.getElementById('term-modal').style.display = 'none';
+        }
+        function addTerminal(type) {
+            if(!activeCardForTerm) return;
             
-            // Rebuild Company
-            const compLi = document.createElement('li');
-            compLi.innerHTML = `
-                <div class="node-card" id="company-node">
-                    <div class="icon-wrapper">${icons.company}</div>
-                    <span class="label" contenteditable="true" onblur="validateName(this, 'My Company')">${config.c}</span>
-                    <span class="sub-label">Company Account</span>
-                    <button class="btn btn-add" onclick="addMerchant(this)" title="Add Merchant">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    </button>
-                </div>
-                <ul id="merchant-level"></ul>
-            `;
-            root.appendChild(compLi);
+            let termsStr = activeCardForTerm.getAttribute('data-terms') || '';
+            let terms = termsStr ? termsStr.split(',') : [];
+            terms.push(type); 
+            activeCardForTerm.setAttribute('data-terms', terms.join(','));
             
-            const merchantLevel = compLi.querySelector('#merchant-level');
+            const row = activeCardForTerm.querySelector('.terminals-row');
+            const addBtn = row.querySelector('.btn-add-term');
+            const span = document.createElement('span');
+            span.innerHTML = termIcons[type];
+            span.className = 'term-icon-sm'; 
+            span.onclick = (e) => { e.stopPropagation(); span.remove(); updateTermsAttr(activeCardForTerm, type); };
             
-            // Rebuild Merchants
-            config.m.forEach(m => {
-                const mLi = document.createElement('li');
-                mLi.draggable = true;
-                
-                const isPos = (m.t === 0);
-                const typeAttr = isPos ? 'pos' : 'ecom';
-                const iconSvg = isPos ? icons.pos : icons.ecom;
-                const hiddenClass = isPos ? '' : 'hidden';
-                const btnDisplay = isPos ? 'flex' : 'none';
-                
-                let storesHtml = '';
-                m.s.forEach(storeName => {
-                    storesHtml += `
-                        <li draggable="true">
-                            <div class="node-card">
-                                <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                                <div class="icon-wrapper">${icons.store}</div>
-                                <span class="label" contenteditable="true" onblur="validateName(this, 'Store')">${storeName}</span>
-                                <span class="sub-label">Store</span>
-                            </div>
-                        </li>
-                    `;
-                });
-
-                mLi.innerHTML = `
-                    <div class="node-card">
-                        <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                        <div class="icon-wrapper" onclick="toggleMerchantType(this)" data-type="${typeAttr}">${iconSvg}</div>
-                        <span class="label" contenteditable="true" onblur="validateName(this, 'Merchant')">${m.n}</span>
-                        <span class="sub-label">Merchant Account</span>
-                        <button class="btn btn-add btn-store-add" style="display:${btnDisplay}" onclick="addStore(this)" title="Add Store">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                    </div>
-                    <ul class="stores-container ${hiddenClass}">${storesHtml}</ul>
-                `;
-                merchantLevel.appendChild(mLi);
-            });
+            row.insertBefore(span, addBtn);
             
-            // Setup history after rebuild
-            historyStack = [root.innerHTML];
-            historyIndex = 0;
-            saveState(); // Trigger save to local storage
-            reattachDragEvents();
+            document.getElementById('term-modal').style.display = 'none';
+            saveState();
         }
 
-        // --- ACTIONS ---
-        function validateName(el, defaultText) {
-            if (el.innerText.trim() === '') el.innerText = defaultText;
+        function updateTermsAttr(card, typeToRemove) {
+            let terms = (card.getAttribute('data-terms')||'').split(',');
+            const idx = terms.indexOf(typeToRemove);
+            if(idx > -1) terms.splice(idx, 1);
+            card.setAttribute('data-terms', terms.join(','));
+            saveState();
+        }
+
+        document.addEventListener('click', (e) => {
+            const card = e.target.closest('.node-card');
+            if(card) {
+                if(!e.target.closest('.btn-float') && !e.target.closest('.btn-add-term') && !e.target.closest('.icon-wrapper') && !e.target.closest('.term-icon-sm') && e.target.getAttribute('contenteditable') !== 'true') openCard(card);
+            } else if (!e.target.closest('#info-sheet') && !e.target.closest('.term-picker') && !e.target.closest('.float-bar')) {
+                closeCard();
+            }
+        });
+
+        function validateName(el, def) {
+            if(el.innerText.trim() === '') el.innerText = def;
+            if(activeCard === el.closest('.node-card')) document.getElementById('sheet-title').innerText = el.innerText;
             saveState();
         }
 
         function addMerchant(btn) {
+            event.stopPropagation();
             const ul = document.getElementById('merchant-level');
-            const newLi = document.createElement('li');
-            newLi.draggable = true;
-            setupDragEvents(newLi);
-
-            const count = ul.querySelectorAll(':scope > li').length + 1;
-            
-            newLi.innerHTML = `
-                <div class="node-card">
-                    <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                    <div class="icon-wrapper" onclick="toggleMerchantType(this)" data-type="pos">
-                        ${icons.pos}
-                    </div>
+            const li = document.createElement('li');
+            li.draggable = true; setupDragEvents(li);
+            const count = ul.children.length + 1;
+            li.innerHTML = `
+                <div class="node-card" data-type="pos" data-note="">
+                    ${icons.note}
+                    <button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                    <div class="icon-wrapper" onclick="toggleMerchantType(this)">${icons.pos}</div>
                     <span class="label" contenteditable="true" onblur="validateName(this, 'POS ${count}')">POS ${count}</span>
                     <span class="sub-label">Merchant Account</span>
-                    <button class="btn btn-add btn-store-add" onclick="addStore(this)" title="Add Store"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                    <div class="terminals-row"><button class="btn-add-term" onclick="openTermModal(this)">+</button></div>
+                    <button class="btn-float btn-add" onclick="addStore(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                 </div>
-                <ul class="stores-container"></ul>
-            `;
-            
-            ul.appendChild(newLi);
+                <ul class="stores-container"></ul>`;
+            ul.appendChild(li);
             saveState();
         }
 
         function addStore(btn) {
-            const merchantLi = btn.closest('li');
-            const storesUl = merchantLi.querySelector('.stores-container');
-            const newLi = document.createElement('li');
-            newLi.draggable = true;
-            setupDragEvents(newLi);
-
-            const count = storesUl.querySelectorAll('li').length + 1;
-            
-            newLi.innerHTML = `
-                <div class="node-card">
-                    <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                    <div class="icon-wrapper">${icons.store}</div>
+            event.stopPropagation();
+            const ul = btn.closest('li').querySelector('.stores-container');
+            const li = document.createElement('li');
+            li.draggable = true; setupDragEvents(li);
+            const count = ul.children.length + 1;
+            li.innerHTML = `
+                <div class="node-card" data-type="store" data-note="">
+                    ${icons.note}
+                    <button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                    <div class="static-icon icon-wrapper">${icons.store}</div>
                     <span class="label" contenteditable="true" onblur="validateName(this, 'Store ${count}')">Store ${count}</span>
                     <span class="sub-label">Store</span>
-                </div>
-            `;
-            
-            storesUl.appendChild(newLi);
+                    <div class="terminals-row"><button class="btn-add-term" onclick="openTermModal(this)">+</button></div>
+                </div>`;
+            ul.appendChild(li);
             saveState();
         }
 
         function removeNode(btn) {
+            event.stopPropagation();
             const li = btn.closest('li');
+            if(activeCard === li.querySelector('.node-card')) closeCard();
             li.remove();
             saveState();
         }
 
         function toggleMerchantType(wrapper) {
+            event.stopPropagation();
             const card = wrapper.closest('.node-card');
-            const storeContainer = card.nextElementSibling;
-            const addStoreBtn = card.querySelector('.btn-store-add');
-            const label = card.querySelector('.label');
-            const currentType = wrapper.getAttribute('data-type');
-            
-            if (currentType === 'pos') {
-                wrapper.setAttribute('data-type', 'ecom');
-                wrapper.innerHTML = icons.ecom;
-                storeContainer.classList.add('hidden');
-                addStoreBtn.style.display = 'none';
-                if(label.innerText.toUpperCase().includes('POS')) label.innerText = label.innerText.replace(/POS/i, 'ECOM');
-            } else {
-                wrapper.setAttribute('data-type', 'pos');
-                wrapper.innerHTML = icons.pos;
-                storeContainer.classList.remove('hidden');
-                addStoreBtn.style.display = 'flex';
-                if(label.innerText.toUpperCase().includes('ECOM')) label.innerText = label.innerText.replace(/ECOM/i, 'POS');
+            const current = card.getAttribute('data-type');
+            const next = current === 'pos' ? 'ecom' : 'pos';
+            if(activeCard === card) setSheetType(next);
+            else {
+                card.setAttribute('data-type', next);
+                wrapper.innerHTML = (next === 'pos' ? icons.pos : icons.ecom);
+                const ul = card.nextElementSibling;
+                const btn = card.querySelector('.btn-add');
+                const termRow = card.querySelector('.terminals-row');
+                const lbl = card.querySelector('.label');
+                if(next === 'ecom') {
+                    ul.classList.add('hidden');
+                    btn.style.display = 'none';
+                    if(termRow) termRow.style.display = 'none';
+                    if(lbl.innerText.includes('POS')) lbl.innerText = lbl.innerText.replace('POS','ECOM');
+                } else {
+                    ul.classList.remove('hidden');
+                    btn.style.display = 'flex';
+                    if(termRow) termRow.style.display = 'flex';
+                    if(lbl.innerText.includes('ECOM')) lbl.innerText = lbl.innerText.replace('ECOM','POS');
+                }
+                saveState();
             }
-            saveState();
         }
 
-        // --- DRAG AND DROP ---
         let dragSrcEl = null;
-
         function setupDragEvents(li) {
             li.addEventListener('dragstart', dragStart);
             li.addEventListener('dragover', dragOver);
             li.addEventListener('drop', drop);
             li.addEventListener('dragend', dragEnd);
         }
-
         function dragStart(e) {
-            e.stopPropagation();
-            dragSrcEl = this;
+            e.stopPropagation(); dragSrcEl = this;
             this.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/html', this.innerHTML);
-            const card = this.querySelector('.node-card');
-            e.dataTransfer.setDragImage(card, 70, 20);
+            e.dataTransfer.setDragImage(this.querySelector('.node-card'), 75, 25);
+            const isMerchant = this.parentNode.id === 'merchant-level';
+            document.querySelector('.tree').classList.add(isMerchant ? 'drag-merchant' : 'drag-store');
         }
-
-        function dragOver(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const isSrcMerchant = dragSrcEl.parentNode.id === 'merchant-level';
-            const isTargetMerchant = this.parentNode.id === 'merchant-level';
-            
-            if (isSrcMerchant !== isTargetMerchant) return;
-            if (!isSrcMerchant && dragSrcEl.parentNode !== this.parentNode) return;
-
-            e.dataTransfer.dropEffect = 'move';
-            this.classList.add('drag-over');
+        function dragOver(e) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; }
+        function dragEnd() {
+            document.querySelectorAll('.tree li').forEach(i => i.classList.remove('dragging'));
+            document.querySelector('.tree').classList.remove('drag-merchant', 'drag-store');
         }
-
-        function dragEnd(e) {
-            const listItems = document.querySelectorAll('.tree li');
-            [].forEach.call(listItems, function(item) {
-                item.classList.remove('dragging');
-                item.classList.remove('drag-over');
-            });
-        }
-
         function drop(e) {
             e.stopPropagation();
-            if (dragSrcEl !== this) {
-                const isSrcMerchant = dragSrcEl.parentNode.id === 'merchant-level';
-                const isTargetMerchant = this.parentNode.id === 'merchant-level';
-                
-                if (isSrcMerchant === isTargetMerchant) {
-                    if (!isSrcMerchant && dragSrcEl.parentNode !== this.parentNode) return;
-
-                    const parent = this.parentNode;
-                    const children = Array.from(parent.children);
-                    const srcIndex = children.indexOf(dragSrcEl);
-                    const targetIndex = children.indexOf(this);
-
-                    if (srcIndex < targetIndex) {
-                        parent.insertBefore(dragSrcEl, this.nextSibling);
-                    } else {
-                        parent.insertBefore(dragSrcEl, this);
-                    }
+            if(dragSrcEl !== this) {
+                const sM = dragSrcEl.parentNode.id==='merchant-level', tM = this.parentNode.id==='merchant-level';
+                if(sM === tM) {
+                    if(!sM && dragSrcEl.parentNode !== this.parentNode) return;
+                    const p = this.parentNode, ch = Array.from(p.children);
+                    if(ch.indexOf(dragSrcEl) < ch.indexOf(this)) p.insertBefore(dragSrcEl, this.nextSibling);
+                    else p.insertBefore(dragSrcEl, this);
                     saveState();
                 }
             }
             return false;
         }
 
-        // --- FIT TO SCREEN ---
+        function generateShareLink() {
+            const root = document.getElementById('root-ul');
+            const data = { c: root.querySelector('#company-node .label').innerText, cn: root.querySelector('#company-node').getAttribute('data-note')||"", m: [] };
+            document.querySelectorAll('#merchant-level > li').forEach(li => {
+                const card = li.querySelector('.node-card');
+                const mD = {
+                    n: card.querySelector('.label').innerText,
+                    t: card.getAttribute('data-type')==='ecom'?1:0,
+                    nt: card.getAttribute('data-note')||"",
+                    tm: card.getAttribute('data-terms')||"",
+                    s: []
+                };
+                li.querySelectorAll('.stores-container > li').forEach(sli => {
+                    const sc = sli.querySelector('.node-card');
+                    mD.s.push({ n: sc.querySelector('.label').innerText, nt: sc.getAttribute('data-note')||"", tm: sc.getAttribute('data-terms')||"" });
+                });
+                data.m.push(mD);
+            });
+            const str = LZString.compressToEncodedURIComponent(JSON.stringify(data));
+            const url = window.location.origin + window.location.pathname + '#cfg=' + str;
+            navigator.clipboard.writeText(url).then(() => {
+                const t = document.getElementById('toast'); t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2000);
+            });
+        }
+
+        function rebuildTreeFromConfig(cfg) {
+            const root = document.getElementById('root-ul');
+            let html = `<li><div class="node-card ${cfg.cn?'has-note':''}" id="company-node" data-type="company" data-note="${cfg.cn||''}"><div class="note-indicator">${icons.note}</div><div class="static-icon icon-wrapper">${icons.company}</div><span class="label" contenteditable="true" onblur="validateName(this, 'Company')">${cfg.c}</span><span class="sub-label">Company Account</span><button class="btn-float btn-add" onclick="addMerchant(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button></div><ul id="merchant-level">`;
+            
+            cfg.m.forEach(m => {
+                const type = m.t===1 ? 'ecom' : 'pos';
+                const icon = m.t===1 ? icons.ecom : icons.pos;
+                const hide = m.t===1 ? 'hidden' : '';
+                const hideBtn = m.t===1 ? 'style="display:none"' : '';
+                const mNote = m.nt ? 'has-note' : '';
+                const mTerms = m.tm ? m.tm.split(',') : [];
+                
+                let mTermsHtml = '';
+                if(m.t===0) { 
+                    mTermsHtml = `<div class="terminals-row">`; 
+                    mTerms.forEach(t => mTermsHtml += `<span class="term-icon-sm" onclick="event.stopPropagation(); removeTerminalFromCard(this.closest('.node-card'), '${t}')">${termIcons[t]}</span>`); 
+                    mTermsHtml += `<button class="btn-add-term" onclick="openTermModal(this)">+</button></div>`; 
+                }
+
+                html += `<li draggable="true"><div class="node-card ${mNote}" data-type="${type}" data-note="${m.nt||''}" data-terms="${m.tm||''}"><div class="note-indicator">${icons.note}</div><button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="icon-wrapper" onclick="toggleMerchantType(this)">${icon}</div><span class="label" contenteditable="true" onblur="validateName(this, 'Merchant')">${m.n}</span><span class="sub-label">Merchant Account</span>${mTermsHtml}<button class="btn-float btn-add" ${hideBtn} onclick="addStore(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button></div><ul class="stores-container ${hide}">`;
+                
+                m.s.forEach(s => {
+                    const sNote = s.nt ? 'has-note' : '';
+                    const sTerms = s.tm ? s.tm.split(',') : [];
+                    let sTermsHtml = `<div class="terminals-row">`; 
+                    sTerms.forEach(t => sTermsHtml += `<span class="term-icon-sm" onclick="event.stopPropagation(); removeTerminalFromCard(this.closest('.node-card'), '${t}')">${termIcons[t]}</span>`); 
+                    sTermsHtml += `<button class="btn-add-term" onclick="openTermModal(this)">+</button></div>`;
+
+                    html += `<li draggable="true"><div class="node-card ${sNote}" data-type="store" data-note="${s.nt||''}" data-terms="${s.tm||''}"><div class="note-indicator">${icons.note}</div><button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="static-icon icon-wrapper">${icons.store}</div><span class="label" contenteditable="true" onblur="validateName(this, 'Store')">${s.n}</span><span class="sub-label">Store</span>${sTermsHtml}</div></li>`;
+                });
+                html += `</ul></li>`;
+            });
+            html += `</ul></li>`;
+            root.innerHTML = html;
+            reattachEvents();
+            setTimeout(fitToScreen, 50);
+        }
+
+        function reattachEvents() {
+            document.querySelectorAll('li[draggable="true"]').forEach(setupDragEvents);
+            document.querySelectorAll('.term-icon-sm').forEach(i => i.onclick = function(e){e.stopPropagation(); this.remove(); updateTermsAttr(this.closest('.node-card'), null);});
+        }
+        function updateUndoUI() { document.getElementById('undoBtn').disabled = historyIndex<=0; document.getElementById('redoBtn').disabled = historyIndex>=historyStack.length-1; }
+        function undo() { if(historyIndex>0) { historyIndex--; restore(); }}
+        function redo() { if(historyIndex<historyStack.length-1) { historyIndex++; restore(); }}
+        function restore() { 
+            document.getElementById('root-ul').innerHTML = historyStack[historyIndex]; 
+            reattachEvents(); 
+            if(activeCard) { activeCard = null; document.getElementById('info-sheet').classList.remove('active'); }
+            setTimeout(fitToScreen, 10);
+        }
         function fitToScreen() {
-            const tree = document.querySelector('.tree');
-            const wrapper = document.getElementById('tree-wrapper');
-            const viewport = document.getElementById('viewport');
-            
-            wrapper.style.transform = 'scale(1)';
-            const treeWidth = tree.scrollWidth;
-            const containerWidth = viewport.clientWidth - 40;
-            
-            if (treeWidth > containerWidth) {
-                const scale = containerWidth / treeWidth;
-                wrapper.style.transform = `scale(${scale})`;
-            }
+            const w = document.getElementById('tree-wrapper'); w.style.transform = 'scale(1)';
+            void w.offsetWidth;
+            const scale = Math.min(1, (document.getElementById('viewport').clientWidth - 40) / document.querySelector('.tree').scrollWidth);
+            w.style.transform = `scale(${scale})`;
         }
 
-        async function exportPDF() {
-            const { jsPDF } = window.jspdf;
-            const treeElement = document.querySelector('.tree');
-            const btn = document.querySelector('.pdf-btn');
-            
-            const originalText = btn.innerText;
-            btn.innerText = "Generating...";
-            btn.disabled = true;
-
-            const wrapper = document.getElementById('tree-wrapper');
-            const currentTransform = wrapper.style.transform;
-            wrapper.style.transform = 'scale(1)'; 
-
-            try {
-                const canvas = await html2canvas(treeElement, {
-                    backgroundColor: '#ffffff',
-                    scale: 2
-                });
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF({
-                    orientation: 'landscape',
-                    unit: 'px',
-                    format: [canvas.width + 40, canvas.height + 40] 
-                });
-                pdf.addImage(imgData, 'PNG', 20, 20, canvas.width, canvas.height);
-                pdf.save('adyen-structure.pdf');
-            } catch (err) {
-                console.error(err);
-                alert("Error generating PDF");
-            } finally {
-                wrapper.style.transform = currentTransform;
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        // Bootstrap
         init();
-        
-        // Listen for keyboard events for edits
-        document.addEventListener('keydown', (e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
-            if ((e.metaKey || e.ctrlKey) && e.key === 'y') { e.preventDefault(); redo(); }
-        });
         window.addEventListener('resize', fitToScreen);
+        
     </script>
 </body>
 </html>
