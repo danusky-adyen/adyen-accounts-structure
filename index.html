@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adyen Account Structure V22 (Auto-Save)</title>
+    <title>Adyen Account Structure V23</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -67,8 +67,8 @@
         .reset-btn { color: #d32f2f; }
         .reset-btn:hover { background-color: #fdecec; border-color: #fca5a5; }
 
-        .pdf-btn { background-color: var(--highlight-color); color: white; border: none; }
-        .pdf-btn:hover { background-color: #00a46e; }
+        .action-btn { background-color: var(--highlight-color); color: white; border: none; }
+        .action-btn:hover { background-color: #00a46e; }
 
         /* --- Viewport --- */
         .viewport {
@@ -231,6 +231,24 @@
         #company-node .btn-del { display: none !important; }
         .stores-container.hidden { display: none !important; }
 
+        /* Toast Notification */
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        #toast.show { opacity: 1; }
+
     </style>
 </head>
 <body>
@@ -250,7 +268,11 @@
             </button>
         </div>
         <div class="toolbar-group">
-            <button class="tool-btn pdf-btn" onclick="exportPDF()">Share as PDF</button>
+            <button class="tool-btn" onclick="generateShareLink()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Get Link
+            </button>
+            <button class="tool-btn action-btn pdf-btn" onclick="exportPDF()">Share as PDF</button>
         </div>
     </div>
 
@@ -258,88 +280,100 @@
         <div class="tree-wrapper" id="tree-wrapper">
             <div class="tree">
                 <ul id="root-ul">
-                    <li>
-                        <div class="node-card" id="company-node">
-                            <div class="icon-wrapper">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4 8 4v14"/><path d="M17 21v-8.8a1.2 1.2 0 0 0-1.2-1.2H8.2a1.2 1.2 0 0 0-1.2 1.2V21"/><path d="M9 10a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-2z"/></svg>
-                            </div>
-                            <span class="label" contenteditable="true" onblur="validateName(this, 'My Company')">My Company</span>
-                            <span class="sub-label">Company Account</span>
-                            <button class="btn btn-add" onclick="addMerchant(this)" title="Add Merchant">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                            </button>
-                        </div>
-
-                        <ul id="merchant-level">
-                            <li draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" ondragend="dragEnd(event)">
-                                <div class="node-card">
-                                    <button class="btn btn-del" onclick="removeNode(this)" title="Remove">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                                    </button>
-                                    <div class="icon-wrapper" onclick="toggleMerchantType(this)" data-type="pos">
-                                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
-                                    </div>
-                                    <span class="label" contenteditable="true" onblur="validateName(this, 'POS 1')">POS 1</span>
-                                    <span class="sub-label">Merchant Account</span>
-                                    <button class="btn btn-add btn-store-add" onclick="addStore(this)" title="Add Store">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                    </button>
-                                </div>
-                                <ul class="stores-container">
-                                    <li draggable="true" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" ondragend="dragEnd(event)">
-                                        <div class="node-card">
-                                            <button class="btn btn-del" onclick="removeNode(this)" title="Remove">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                                            </button>
-                                            <div class="icon-wrapper">
-                                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                                            </div>
-                                            <span class="label" contenteditable="true" onblur="validateName(this, 'Store 1')">Store 1</span>
-                                            <span class="sub-label">Store</span>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </li>
-                        </ul>
-                    </li>
-                </ul>
+                    </ul>
             </div>
         </div>
     </div>
+
+    <div id="toast">Link copied to clipboard!</div>
 
     <script>
         // --- ICONS ---
         const icons = {
             pos: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>`,
             ecom: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`,
-            store: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`
+            store: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+            company: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4 8 4v14"/><path d="M17 21v-8.8a1.2 1.2 0 0 0-1.2-1.2H8.2a1.2 1.2 0 0 0-1.2 1.2V21"/><path d="M9 10a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-2z"/></svg>`
         };
+
+        // Default Template
+        const defaultTemplate = `
+            <li>
+                <div class="node-card" id="company-node">
+                    <div class="icon-wrapper">${icons.company}</div>
+                    <span class="label" contenteditable="true" onblur="validateName(this, 'My Company')">My Company</span>
+                    <span class="sub-label">Company Account</span>
+                    <button class="btn btn-add" onclick="addMerchant(this)" title="Add Merchant">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                </div>
+                <ul id="merchant-level">
+                    <li draggable="true">
+                        <div class="node-card">
+                            <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                            <div class="icon-wrapper" onclick="toggleMerchantType(this)" data-type="pos">${icons.pos}</div>
+                            <span class="label" contenteditable="true" onblur="validateName(this, 'POS 1')">POS 1</span>
+                            <span class="sub-label">Merchant Account</span>
+                            <button class="btn btn-add btn-store-add" onclick="addStore(this)" title="Add Store"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                        </div>
+                        <ul class="stores-container">
+                            <li draggable="true">
+                                <div class="node-card">
+                                    <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                                    <div class="icon-wrapper">${icons.store}</div>
+                                    <span class="label" contenteditable="true" onblur="validateName(this, 'Store 1')">Store 1</span>
+                                    <span class="sub-label">Store</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+        `;
 
         // --- HISTORY & STORAGE ---
         let historyStack = [];
         let historyIndex = -1;
         let isInternalUpdate = false;
-        
-        // Default Template if storage is empty
-        const defaultTemplate = document.getElementById('root-ul').innerHTML;
+
+        function init() {
+            // Check URL Params first
+            const params = new URLSearchParams(window.location.search);
+            const configParam = params.get('cfg');
+
+            if (configParam) {
+                // Load from URL
+                try {
+                    const jsonStr = atob(configParam);
+                    const config = JSON.parse(jsonStr);
+                    rebuildTreeFromConfig(config);
+                    
+                    // Clear URL so refreshing doesn't stick
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (e) {
+                    console.error("Invalid config in URL", e);
+                    loadFromStorage();
+                }
+            } else {
+                loadFromStorage();
+            }
+        }
 
         function loadFromStorage() {
             const saved = localStorage.getItem('adyen_org_structure');
+            const root = document.getElementById('root-ul');
             if (saved) {
-                isInternalUpdate = true;
-                document.getElementById('root-ul').innerHTML = saved;
-                
-                // Re-attach listeners after loading HTML string
-                reattachDragEvents();
-                
-                historyStack = [saved];
-                historyIndex = 0;
-                updateUndoUI();
-                isInternalUpdate = false;
+                root.innerHTML = saved;
             } else {
-                // Save initial state
-                saveState();
+                root.innerHTML = defaultTemplate;
             }
+            // Hydrate logic
+            reattachDragEvents();
+            
+            // Push to history
+            historyStack = [root.innerHTML];
+            historyIndex = 0;
+            updateUndoUI();
             requestAnimationFrame(fitToScreen);
         }
 
@@ -351,10 +385,9 @@
                 reattachDragEvents();
                 isInternalUpdate = false;
                 
-                // Reset history
                 historyStack = [defaultTemplate];
                 historyIndex = 0;
-                saveState(); // Save the reset state as new latest
+                saveState();
             }
         }
 
@@ -365,8 +398,6 @@
             }
             
             const state = document.getElementById('root-ul').innerHTML;
-            
-            // Persist to browser
             localStorage.setItem('adyen_org_structure', state);
 
             historyStack.push(state);
@@ -376,7 +407,6 @@
         }
 
         function reattachDragEvents() {
-            // Find all draggable items and re-add listeners
             const draggables = document.querySelectorAll('li[draggable="true"]');
             draggables.forEach(li => setupDragEvents(li));
         }
@@ -393,20 +423,122 @@
             isInternalUpdate = true;
             const state = historyStack[historyIndex];
             document.getElementById('root-ul').innerHTML = state;
-            localStorage.setItem('adyen_org_structure', state); // Sync restoration to storage
+            localStorage.setItem('adyen_org_structure', state);
             reattachDragEvents();
             updateUndoUI();
             isInternalUpdate = false;
             requestAnimationFrame(fitToScreen);
         }
 
-        // Initialize
-        loadFromStorage();
+        // --- URL SHARING LOGIC ---
+        function generateShareLink() {
+            // 1. Serialize Tree
+            const root = document.getElementById('root-ul');
+            const companyName = root.querySelector('#company-node .label').innerText;
+            const merchants = [];
+            
+            const merchantLis = document.querySelectorAll('#merchant-level > li');
+            merchantLis.forEach(li => {
+                const card = li.querySelector('.node-card');
+                const name = card.querySelector('.label').innerText;
+                const wrapper = card.querySelector('.icon-wrapper');
+                const type = wrapper.getAttribute('data-type'); // pos/ecom
+                
+                const stores = [];
+                const storeLis = li.querySelectorAll('.stores-container > li');
+                storeLis.forEach(sLi => {
+                    const sName = sLi.querySelector('.label').innerText;
+                    stores.push(sName);
+                });
+                
+                // Minified object: n=name, t=type(0=pos,1=ecom), s=stores
+                merchants.push({ n: name, t: (type === 'ecom' ? 1 : 0), s: stores });
+            });
+            
+            const data = { c: companyName, m: merchants };
+            
+            // 2. Encode
+            const jsonStr = JSON.stringify(data);
+            const b64 = btoa(jsonStr);
+            
+            // 3. Create URL
+            const url = window.location.origin + window.location.pathname + '?cfg=' + b64;
+            
+            // 4. Copy to Clipboard
+            navigator.clipboard.writeText(url).then(() => {
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+            });
+        }
 
-        document.addEventListener('keydown', (e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
-            if ((e.metaKey || e.ctrlKey) && e.key === 'y') { e.preventDefault(); redo(); }
-        });
+        function rebuildTreeFromConfig(config) {
+            const root = document.getElementById('root-ul');
+            root.innerHTML = '';
+            
+            // Rebuild Company
+            const compLi = document.createElement('li');
+            compLi.innerHTML = `
+                <div class="node-card" id="company-node">
+                    <div class="icon-wrapper">${icons.company}</div>
+                    <span class="label" contenteditable="true" onblur="validateName(this, 'My Company')">${config.c}</span>
+                    <span class="sub-label">Company Account</span>
+                    <button class="btn btn-add" onclick="addMerchant(this)" title="Add Merchant">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                </div>
+                <ul id="merchant-level"></ul>
+            `;
+            root.appendChild(compLi);
+            
+            const merchantLevel = compLi.querySelector('#merchant-level');
+            
+            // Rebuild Merchants
+            config.m.forEach(m => {
+                const mLi = document.createElement('li');
+                mLi.draggable = true;
+                
+                const isPos = (m.t === 0);
+                const typeAttr = isPos ? 'pos' : 'ecom';
+                const iconSvg = isPos ? icons.pos : icons.ecom;
+                const hiddenClass = isPos ? '' : 'hidden';
+                const btnDisplay = isPos ? 'flex' : 'none';
+                
+                let storesHtml = '';
+                m.s.forEach(storeName => {
+                    storesHtml += `
+                        <li draggable="true">
+                            <div class="node-card">
+                                <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                                <div class="icon-wrapper">${icons.store}</div>
+                                <span class="label" contenteditable="true" onblur="validateName(this, 'Store')">${storeName}</span>
+                                <span class="sub-label">Store</span>
+                            </div>
+                        </li>
+                    `;
+                });
+
+                mLi.innerHTML = `
+                    <div class="node-card">
+                        <button class="btn btn-del" onclick="removeNode(this)" title="Remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                        <div class="icon-wrapper" onclick="toggleMerchantType(this)" data-type="${typeAttr}">${iconSvg}</div>
+                        <span class="label" contenteditable="true" onblur="validateName(this, 'Merchant')">${m.n}</span>
+                        <span class="sub-label">Merchant Account</span>
+                        <button class="btn btn-add btn-store-add" style="display:${btnDisplay}" onclick="addStore(this)" title="Add Store">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                    </div>
+                    <ul class="stores-container ${hiddenClass}">${storesHtml}</ul>
+                `;
+                merchantLevel.appendChild(mLi);
+            });
+            
+            // Setup history after rebuild
+            historyStack = [root.innerHTML];
+            historyIndex = 0;
+            saveState(); // Trigger save to local storage
+            reattachDragEvents();
+        }
 
         // --- ACTIONS ---
         function validateName(el, defaultText) {
@@ -469,10 +601,9 @@
 
         function toggleMerchantType(wrapper) {
             const card = wrapper.closest('.node-card');
-            const storeContainer = card.nextElementSibling; // The UL sibling
+            const storeContainer = card.nextElementSibling;
             const addStoreBtn = card.querySelector('.btn-store-add');
             const label = card.querySelector('.label');
-            
             const currentType = wrapper.getAttribute('data-type');
             
             if (currentType === 'pos') {
@@ -507,7 +638,6 @@
             this.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/html', this.innerHTML);
-            
             const card = this.querySelector('.node-card');
             e.dataTransfer.setDragImage(card, 70, 20);
         }
@@ -515,7 +645,6 @@
         function dragOver(e) {
             e.preventDefault();
             e.stopPropagation();
-            
             const isSrcMerchant = dragSrcEl.parentNode.id === 'merchant-level';
             const isTargetMerchant = this.parentNode.id === 'merchant-level';
             
@@ -536,7 +665,6 @@
 
         function drop(e) {
             e.stopPropagation();
-            
             if (dragSrcEl !== this) {
                 const isSrcMerchant = dragSrcEl.parentNode.id === 'merchant-level';
                 const isTargetMerchant = this.parentNode.id === 'merchant-level';
@@ -612,6 +740,14 @@
             }
         }
 
+        // Bootstrap
+        init();
+        
+        // Listen for keyboard events for edits
+        document.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+            if ((e.metaKey || e.ctrlKey) && e.key === 'y') { e.preventDefault(); redo(); }
+        });
         window.addEventListener('resize', fitToScreen);
     </script>
 </body>
