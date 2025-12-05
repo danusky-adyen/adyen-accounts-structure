@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adyen Account Structure V37</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+    <style>
+        :root {
+            --line: #0b1e3b; --text: #0b1e3b; --bg: #fff; --hl: #00b67a; --hl-bg: #e6fcf0; --danger: #d32f2f;
+            --btn-b: #dbe1e8; --glass: rgba(255,255,255,0.85); --blur: blur(20px);
+        }
+        body { font-family: system-ui, sans-serif; color: var(--text); margin: 0; height: 100vh; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+        
+        /* Toolbar */
+        .bar { position: fixed; top: 20px; z-index: 1000; display: flex; gap: 10px; }
+        .bar-L { left: 20px; } .bar-R { right: 20px; }
+        .btn { width: 40px; height: 40px; border: 1px solid rgba(0,0,0,0.1); background: rgba(245,245,245,0.8); backdrop-filter: blur(10px); border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .btn:hover:not(:disabled) { background: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .btn:disabled { opacity: 0.4; cursor: default; }
+        .btn svg { width: 20px; height: 20px; }
+
+        /* Viewport */
+        .view { flex: 1; width: 100%; overflow: hidden; display: flex; justify-content: center; align-items: flex-start; background: #fff; }
+        .wrap { transform-origin: top center; transition: transform 0.3s ease-out; padding: 80px 40px; display: inline-flex; justify-content: center; min-width: 100%; box-sizing: border-box; }
+
+        /* Tree */
+        .tree ul { padding-top: 40px; position: relative; display: flex; justify-content: center; margin: 0; padding-left: 0; }
+        .tree li { list-style: none; position: relative; padding: 40px 20px 0 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        /* Lines */
+        .tree li::before, .tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid var(--line); width: 50%; height: 40px; z-index: 1; }
+        .tree li::after { right: auto; left: 50%; border-left: 2px solid var(--line); }
+        .tree li:first-child::before, .tree li:last-child::after { border: 0; }
+        .tree li:last-child::before { border-right: 2px solid var(--line); border-radius: 0 12px 0 0; }
+        .tree li:first-child::after { border-radius: 12px 0 0 0; }
+        .tree li:only-child { padding-top: 0; }
+        .tree li:only-child::after, .tree li:only-child::before { display: none; }
+        .tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid var(--line); width: 0; height: 40px; z-index: 1; }
+        .tree > ul::before, .tree ul:empty::before, .tree ul.h::before { display: none; }
+        .h { display: none !important; }
+
+        /* Cards */
+        .card { background: #fff; border: 1px solid var(--btn-b); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 160px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); position: relative; z-index: 10; transition: 0.2s; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.1); z-index: 20; }
+        .card.active { border-color: var(--hl); background: var(--hl-bg); }
+        
+        /* Drag Highlighting & Fixes */
+        .tree li.drag .card { opacity: 0.4; }
+        /* Hide connectors on the dragged item so they don't move with it */
+        .tree li.drag::before, .tree li.drag::after { display: none; } 
+        .tree.dm .card[data-t="pos"], .tree.dm .card[data-t="ecom"], .tree.ds .card[data-t="str"] { border-color: var(--hl); background: var(--hl-bg); }
+        
+        /* Inner Elements */
+        .icon-w { cursor: pointer; border-radius: 8px; padding: 0; transition: 0.2s; overflow: hidden; }
+        .icon-w:hover { transform: scale(1.05); }
+        .icon-s { pointer-events: none; padding: 0; }
+        .icon { width: 48px; height: 48px; display: block; pointer-events: none; }
+        .lbl { font-size: 0.95rem; font-weight: 700; text-align: center; outline: none; border-bottom: 1px dashed transparent; min-width: 50px; }
+        .lbl:focus { border-color: #999; }
+        .sub { font-size: 0.75rem; color: #666; font-weight: 500; text-transform: uppercase; pointer-events: none; }
+
+        /* Hover Buttons */
+        .act-btn { position: absolute; width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 1px solid #ddd; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; z-index: 30; pointer-events: none; }
+        .card:hover .act-btn { opacity: 1; pointer-events: auto; }
+        .act-add { bottom: -14px; left: 50%; margin-left: -14px; color: var(--hl); border-color: var(--hl); }
+        .act-del { top: -14px; left: 50%; margin-left: -14px; color: var(--danger); border-color: var(--danger); }
+        .act-btn:hover { transform: scale(1.1); color: #fff; }
+        .act-add:hover { background: var(--hl); } .act-del:hover { background: var(--danger); }
+        #root-ul > li > .card .act-del { display: none; }
+
+        /* Indicators */
+        .note-i { position: absolute; top: 10px; right: 10px; width: 16px; color: #666; display: none; }
+        .card.has-n .note-i { display: block; }
+        .t-row { display: flex; gap: 4px; justify-content: center; margin-top: 5px; min-height: 20px; align-items: center; }
+        .t-icon { width: 18px; color: #333; opacity: 0.7; cursor: pointer; }
+        .t-icon:hover { color: var(--danger); opacity: 1; }
+        .t-add { width: 20px; height: 20px; border-radius: 4px; border: 1px dashed #ccc; background: 0; color: #999; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; opacity: 0; transition: 0.2s; }
+        .card:hover .t-add { opacity: 1; } .t-add:hover { background: #f0f0f0; color: #000; border-color: #999; }
+
+        /* Info Sheet */
+        #sheet { position: fixed; bottom: 30px; right: 30px; width: 320px; background: var(--glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border: 1px solid rgba(255,255,255,0.5); border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); padding: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 16px; transform: translateY(20px); opacity: 0; pointer-events: none; transition: 0.3s ease; }
+        #sheet.on { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        .sh-head { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 1.1rem; }
+        .sec-lbl { font-size: 0.75rem; font-weight: 600; color: #888; text-transform: uppercase; margin-bottom: 8px; }
+        .sw { display: flex; background: rgba(0,0,0,0.05); border-radius: 10px; padding: 3px; }
+        .sw-opt { flex: 1; text-align: center; padding: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; border-radius: 8px; color: #666; }
+        .sw-opt.on { background: #fff; color: #000; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .note-box { width: 100%; height: 80px; border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; padding: 12px; font-family: inherit; background: rgba(255,255,255,0.5); resize: none; box-sizing: border-box; outline: none; }
+
+        /* Modal */
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.5); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 3000; }
+        .picker { background: #fff; padding: 24px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); width: 280px; border: 1px solid #f0f0f0; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .opt { padding: 12px; border: 1px solid #f0f0f0; border-radius: 16px; cursor: pointer; text-align: center; font-size: 0.8rem; font-weight: 500; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .opt:hover { background: #fafafa; border-color: var(--hl); color: var(--hl); transform: translateY(-2px); }
+        .opt svg { width: 28px; height: 36px; }
+
+        #toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #fff; padding: 10px 24px; border-radius: 30px; font-size: 0.9rem; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 3000; backdrop-filter: blur(10px); }
+        #toast.on { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<div class="bar bar-L">
+    <button class="btn" id="undo" onclick="act('undo')" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg></button>
+    <button class="btn" id="redo" onclick="act('redo')" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg></button>
+    <button class="btn" onclick="act('reset')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>
+</div>
+<div class="bar bar-R">
+    <button class="btn" onclick="share()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+    <button class="btn" onclick="pdf()">PDF</button>
+</div>
+
+<div class="view" id="view"><div class="wrap" id="wrap"><div class="tree"><ul id="root"></ul></div></div></div>
+
+<div id="sheet"><div class="sh-head"><div id="sh-title"></div></div><div id="type-sec" style="display:none"><div class="sec-lbl">Type</div><div class="sw"><div class="sw-opt" id="o-ecom" onclick="setType('ecom')">Ecom</div><div class="sw-opt" id="o-pos" onclick="setType('pos')">POS</div></div></div><div><div class="sec-lbl">Notes</div><textarea class="note-box" id="sh-note" placeholder="Details..."></textarea></div></div>
+
+<div id="modal" onclick="closeModal(event)"><div class="picker"><h3 style="margin:0;text-align:center">Add Terminal</h3><div class="grid">
+    <div class="opt" onclick="addT('counter')"><svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="6" y="5" width="12" height="10" rx="1" fill="#e0e0e0" stroke="none"/><path d="M6 20h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z M6 24h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z M6 28h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z"/></svg>Counter</div>
+    <div class="opt" onclick="addT('mobile')"><svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="4" y="2" width="16" height="24" rx="2" fill="#0abf53" stroke="none" opacity="0.2"/></svg>Mobile</div>
+    <div class="opt" onclick="addT('reader')"><svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="4"/><path d="M10 8c2-1 4-1 6 1" stroke-linecap="round"/><path d="M11 11c1.5-.5 3-.5 4.5.5" stroke-linecap="round"/></svg>TTP</div>
+    <div class="opt" onclick="addT('unattended')"><svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="24" rx="2"/><rect x="5" y="9" width="14" height="14" rx="1" fill="#0abf53" opacity="0.2"/></svg>Kiosk</div>
+</div></div></div>
+<div id="toast">Link copied!</div>
+
+<script>
+// New Colored Icons with Backgrounds
+const I={
+    pos:`<svg class="icon" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#fff3e0"/><path d="M14 10H34C35.1046 10 36 10.8954 36 12V36C36 37.1046 35.1046 38 34 38H14C12.8954 38 12 37.1046 12 36V12C12 10.8954 12.8954 10 14 10Z" stroke="#ff9800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 30H32" stroke="#ff9800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 16H32" stroke="#ff9800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M24 16V30" stroke="#ff9800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    ecom:`<svg class="icon" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#f3e5f5"/><rect x="8" y="10" width="32" height="28" rx="2" stroke="#9c27b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 18H40" stroke="#9c27b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M24 38V18" stroke="#9c27b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    store:`<svg class="icon" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#e8f5e9"/><path d="M10 14L24 8L38 14V34C38 35.1046 37.1046 36 36 36H12C10.8954 36 10 35.1046 10 34V14Z" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 18H38" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M24 36V18" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    comp:`<svg class="icon" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#e3f2fd"/><path d="M10 38H38" stroke="#2196f3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 38V14L24 8L34 14V38" stroke="#2196f3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M24 18V30" stroke="#2196f3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 22H30" stroke="#2196f3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    note:`<svg class="note-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`
+},
+TI={counter:`<svg class="term-icon-sm" viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="6" y="5" width="12" height="10" rx="1" fill="#999" stroke="none" opacity="0.3"/><path d="M6 20h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z"/></svg>`,mobile:`<svg class="term-icon-sm" viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="4" y="2" width="16" height="24" rx="2" fill="#0abf53" stroke="none" opacity="0.4"/></svg>`,reader:`<svg class="term-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01 M10 6c2 0 4 .5 4 2 M9 9c1.5 0 3 .5 3 1.5"/></svg>`,unattended:`<svg class="term-icon-sm" viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="24" rx="2"/><rect x="5" y="9" width="14" height="14" rx="1" fill="#0abf53" opacity="0.4"/></svg>`};
+
+let hist=[], hIdx=-1, lock=false, active=null, activeT=null;
+
+function init() {
+    const h=location.hash.slice(1);
+    if(h.startsWith('cfg=')) try { build(JSON.parse(LZString.decompressFromEncodedURIComponent(h.replace('cfg=','')))); history.replaceState(null,null,' '); return; } catch(e){}
+    load();
+}
+function load() { document.getElementById('root').innerHTML = localStorage.getItem('adyen_v36') || `<li><div class="card" id="c-node" data-t="comp"><div class="note-i">${I.note}</div><div class="icon-s icon-w">${I.comp}</div><span class="lbl" contenteditable="true" onblur="ren(this,'Company')">Company</span><span class="sub">Company Account</span><button class="act-btn act-add" onclick="addM(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div><ul id="m-lvl"><li draggable="true"><div class="card" data-t="ecom"><button class="act-btn act-del" onclick="del(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="icon-w" onclick="tog(this)">${I.ecom}</div><span class="lbl" contenteditable="true" onblur="ren(this,'ECOM 1')">ECOM 1</span><span class="sub">Merchant Account</span><button class="act-btn act-add" style="display:none" onclick="addS(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div><ul class="h"></ul></li><li draggable="true"><div class="card" data-t="pos"><button class="act-btn act-del" onclick="del(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="icon-w" onclick="tog(this)">${I.pos}</div><span class="lbl" contenteditable="true" onblur="ren(this,'POS 1')">POS 1</span><span class="sub">Merchant Account</span><div class="t-row"><button class="t-add" onclick="openT(this)">+</button></div><button class="act-btn act-add" onclick="addS(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div><ul><li draggable="true"><div class="card" data-t="str"><button class="act-btn act-del" onclick="del(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="icon-s icon-w">${I.store}</div><span class="lbl" contenteditable="true" onblur="ren(this,'Store 1')">Store 1</span><span class="sub">Store</span><div class="t-row"><button class="t-add" onclick="openT(this)">+</button></div></div></li><li draggable="true"><div class="card" data-t="str"><button class="act-btn act-del" onclick="del(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="icon-s icon-w">${I.store}</div><span class="lbl" contenteditable="true" onblur="ren(this,'Store 2')">Store 2</span><span class="sub">Store</span><div class="t-row"><button class="t-add" onclick="openT(this)">+</button></div></div></li></ul></li></ul></li>`; bind(); save(true); }
+function save(skipHist) {
+    if(lock) return;
+    const h = document.getElementById('root').innerHTML;
+    localStorage.setItem('adyen_v36', h);
+    if(!skipHist) { hist = hist.slice(0, hIdx+1); hist.push(h); hIdx++; ui(); }
+    else { hist=[h]; hIdx=0; ui(); }
+    setTimeout(fit, 10);
+}
+function act(a) {
+    if(a==='undo'&&hIdx>0) { hIdx--; res(); }
+    if(a==='redo'&&hIdx<hist.length-1) { hIdx++; res(); }
+    if(a==='reset'&&confirm('Reset?')) { localStorage.removeItem('adyen_v36'); location.reload(); }
+}
+function res() { lock=true; document.getElementById('root').innerHTML=hist[hIdx]; bind(); if(active)close(); ui(); lock=false; setTimeout(fit,10); }
+function ui() { document.getElementById('undo').disabled=hIdx<=0; document.getElementById('redo').disabled=hIdx>=hist.length-1; }
+function bind() { document.querySelectorAll('li[draggable]').forEach(d); document.querySelectorAll('.t-icon').forEach(i=>i.onclick=rmT); }
+function fit() { const w=document.getElementById('wrap'); w.style.transform='scale(1)'; void w.offsetWidth; const s=Math.min(1,(document.getElementById('view').clientWidth-40)/document.querySelector('.tree').scrollWidth); w.style.transform=`scale(${s})`; }
+
+// CRUD
+function ren(e,d) { if(e.innerText.trim()==='') e.innerText=d; save(); }
+function addM(b) { 
+    event.stopPropagation();
+    const ul=document.getElementById('m-lvl'), li=document.createElement('li'), c=ul.children.length+1;
+    li.draggable=true; d(li);
+    li.innerHTML=`<div class="card" data-t="pos"><button class="act-btn act-del" onclick="del(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="icon-w" onclick="tog(this)">${I.pos}</div><span class="lbl" contenteditable="true" onblur="ren(this,'POS ${c}')">POS ${c}</span><span class="sub">Merchant Account</span><div class="t-row"><button class="t-add" onclick="openT(this)">+</button></div><button class="act-btn act-add" onclick="addS(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div><ul></ul>`;
+    ul.appendChild(li); save(); 
+}
+function addS(b) {
+    event.stopPropagation();
+    const ul=b.closest('li').querySelector('ul'), li=document.createElement('li'), c=ul.children.length+1;
+    li.draggable=true; d(li);
+    li.innerHTML=`<div class="card" data-t="str"><button class="act-btn act-del" onclick="del(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="icon-s icon-w">${I.store}</div><span class="lbl" contenteditable="true" onblur="ren(this,'Store ${c}')">Store ${c}</span><span class="sub">Store</span><div class="t-row"><button class="t-add" onclick="openT(this)">+</button></div></div>`;
+    ul.appendChild(li); save();
+}
+function del(b) { event.stopPropagation(); b.closest('li').remove(); if(active===b.closest('.card'))close(); save(); }
+function tog(w) {
+    event.stopPropagation(); const c=w.closest('.card'), t=c.getAttribute('data-t'), n=t==='pos'?'ecom':'pos';
+    if(active===c) setType(n); else {
+        c.setAttribute('data-t',n); w.innerHTML=n==='pos'?I.pos:I.ecom;
+        c.querySelector('ul')?.classList.toggle('h',n==='ecom');
+        c.querySelector('.act-add').style.display=n==='ecom'?'none':'flex';
+        c.querySelector('.t-row').style.display=n==='ecom'?'none':'flex';
+        let l=c.querySelector('.lbl'); if(l.innerText.includes(t.toUpperCase())) l.innerText=l.innerText.replace(t.toUpperCase(),n.toUpperCase());
+        save();
+    }
+}
+
+// Drag
+let src=null;
+function d(l) { l.ondragstart=ds; l.ondragover=dov; l.ondrop=dp; l.ondragend=de; }
+function ds(e) { e.stopPropagation(); src=this; this.classList.add('drag'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/html',this.innerHTML); document.querySelector('.tree').classList.add(this.parentNode.id==='m-lvl'?'dm':'ds'); }
+function dov(e) { e.preventDefault(); e.stopPropagation(); if(chk(this)) e.dataTransfer.dropEffect='move'; }
+function de() { document.querySelectorAll('li').forEach(i=>i.classList.remove('drag')); document.querySelector('.tree').classList.remove('dm','ds'); }
+function dp(e) { e.stopPropagation(); if(src!==this && chk(this)) { 
+    const p=this.parentNode, ch=[...p.children], sI=ch.indexOf(src), tI=ch.indexOf(this);
+    if(sI<tI) p.insertBefore(src, this.nextSibling); else p.insertBefore(src,this);
+    save();
+}}
+function chk(t) { const sP=src.parentNode.id==='m-lvl', tP=t.parentNode.id==='m-lvl'; return sP===tP && (sP || src.parentNode===t.parentNode); }
+
+// Info & Terms
+document.onclick = e => {
+    const c=e.target.closest('.card');
+    if(c && !e.target.closest('.act-btn') && !e.target.closest('.icon-w') && !e.target.closest('.t-icon') && !e.target.closest('.t-add') && e.target.contentEditable!=='true') open(c);
+    else if(!e.target.closest('#sheet') && !e.target.closest('#modal') && !e.target.closest('.bar')) close();
+};
+function open(c) {
+    if(active) active.classList.remove('active'); active=c; c.classList.add('active');
+    document.getElementById('sh-title').innerText=c.querySelector('.lbl').innerText;
+    document.getElementById('sh-note').value=c.dataset.n||'';
+    const t=c.dataset.t; 
+    document.getElementById('type-sec').style.display=(t==='pos'||t==='ecom')?'block':'none';
+    if(t==='pos'||t==='ecom') { document.getElementById('o-ecom').className=t==='ecom'?'sw-opt on':'sw-opt'; document.getElementById('o-pos').className=t==='pos'?'sw-opt on':'sw-opt'; }
+    document.getElementById('sheet').classList.add('on');
+}
+function close() { if(active) active.classList.remove('active'); active=null; document.getElementById('sheet').classList.remove('on'); }
+document.getElementById('sh-note').oninput = e => { active.dataset.n=e.target.value; active.classList.toggle('has-n',e.target.value.trim()!==''); save(); };
+function setType(t) {
+    document.getElementById('o-ecom').className=t==='ecom'?'sw-opt on':'sw-opt'; document.getElementById('o-pos').className=t==='pos'?'sw-opt on':'sw-opt';
+    active.setAttribute('data-t',t); active.querySelector('.icon-w').innerHTML=t==='pos'?I.pos:I.ecom;
+    const ul=active.nextElementSibling, btn=active.querySelector('.act-add'), tr=active.querySelector('.t-row'), l=active.querySelector('.lbl');
+    ul?.classList.toggle('h',t==='ecom'); btn.style.display=t==='ecom'?'none':'flex'; if(tr)tr.style.display=t==='ecom'?'none':'flex';
+    if(l.innerText.includes(t==='pos'?'ECOM':'POS')) l.innerText=l.innerText.replace(t==='pos'?'ECOM':'POS',t==='pos'?'POS':'ECOM');
+    save();
+}
+function openT(b) { event.stopPropagation(); activeT=b.closest('.card'); document.getElementById('modal').style.display='flex'; }
+function closeModal(e) { if(e.target.id==='modal') document.getElementById('modal').style.display='none'; }
+function addT(t) {
+    const r=activeT.querySelector('.t-row'), b=r.querySelector('.t-add');
+    const s=document.createElement('span'); s.innerHTML=TI[t]; s.className='t-icon'; s.onclick=rmT;
+    r.insertBefore(s,b); 
+    let ts=(activeT.dataset.tm||'').split(',').filter(x=>x); ts.push(t); activeT.dataset.tm=ts.join(',');
+    document.getElementById('modal').style.display='none'; save();
+}
+function rmT(e) { e.stopPropagation(); if(confirm('Remove?')) { 
+    const c=this.closest('.card'), idx=[...c.querySelectorAll('.t-icon')].indexOf(this);
+    this.remove(); 
+    let ts=(c.dataset.tm||'').split(','); ts.splice(idx,1); c.dataset.tm=ts.join(',');
+    save(); 
+}}
+
+// Share/PDF
+function share() {
+    const r=document.getElementById('root');
+    const d={c:r.querySelector('#c-node .lbl').innerText,cn:r.querySelector('#c-node').dataset.n||'',m:[]};
+    r.querySelectorAll('#m-lvl > li').forEach(l=>{
+        const c=l.querySelector('.card'), m={n:c.querySelector('.lbl').innerText,t:c.dataset.t==='ecom'?1:0,nt:c.dataset.n||'',tm:c.dataset.tm||'',s:[]};
+        l.querySelectorAll('ul > li').forEach(sl=>{ const sc=sl.querySelector('.card'); m.s.push({n:sc.querySelector('.lbl').innerText,nt:sc.dataset.n||'',tm:sc.dataset.tm||''}); });
+        d.m.push(m);
+    });
+    navigator.clipboard.writeText(location.origin+location.pathname+'#cfg='+LZString.compressToEncodedURIComponent(JSON.stringify(d))).then(()=>{
+        const t=document.getElementById('toast'); t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2000);
+    });
+}
+function build(d) {
+    let h=`<li><div class="card ${d.cn?'has-n':''}" id="c-node" data-t="comp" data-n="${d.cn||''}"><div class="note-i">${I.note}</div><div class="icon-s icon-w">${I.comp}</div><span class="lbl" contenteditable="true" onblur="ren(this,'Company')">${d.c}</span><span class="sub">Company Account</span><button class="act-btn act-add" onclick="addM(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div><ul id="m-lvl">`;
+    d.m.forEach(m=>{
+        const isP=m.t===0, trs=m.tm?m.tm.split(',').map(t=>`<span class="t-icon">${TI[t]}</span>`).join(''):'';
+        h+=`<li draggable="true"><div class="card ${m.nt?'has-n':''}" data-t="${isP?'pos':'ecom'}" data-n="${m.nt||''}" data-tm="${m.tm||''}"><div class="note-i">${I.note}</div><button class="act-btn act-del" onclick="del(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="icon-w" onclick="tog(this)">${isP?I.pos:I.ecom}</div><span class="lbl" contenteditable="true" onblur="ren(this,'Merchant')">${m.n}</span><span class="sub">Merchant Account</span>${isP?`<div class="t-row">${trs}<button class="t-add" onclick="openT(this)">+</button></div>`:''}<button class="act-btn act-add" style="${isP?'':'display:none'}" onclick="addS(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div><ul class="${isP?'':'h'}">`;
+        m.s.forEach(s=>{
+            const strs=s.tm?s.tm.split(',').map(t=>`<span class="t-icon">${TI[t]}</span>`).join(''):'';
+            h+=`<li draggable="true"><div class="card ${s.nt?'has-n':''}" data-t="str" data-n="${s.nt||''}" data-tm="${s.tm||''}"><div class="note-i">${I.note}</div><button class="act-btn act-del" onclick="del(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="icon-s icon-w">${I.store}</div><span class="lbl" contenteditable="true" onblur="ren(this,'Store')">${s.n}</span><span class="sub">Store</span><div class="t-row">${strs}<button class="t-add" onclick="openT(this)">+</button></div></div></li>`;
+        });
+        h+=`</ul></li>`;
+    });
+    document.getElementById('root').innerHTML=h+`</ul></li>`; bind(); save(true);
+}
+async function pdf() {
+    const w=document.getElementById('wrap'), t=w.style.transform; w.style.transform='scale(1)';
+    await new Promise(r=>setTimeout(r,100));
+    const c=await html2canvas(document.querySelector('.tree'),{scale:2,backgroundColor:null});
+    w.style.transform=t;
+    const p=new window.jspdf.jsPDF({orientation:'landscape',unit:'px',format:[c.width+40,c.height+40]});
+    p.addImage(c.toDataURL('image/png'),'PNG',20,20,c.width,c.height);
+    p.save('structure.pdf');
+}
+
+init(); window.onresize=fit;
+</script></body></html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adyen Account Structure V41 (Visuals Fixed)</title>
+    <title>Adyen Account Structure V41</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -120,37 +120,18 @@
         .node-card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(11, 30, 59, 0.15); z-index: 20; }
         .node-card.active-card { border-color: var(--highlight-color); background-color: var(--highlight-light); outline: none; }
 
-        /* --- DRAG & DROP VISUALS (FIXED) --- */
+        /* Drag Visuals */
         .tree li.dragging .node-card { opacity: 0.4; }
-        
-        /* Highlight Merchant Targets */
-        .tree.drag-merchant .node-card[data-type="pos"], 
-        .tree.drag-merchant .node-card[data-type="ecom"] {
-            border: 2px dashed var(--highlight-color);
-            background-color: var(--highlight-light);
-            outline: none;
-        }
-
-        /* Highlight Store Targets */
-        .tree.drag-store .node-card[data-type="store"] {
-            border: 2px dashed var(--highlight-color);
-            background-color: var(--highlight-light);
-            outline: none;
-        }
-        
-        /* Hover Effect during drag */
-        .tree li.drag-over > .node-card { 
-            transform: scale(1.05); 
-            box-shadow: 0 0 15px rgba(0, 182, 122, 0.3);
-            border-style: solid !important; /* Make solid when hovering over specifically */
-        }
+        .tree li.drag-over > .node-card { border-color: var(--highlight-color); background-color: var(--highlight-light); transform: scale(1.05); }
 
         /* Icons */
         .icon-wrapper { 
             border-radius: 12px; padding: 8px; transition: background 0.2s; 
         }
+        
         .icon-wrapper:not(.static-icon) { cursor: pointer; }
         .icon-wrapper:not(.static-icon):hover { background: #f5f5f7; }
+        
         .static-icon { pointer-events: none; padding: 8px; }
         
         .icon { width: 44px; height: 44px; color: var(--text-color); display: block; pointer-events: none; }
@@ -229,21 +210,18 @@
 <body>
 
     <div class="float-bar bar-left">
-        <button class="glass-btn" id="undoBtn" onclick="undo()" title="Undo">
+        <button class="glass-btn" onclick="undo()" title="Undo">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
         </button>
-        <button class="glass-btn" id="redoBtn" onclick="redo()" title="Redo">
+        <button class="glass-btn" onclick="redo()" title="Redo">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>
         </button>
         <button class="glass-btn" onclick="resetAll()">Reset</button>
     </div>
 
     <div class="float-bar bar-right">
-        <button class="glass-btn" onclick="generateShareLink()" title="Share Link">
+        <button class="glass-btn" onclick="generateShareLink()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        </button>
-        <button class="glass-btn" onclick="exportPDF()" title="Download PDF">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </button>
     </div>
 
@@ -279,7 +257,7 @@
             <h3 style="margin:0; text-align:center; font-size:1rem; color:#333;">Add Terminal</h3>
             <div class="term-grid">
                 <div class="term-opt" onclick="addTerminal('counter')">
-                    <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="6" y="5" width="12" height="10" rx="1" fill="#e0e0e0" stroke="none"/><path d="M6 20h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z"/></svg> Counter
+                    <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="6" y="5" width="12" height="10" rx="1" fill="#e0e0e0" stroke="none"/><path d="M6 20h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z M6 24h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z M6 28h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z"/></svg> Counter
                 </div>
                 <div class="term-opt" onclick="addTerminal('mobile')">
                     <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="4" y="2" width="16" height="24" rx="2" fill="#0abf53" stroke="none" opacity="0.2"/></svg> Mobile
@@ -288,7 +266,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><path d="M12 18h.01"/><path d="M10 6c2 0 4 .5 4 2"/><path d="M9 9c1.5 0 3 .5 3 1.5"/></svg> TTP
                 </div>
                 <div class="term-opt" onclick="addTerminal('unattended')">
-                    <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="24" rx="2"/><rect x="5" y="9" width="14" height="14" rx="1" fill="#0abf53" opacity="0.2"/></svg> Kiosk
+                    <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="24" rx="2"/><rect x="5" y="9" width="14" height="14" rx="1" fill="#0abf53" opacity="0.4"/></svg> Kiosk
                 </div>
             </div>
         </div>
@@ -720,18 +698,6 @@
             void w.offsetWidth;
             const scale = Math.min(1, (document.getElementById('viewport').clientWidth - 40) / document.querySelector('.tree').scrollWidth);
             w.style.transform = `scale(${scale})`;
-        }
-
-        async function exportPDF() {
-            const w = document.getElementById('tree-wrapper');
-            const t = w.style.transform;
-            w.style.transform='scale(1)';
-            await new Promise(r=>setTimeout(r,100));
-            const c = await html2canvas(document.querySelector('.tree'),{scale:2,backgroundColor:null});
-            w.style.transform=t;
-            const p=new window.jspdf.jsPDF({orientation:'landscape',unit:'px',format:[c.width+40,c.height+40]});
-            p.addImage(c.toDataURL('image/png'),'PNG',20,20,c.width,c.height);
-            p.save('structure.pdf');
         }
 
         init();
