@@ -30,25 +30,20 @@
             color: var(--text-color);
             margin: 0;
             height: 100vh;
-            overflow: hidden;
+            overflow: auto; 
             background-color: var(--bg-color);
             display: flex;
             flex-direction: column;
         }
 
         /* --- Floating Toolbars --- */
-        .float-bar {
-            position: fixed; top: 20px; z-index: 1000;
-            display: flex; gap: 10px;
-        }
+        .float-bar { position: fixed; top: 20px; z-index: 1000; display: flex; gap: 10px; }
         .bar-left { left: 20px; }
         .bar-right { right: 20px; }
 
         .glass-btn {
-            background: rgba(245, 245, 245, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0,0,0,0.05);
-            border-radius: 12px; padding: 10px; cursor: pointer; color: #333;
+            background: rgba(245, 245, 245, 0.8); backdrop-filter: blur(10px);
+            border: 1px solid rgba(0,0,0,0.05); border-radius: 12px; padding: 10px; cursor: pointer; color: #333;
             transition: all 0.2s; display: flex; align-items: center; justify-content: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05); min-width: 40px; height: 40px;
         }
@@ -60,96 +55,66 @@
         .viewport {
             flex: 1; width: 100%; overflow: auto;
             display: flex; justify-content: center; align-items: flex-start;
-            position: relative; background: white;
+            position: relative; background: white; padding-bottom: 250px; 
         }
 
         .tree-wrapper {
-            transform-origin: top center; 
-            transition: transform 0.3s ease-out;
-            padding: 40px; 
-            display: inline-flex;
-            justify-content: center;
-            min-width: 100%;
-            box-sizing: border-box;
+            transform-origin: top center; transition: transform 0.3s ease-out;
+            padding: 40px; display: inline-flex; justify-content: center;
+            min-width: 100%; box-sizing: border-box; position: relative;
         }
 
         /* --- Tree CSS --- */
-        .tree { display: flex; justify-content: center; padding: 20px; }
+        .tree { display: flex; justify-content: center; padding: 20px; position: relative; }
         .tree ul { padding-top: 40px; position: relative; display: flex; justify-content: center; margin: 0; padding-left: 0; }
         .tree li {
             list-style-type: none; position: relative; padding: 40px 20px 0 20px;
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: flex-start;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
         }
 
         /* --- Exact JS-Driven Connector Framework --- */
         .tree li::before, .tree li::after { display: none !important; }
-
-        /* Parent Top Drop */
         .tree ul ul::before {
             content: ''; position: absolute; top: 0; left: 50%;
             border-left: 2px solid var(--line-color); width: 0; height: 40px; z-index: 1;
         }
         .tree > ul::before { display: none; }
         .tree ul:empty::before { display: none; }
-        .tree ul.empty-node::before { display: none !important; } /* Stops false drops on nodes with no children */
+        .tree ul.empty-node::before { display: none !important; }
         .tree ul.hidden { display: none; }
         
-        /* The Calculated Horizontal Spine */
-        .top-bridge {
-            position: absolute;
-            top: 40px; 
-            height: 2px;
-            background-color: var(--line-color);
-            z-index: 1;
-        }
-
-        /* Individual Node Drops */
-        .line-drop {
-            position: absolute; left: 50%; top: 0; width: 0; border-left: 2px solid var(--line-color); height: 40px; z-index: 1; display: none;
-        }
-
-        /* BP to Merchant Horizontal Linkers */
-        .bp-transmitter {
-            position: absolute; top: 105px; left: 50%; width: 50%;
-            border-top: 2px solid var(--line-color); z-index: 0; display: none;
-        }
-        .bp-receiver {
-            position: absolute; top: 105px; right: 50%; width: 50%;
-            border-top: 2px solid var(--line-color); z-index: 0; display: none;
-        }
+        .top-bridge { position: absolute; top: 40px; height: 2px; background-color: var(--line-color); z-index: 1; }
+        .line-drop { position: absolute; left: 50%; top: 0; width: 0; border-left: 2px solid var(--line-color); height: 40px; z-index: 1; display: none; }
+        .bp-transmitter { position: absolute; top: 105px; left: 50%; width: 50%; border-top: 2px solid var(--line-color); z-index: 0; display: none; }
+        .bp-receiver { position: absolute; top: 105px; right: 50%; width: 50%; border-top: 2px solid var(--line-color); z-index: 0; display: none; }
 
         /* --- Node Card --- */
         .node-card {
-            background: white; border: 2px solid transparent; 
-            outline: 1px solid var(--btn-border); border-radius: 16px;
-            padding: 20px; display: flex; flex-direction: column; align-items: center;
-            gap: 8px; min-width: 160px;
-            box-shadow: 0 2px 8px rgba(11, 30, 59, 0.08);
-            transition: all 0.2s; position: relative; z-index: 10; cursor: pointer;
+            background: white; border: 2px solid transparent; outline: 1px solid var(--btn-border); border-radius: 16px;
+            padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 160px;
+            box-shadow: 0 2px 8px rgba(11, 30, 59, 0.08); transition: all 0.2s; position: relative; z-index: 10; cursor: pointer;
         }
         .node-card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(11, 30, 59, 0.15); z-index: 20; }
         .node-card.active-card { border-color: var(--highlight-color); background-color: var(--highlight-light); outline: none; }
 
-        /* DRAG & DROP VISUALS */
-        .tree li.dragging .node-card { opacity: 0.4; }
-        
-        .tree.drag-merchant .node-card[data-type="pos"], 
-        .tree.drag-merchant .node-card[data-type="ecom"],
-        .tree.drag-merchant .node-card[data-type="bp"] {
-            border: 2px dashed var(--highlight-color); background-color: var(--highlight-light); outline: none;
-        }
+        .node-card[data-type="legalEntity"], .node-card[data-type="businessLine"] { background-color: #f8f9fa; border-color: #e0e0e0; }
 
-        .tree.drag-store .node-card[data-type="store"],
-        .tree.drag-store .node-card[data-type="accHolder"],
-        .tree.drag-store .node-card[data-type="balanceAcc"],
-        .tree.drag-store .node-card[data-type="grantAcc"] {
-            border: 2px dashed var(--highlight-color); background-color: var(--highlight-light); outline: none;
+        /* DRAG & DROP TARGETING HIGHLIGHTS */
+        .tree li.dragging .node-card { opacity: 0.4; }
+        body.is-dragging .node-card { opacity: 0.4; } 
+        body.is-dragging .node-card.valid-drop-target {
+            opacity: 1; border: 2px dashed var(--highlight-color); background-color: var(--highlight-light); outline: none;
         }
-        
-        .tree li.drag-over > .node-card { 
+        .tree li.drag-over > .node-card.valid-drop-target { 
             transform: scale(1.05); box-shadow: 0 0 15px rgba(0, 182, 122, 0.3); border-style: solid !important; 
         }
+
+        /* SVG Cross-Link Hover System */
+        .cross-link-group .visible-path { transition: stroke 0.2s; }
+        .cross-link-group .link-btn { opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+        
+        .cross-link-group:hover .visible-path, .cross-link-group.active-link .visible-path { stroke: var(--highlight-color) !important; }
+        .cross-link-group:hover .link-btn, .cross-link-group.active-link .link-btn { opacity: 1; pointer-events: auto; }
 
         /* Icons */
         .icon-wrapper { border-radius: 12px; padding: 8px; transition: background 0.2s; }
@@ -171,8 +136,11 @@
         .node-card:hover .btn-float { opacity: 1; pointer-events: auto; }
         .btn-add { bottom: -14px; left: 50%; margin-left: -14px; color: var(--highlight-color); border-color: var(--highlight-color); }
         .btn-del { top: -14px; left: 50%; margin-left: -14px; color: var(--danger-color); border-color: var(--danger-color); }
-        .btn-add:hover { background: var(--highlight-color); color: white; transform: scale(1.1); }
+        .btn-add-secondary { bottom: -14px; left: 20%; margin-left: -14px; font-size: 10px; font-weight: 700; color: var(--highlight-color); border-color: var(--highlight-color); width: 28px; height: 28px; }
+        
+        .btn-add:hover, .btn-add-secondary:hover { background: var(--highlight-color); color: white; transform: scale(1.1); }
         .btn-del:hover { background: var(--danger-color); color: white; transform: scale(1.1); }
+        
         .btn-float svg { width: 14px; height: 14px; stroke-width: 3px; display: block; stroke: currentColor; fill: none; }
         .note-indicator { position: absolute; top: 10px; right: 10px; width: 16px; height: 16px; color: #666; display: none; pointer-events: none; }
         .node-card.has-note .note-indicator { display: block; }
@@ -261,6 +229,7 @@
     <div class="viewport" id="viewport">
         <div class="tree-wrapper" id="tree-wrapper">
             <div class="tree">
+                <svg id="svg-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: visible;"></svg>
                 <ul id="root-ul"></ul>
             </div>
         </div>
@@ -288,6 +257,7 @@
             <div class="type-switch" id="switch-instrument" style="display:none;">
                 <div class="type-opt" id="opt-payInstCard" onclick="setSheetType('payInstCard')">Card</div>
                 <div class="type-opt" id="opt-payInstBiz" onclick="setSheetType('payInstBiz')">Business Acc</div>
+                <div class="type-opt" id="opt-transferInst" onclick="setSheetType('transferInst')">Transfer Inst</div>
             </div>
         </div>
 
@@ -301,32 +271,25 @@
         <div class="term-picker">
             <h3 style="margin:0; text-align:center; font-size:1rem; color:#333;">Add Terminal</h3>
             <div class="term-grid">
-                <div class="term-opt" onclick="addTerminal('counter')">
-                    <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="6" y="5" width="12" height="10" rx="1" fill="#e0e0e0" stroke="none"/><path d="M6 20h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z"/></svg> Counter
-                </div>
-                <div class="term-opt" onclick="addTerminal('mobile')">
-                    <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="4" y="2" width="16" height="24" rx="2" fill="#0abf53" stroke="none" opacity="0.2"/></svg> Mobile
-                </div>
-                <div class="term-opt" onclick="addTerminal('reader')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><path d="M12 18h.01"/><path d="M10 6c2 0 4 .5 4 2"/><path d="M9 9c1.5 0 3 .5 3 1.5"/></svg> TTP
-                </div>
-                <div class="term-opt" onclick="addTerminal('unattended')">
-                    <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="24" rx="2"/><rect x="5" y="9" width="14" height="14" rx="1" fill="#0abf53" opacity="0.2"/></svg> Kiosk
-                </div>
+                <div class="term-opt" onclick="addTerminal('counter')"><svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="6" y="5" width="12" height="10" rx="1" fill="#e0e0e0" stroke="none"/><path d="M6 20h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2z"/></svg> Counter</div>
+                <div class="term-opt" onclick="addTerminal('mobile')"><svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="32" rx="3"/><rect x="4" y="2" width="16" height="24" rx="2" fill="#0abf53" stroke="none" opacity="0.2"/></svg> Mobile</div>
+                <div class="term-opt" onclick="addTerminal('reader')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><path d="M12 18h.01"/><path d="M10 6c2 0 4 .5 4 2"/><path d="M9 9c1.5 0 3 .5 3 1.5"/></svg> TTP</div>
+                <div class="term-opt" onclick="addTerminal('unattended')"><svg viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="24" rx="2"/><rect x="5" y="9" width="14" height="14" rx="1" fill="#0abf53" opacity="0.2"/></svg> Kiosk</div>
             </div>
         </div>
     </div>
 
     <div id="toast">Link copied!</div>
 
-    <a href="https://adyen.enterprise.slack.com/team/U09JPQA23BJ" target="_blank" class="feedback-btn" title="Contact on Slack">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-    </svg>
-    <span class="feedback-text">For feedback & improvements contact <strong>@daniel osusky</strong></span>
-    </a>
-
     <script>
+        const defaultNames = {
+            company: 'My Company', pos: 'POS', ecom: 'Ecom', bp: 'Balance Platform',
+            store: 'Store', accHolder: 'Account Holder', liableAccHolder: 'Liable Account Holder',
+            balanceAcc: 'Balance Account', liableBalanceAcc: 'Liable Balance Account', grantAcc: 'Grant Account',
+            payInstCard: 'Card', payInstBiz: 'Business Account', transferInst: 'Transfer Instrument',
+            grantRef: 'Grant Reference', legalEntity: 'Legal Entity', businessLine: 'Business Line'
+        };
+
         const icons = {
             pos: `<svg class="icon" viewBox="0 0 48 48" fill="none"><path d="M10 40H38" stroke="#0b1e3b" stroke-width="2" stroke-linecap="round"/><path d="M14 40V20H34V40Z" stroke="#0b1e3b" stroke-width="2" fill="#fff3e0"/><path d="M10 20L24 10L38 20H10Z" stroke="#0b1e3b" stroke-width="2" stroke-linejoin="round" fill="#fff3e0"/><path d="M22 40V28H26V40" stroke="#0b1e3b" stroke-width="2"/></svg>`,
             ecom: `<svg class="icon" viewBox="0 0 48 48" fill="none"><rect x="6" y="10" width="36" height="28" rx="3" stroke="#0b1e3b" stroke-width="2" fill="#f3e5f5"/><path d="M6 18H42" stroke="#0b1e3b" stroke-width="2"/><path d="M16 18V38" stroke="#0b1e3b" stroke-width="2"/><circle cx="11" cy="14" r="1" fill="#0b1e3b"/><circle cx="15" cy="14" r="1" fill="#0b1e3b"/></svg>`,
@@ -335,11 +298,16 @@
             note: `<svg class="note-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
             bp: `<svg class="icon" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="14" r="6" stroke="#0b1e3b" stroke-width="2" fill="#e0f7fa"/><circle cx="14" cy="34" r="6" stroke="#0b1e3b" stroke-width="2" fill="#e0f7fa"/><circle cx="34" cy="34" r="6" stroke="#0b1e3b" stroke-width="2" fill="#e0f7fa"/><path d="M20 18L16 28M28 18L32 28M18 34H30" stroke="#0b1e3b" stroke-width="2"/></svg>`,
             accHolder: `<svg class="icon" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="16" r="8" stroke="#0b1e3b" stroke-width="2" fill="#e8eaf6"/><path d="M10 40C10 32.268 16.268 26 24 26C31.732 26 38 32.268 38 40" stroke="#0b1e3b" stroke-width="2"/></svg>`,
+            liableAccHolder: `<svg class="icon" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="14" r="6" stroke="#0b1e3b" stroke-width="2" fill="#e8eaf6"/><path d="M12 40C12 32.268 17.373 26 24 26C30.627 26 36 32.268 36 40" stroke="#0b1e3b" stroke-width="2"/><path d="M24 26L21 34L24 38L27 34L24 26Z" stroke="#0b1e3b" stroke-width="2"/></svg>`,
             balanceAcc: `<svg class="icon" viewBox="0 0 48 48" fill="none"><rect x="8" y="12" width="32" height="24" rx="4" stroke="#0b1e3b" stroke-width="2" fill="#fff9c4"/><path d="M32 24A2 2 0 1 0 32 20A2 2 0 1 0 32 24Z" fill="#0b1e3b"/><path d="M40 18H28V30H40" stroke="#0b1e3b" stroke-width="2"/></svg>`,
+            liableBalanceAcc: `<svg class="icon" viewBox="0 0 48 48" fill="none"><rect x="8" y="12" width="32" height="24" rx="4" stroke="#0b1e3b" stroke-width="2" fill="#fff9c4"/><path d="M32 24A2 2 0 1 0 32 20A2 2 0 1 0 32 24Z" fill="#0b1e3b"/><path d="M40 18H28V30H40" stroke="#0b1e3b" stroke-width="2"/></svg>`,
             grantAcc: `<svg class="icon" viewBox="0 0 48 48" fill="none"><rect x="12" y="8" width="24" height="32" rx="2" stroke="#0b1e3b" stroke-width="2" fill="#ffe0b2"/><circle cx="24" cy="24" r="6" stroke="#0b1e3b" stroke-width="2" fill="#ffcc80"/><path d="M24 21V27M21 24H27" stroke="#0b1e3b" stroke-width="2"/></svg>`,
             payInstCard: `<svg class="icon" viewBox="0 0 48 48" fill="none"><rect x="6" y="14" width="36" height="20" rx="3" stroke="#0b1e3b" stroke-width="2" fill="#cfd8dc"/><path d="M6 22H42" stroke="#0b1e3b" stroke-width="4"/></svg>`,
             payInstBiz: `<svg class="icon" viewBox="0 0 48 48" fill="none"><path d="M24 8L8 18H40L24 8Z" stroke="#0b1e3b" stroke-width="2" fill="#dcedc8"/><path d="M12 18V36M20 18V36M28 18V36M36 18V36M8 36H40" stroke="#0b1e3b" stroke-width="2"/></svg>`,
-            grantRef: `<svg class="icon" viewBox="0 0 48 48" fill="none"><rect x="14" y="10" width="20" height="28" stroke="#0b1e3b" stroke-width="2" fill="#f5f5f5"/><path d="M18 16H30M18 22H30M18 28H24" stroke="#0b1e3b" stroke-width="2"/></svg>`
+            transferInst: `<svg class="icon" viewBox="0 0 48 48" fill="none"><path d="M14 24H34M28 18L34 24L28 30" stroke="#0b1e3b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="24" r="18" stroke="#0b1e3b" stroke-width="2"/></svg>`,
+            grantRef: `<svg class="icon" viewBox="0 0 48 48" fill="none"><rect x="14" y="10" width="20" height="28" stroke="#0b1e3b" stroke-width="2" fill="#f5f5f5"/><path d="M18 16H30M18 22H30M18 28H24" stroke="#0b1e3b" stroke-width="2"/></svg>`,
+            legalEntity: `<svg class="icon" viewBox="0 0 48 48" fill="none"><rect x="12" y="8" width="24" height="32" rx="2" stroke="#0b1e3b" stroke-width="2" fill="#f5f5f5"/><rect x="18" y="16" width="12" height="8" rx="1" stroke="#0b1e3b" stroke-width="2"/><path d="M18 30H30M18 34H26" stroke="#0b1e3b" stroke-width="2" stroke-linecap="round"/></svg>`,
+            businessLine: `<svg class="icon" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="16" r="4" stroke="#0b1e3b" stroke-width="2"/><path d="M18 30C18 26.686 20.686 24 24 24C27.314 24 30 26.686 30 30V34H18V30Z" stroke="#0b1e3b" stroke-width="2"/><circle cx="14" cy="20" r="3" stroke="#0b1e3b" stroke-width="2"/><path d="M10 30C10 27.791 11.791 26 14 26C16.209 26 18 27.791 18 30V34H10V30Z" stroke="#0b1e3b" stroke-width="2"/><circle cx="34" cy="20" r="3" stroke="#0b1e3b" stroke-width="2"/><path d="M30 30C30 27.791 31.791 26 34 26C36.209 26 38 27.791 38 30V34H30V30Z" stroke="#0b1e3b" stroke-width="2"/></svg>`
         };
 
         const termIcons = {
@@ -349,48 +317,51 @@
             unattended: `<svg class="term-icon-sm" viewBox="0 0 24 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="24" rx="2"/><rect x="5" y="9" width="14" height="14" rx="1" fill="#0abf53" opacity="0.4"/></svg>`
         };
 
+        function generateId() {
+            return 'node-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function generateNodeHTML(type, label, subLabel, hasTerms, hasAdd, isToggle, hasAddLE, linkedToId = '') {
+            const toggleCls = isToggle ? 'icon-wrapper' : 'static-icon icon-wrapper';
+            const clickAttr = isToggle ? `onclick="toggleNodeType(this)"` : '';
+            const termHtml = hasTerms ? `<div class="terminals-row"><button class="btn-add-term" onclick="openTermModal(this)">+</button></div>` : '';
+            const addHtml = hasAdd ? `<button class="btn-float btn-add" onclick="addChildNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>` : '';
+            const addLeHtml = hasAddLE ? `<button class="btn-float btn-add-secondary" onclick="addLegalEntity(this)" title="Add Legal Entity">LE</button>` : '';
+            const linkedToAttr = linkedToId ? `data-linked-to="${linkedToId}"` : '';
+            
+            return `
+                <div class="line-drop"></div>
+                <div class="bp-receiver"></div>
+                <div class="bp-transmitter"></div>
+                <div class="node-card" id="${generateId()}" data-type="${type}" data-note="" data-terms="" ${linkedToAttr}>
+                    ${icons.note}
+                    <button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                    <div class="${toggleCls}" ${clickAttr}>${icons[type] || icons.store}</div>
+                    <span class="label" contenteditable="true" onblur="validateName(this)">${label}</span>
+                    <span class="sub-label">${subLabel}</span>
+                    ${termHtml}
+                    ${addHtml}
+                    ${addLeHtml}
+                </div>
+                <ul class="children-container empty-node"></ul>
+            `;
+        }
+
         const defaultTemplate = `
             <li>
                 <div class="line-drop"></div>
                 <div class="bp-receiver"></div>
                 <div class="bp-transmitter"></div>
-                <div class="node-card" id="company-node" data-type="company" data-note="">
+                <div class="node-card" id="${generateId()}" data-type="company" data-note="">
                     ${icons.note}
                     <div class="static-icon icon-wrapper">${icons.company}</div>
-                    <span class="label" contenteditable="true" onblur="validateName(this, 'My Company')">My Company</span>
+                    <span class="label" contenteditable="true" onblur="validateName(this)">${defaultNames.company}</span>
                     <span class="sub-label">Company Account</span>
                     <button class="btn-float btn-add" onclick="addChildNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                 </div>
                 <ul id="merchant-level" class="children-container empty-node">
                     <li draggable="true">
-                        <div class="line-drop"></div>
-                        <div class="bp-receiver"></div>
-                        <div class="bp-transmitter"></div>
-                        <div class="node-card" data-type="pos" data-note="" data-terms="">
-                            ${icons.note}
-                            <button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                            <div class="icon-wrapper" onclick="toggleNodeType(this)">${icons.pos}</div>
-                            <span class="label" contenteditable="true" onblur="validateName(this, 'POS 1')">POS 1</span>
-                            <span class="sub-label">Merchant Account</span>
-                            <div class="terminals-row"><button class="btn-add-term" onclick="openTermModal(this)">+</button></div>
-                            <button class="btn-float btn-add" onclick="addChildNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-                        </div>
-                        <ul class="children-container empty-node">
-                            <li draggable="true">
-                                <div class="line-drop"></div>
-                                <div class="bp-receiver"></div>
-                                <div class="bp-transmitter"></div>
-                                <div class="node-card" data-type="store" data-note="" data-terms="">
-                                    ${icons.note}
-                                    <button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                                    <div class="static-icon icon-wrapper">${icons.store}</div>
-                                    <span class="label" contenteditable="true" onblur="validateName(this, 'Store 1')">Store 1</span>
-                                    <span class="sub-label">Store</span>
-                                    <div class="terminals-row"><button class="btn-add-term" onclick="openTermModal(this)">+</button></div>
-                                </div>
-                                <ul class="children-container empty-node"></ul>
-                            </li>
-                        </ul>
+                        ${generateNodeHTML('pos', defaultNames.pos, 'Merchant Account', true, true, true, false)}
                     </li>
                 </ul>
             </li>
@@ -401,6 +372,36 @@
         let isInternalUpdate = false;
         let activeCard = null;
         let activeCardForTerm = null;
+
+        // Hover listeners for the entire visual cross-link structure
+        document.addEventListener('mouseover', (e) => {
+            const card = e.target.closest('.node-card');
+            if (card) {
+                const linkedTo = card.getAttribute('data-linked-to');
+                if (linkedTo) {
+                    const g = document.getElementById(`link-group-${card.id}`);
+                    if (g) g.classList.add('active-link');
+                }
+                document.querySelectorAll(`.node-card[data-linked-to="${card.id}"]`).forEach(src => {
+                    const g = document.getElementById(`link-group-${src.id}`);
+                    if (g) g.classList.add('active-link');
+                });
+            }
+        });
+        document.addEventListener('mouseout', (e) => {
+            const card = e.target.closest('.node-card');
+            if (card) {
+                const linkedTo = card.getAttribute('data-linked-to');
+                if (linkedTo) {
+                    const g = document.getElementById(`link-group-${card.id}`);
+                    if (g) g.classList.remove('active-link');
+                }
+                document.querySelectorAll(`.node-card[data-linked-to="${card.id}"]`).forEach(src => {
+                    const g = document.getElementById(`link-group-${src.id}`);
+                    if (g) g.classList.remove('active-link');
+                });
+            }
+        });
 
         function init() {
             const hash = window.location.hash.substring(1);
@@ -419,10 +420,15 @@
             loadFromStorage();
         }
 
+        function ensureIds() {
+            document.querySelectorAll('.node-card:not([id])').forEach(card => card.id = generateId());
+        }
+
         function loadFromStorage() {
-            const saved = localStorage.getItem('adyen_v49');
+            const saved = localStorage.getItem('adyen_v55');
             const root = document.getElementById('root-ul');
             root.innerHTML = saved || defaultTemplate;
+            ensureIds();
             cleanVisibilityState(root);
             reattachEvents();
             historyStack = [root.innerHTML];
@@ -437,7 +443,7 @@
                 historyStack = historyStack.slice(0, historyIndex + 1);
             }
             const state = document.getElementById('root-ul').innerHTML;
-            localStorage.setItem('adyen_v49', state);
+            localStorage.setItem('adyen_v55', state);
             historyStack.push(state);
             historyIndex++;
             updateUndoUI();
@@ -446,7 +452,7 @@
 
         function resetAll() {
             if(confirm("Reset structure?")) {
-                localStorage.removeItem('adyen_v49');
+                localStorage.removeItem('adyen_v55');
                 location.reload();
             }
         }
@@ -463,16 +469,17 @@
                 document.getElementById('opt-pos').className = type === 'pos' ? 'type-opt active' : 'type-opt';
                 document.getElementById('opt-ecom').className = type === 'ecom' ? 'type-opt active' : 'type-opt';
                 document.getElementById('opt-bp').className = type === 'bp' ? 'type-opt active' : 'type-opt';
-            } else if (['balanceAcc', 'grantAcc'].includes(type)) {
+            } else if (['balanceAcc', 'grantAcc', 'liableBalanceAcc'].includes(type)) {
                 typeSec.style.display = 'block';
                 document.getElementById('switch-account').style.display = 'flex';
-                document.getElementById('opt-balanceAcc').className = type === 'balanceAcc' ? 'type-opt active' : 'type-opt';
+                document.getElementById('opt-balanceAcc').className = (type === 'balanceAcc' || type === 'liableBalanceAcc') ? 'type-opt active' : 'type-opt';
                 document.getElementById('opt-grantAcc').className = type === 'grantAcc' ? 'type-opt active' : 'type-opt';
-            } else if (['payInstCard', 'payInstBiz'].includes(type)) {
+            } else if (['payInstCard', 'payInstBiz', 'transferInst'].includes(type)) {
                 typeSec.style.display = 'block';
                 document.getElementById('switch-instrument').style.display = 'flex';
                 document.getElementById('opt-payInstCard').className = type === 'payInstCard' ? 'type-opt active' : 'type-opt';
                 document.getElementById('opt-payInstBiz').className = type === 'payInstBiz' ? 'type-opt active' : 'type-opt';
+                document.getElementById('opt-transferInst').className = type === 'transferInst' ? 'type-opt active' : 'type-opt';
             } else {
                 typeSec.style.display = 'none';
             }
@@ -510,8 +517,17 @@
         function setSheetType(type) {
             if(!activeCard) return;
             const current = activeCard.getAttribute('data-type');
-            if(current === type) return;
-            applyNodeType(activeCard, type);
+            let targetType = type;
+
+            if (type === 'balanceAcc') {
+                const parentUl = activeCard.closest('.children-container');
+                if (parentUl && parentUl.previousElementSibling) {
+                    if (parentUl.previousElementSibling.getAttribute('data-type') === 'liableAccHolder') targetType = 'liableBalanceAcc';
+                }
+            }
+
+            if(current === targetType) return;
+            applyNodeType(activeCard, targetType);
             openCard(activeCard); 
         }
 
@@ -559,16 +575,186 @@
             }
         });
 
-        function validateName(el, def) {
-            if(el.innerText.trim() === '') el.innerText = def;
+        function validateName(el) {
+            if(el.innerText.trim() === '') {
+                const type = el.closest('.node-card').getAttribute('data-type');
+                el.innerText = defaultNames[type] || 'Account';
+            }
             if(activeCard === el.closest('.node-card')) document.getElementById('sheet-title').innerText = el.innerText;
             saveState();
         }
 
-        function recalculateAllTreeLines() {
-            document.querySelectorAll('#root-ul, .children-container').forEach(ul => {
-                recalculateTreeLines(ul);
+        function getRelativePos(element, container) {
+            let x = 0, y = 0;
+            let el = element;
+            while (el && el !== container && el !== document.body) {
+                x += el.offsetLeft;
+                y += el.offsetTop;
+                el = el.offsetParent;
+            }
+            return { x, y };
+        }
+
+        function updateAddButtons() {
+            document.querySelectorAll('.node-card[data-type="store"], .node-card[data-type="legalEntity"]').forEach(card => {
+                const ul = card.nextElementSibling;
+                let hasBL = false;
+                if (ul && ul.classList.contains('children-container')) {
+                    hasBL = Array.from(ul.children).some(c => {
+                        const n = c.querySelector('.node-card');
+                        return n && n.getAttribute('data-type') === 'businessLine';
+                    });
+                }
+                const isLinkedTo = document.querySelector(`.node-card[data-type="businessLine"][data-linked-to="${card.id}"]`);
+                
+                const addBtn = card.querySelector('.btn-add');
+                if (addBtn) {
+                    addBtn.style.display = (hasBL || isLinkedTo) ? 'none' : 'flex';
+                }
             });
+
+            document.querySelectorAll('.node-card[data-type="accHolder"], .node-card[data-type="liableAccHolder"]').forEach(card => {
+                const ul = card.nextElementSibling;
+                let hasLE = false;
+                if (ul && ul.classList.contains('children-container')) {
+                    hasLE = Array.from(ul.children).some(c => {
+                        const n = c.querySelector('.node-card');
+                        return n && n.getAttribute('data-type') === 'legalEntity';
+                    });
+                }
+                const addLeBtn = card.querySelector('.btn-add-secondary');
+                if (addLeBtn) addLeBtn.style.display = hasLE ? 'none' : 'flex';
+            });
+        }
+
+        function drawCrossLinks() {
+            const svg = document.getElementById('svg-overlay');
+            if(!svg) return;
+            svg.innerHTML = '';
+            const container = document.querySelector('.tree'); 
+            
+            document.querySelectorAll('.node-card[data-linked-to]').forEach(sourceCard => {
+                const targetId = sourceCard.getAttribute('data-linked-to');
+                if (!targetId) return;
+                const targetCard = document.getElementById(targetId);
+                
+                if (!targetCard) {
+                    sourceCard.removeAttribute('data-linked-to');
+                    return; 
+                }
+                
+                if (sourceCard.closest('li').style.display === 'none' || targetCard.closest('li').style.display === 'none') return;
+                
+                const srcPos = getRelativePos(sourceCard, container);
+                const trgPos = getRelativePos(targetCard, container);
+                
+                const srcX = srcPos.x + sourceCard.offsetWidth / 2;
+                const srcY = srcPos.y + sourceCard.offsetHeight;
+                const trgX = trgPos.x + targetCard.offsetWidth / 2;
+                const trgY = trgPos.y + targetCard.offsetHeight;
+                
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('class', 'cross-link-group');
+                g.setAttribute('id', `link-group-${sourceCard.id}`);
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                
+                const bottomY = Math.max(srcY, trgY) + 40; 
+                path.setAttribute('d', `M ${srcX} ${srcY} V ${bottomY} H ${trgX} V ${trgY}`);
+                path.setAttribute('class', 'visible-path');
+                path.setAttribute('stroke', '#a0aab5');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('stroke-linejoin', 'round');
+                path.setAttribute('stroke-dasharray', '6,6');
+                path.setAttribute('fill', 'none');
+                
+                const hoverPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                hoverPath.setAttribute('d', `M ${srcX} ${srcY} V ${bottomY} H ${trgX} V ${trgY}`);
+                hoverPath.setAttribute('class', 'hover-path');
+                hoverPath.setAttribute('stroke', 'transparent');
+                hoverPath.setAttribute('stroke-width', '20');
+                hoverPath.setAttribute('fill', 'none');
+                hoverPath.style.pointerEvents = 'stroke';
+                
+                const createDeleteBtn = (x, y) => {
+                    const btn = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    btn.setAttribute('class', 'link-btn');
+                    btn.style.cursor = 'pointer';
+                    
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', x); circle.setAttribute('cy', y);
+                    circle.setAttribute('r', '10'); circle.setAttribute('fill', '#fff');
+                    circle.setAttribute('stroke', 'var(--danger-color)'); circle.setAttribute('stroke-width', '1.5');
+                    circle.style.transition = 'fill 0.2s';
+                    
+                    const cross1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    cross1.setAttribute('x1', x - 4); cross1.setAttribute('y1', y - 4);
+                    cross1.setAttribute('x2', x + 4); cross1.setAttribute('y2', y + 4);
+                    cross1.setAttribute('stroke', 'var(--danger-color)'); cross1.setAttribute('stroke-width', '2');
+                    
+                    const cross2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    cross2.setAttribute('x1', x + 4); cross2.setAttribute('y1', y - 4);
+                    cross2.setAttribute('x2', x - 4); cross2.setAttribute('y2', y + 4);
+                    cross2.setAttribute('stroke', 'var(--danger-color)'); cross2.setAttribute('stroke-width', '2');
+                    
+                    btn.appendChild(circle); btn.appendChild(cross1); btn.appendChild(cross2);
+                    
+                    btn.onmouseenter = () => { circle.setAttribute('fill', 'var(--danger-color)'); cross1.setAttribute('stroke', '#fff'); cross2.setAttribute('stroke', '#fff'); };
+                    btn.onmouseleave = () => { circle.setAttribute('fill', '#fff'); cross1.setAttribute('stroke', 'var(--danger-color)'); cross2.setAttribute('stroke', 'var(--danger-color)'); };
+                    
+                    btn.onclick = (e) => {
+                        e.stopPropagation();
+                        sourceCard.removeAttribute('data-linked-to');
+                        recalculateAllTreeLines();
+                        saveState();
+                    };
+                    return btn;
+                };
+
+                const srcBtn = createDeleteBtn(srcX, srcY + 15);
+                const trgBtn = createDeleteBtn(trgX, trgY + 15);
+
+                g.appendChild(path);
+                g.appendChild(hoverPath);
+                g.appendChild(srcBtn);
+                g.appendChild(trgBtn);
+                svg.appendChild(g);
+            });
+            updateAddButtons();
+        }
+
+        function recalculateAllTreeLines() {
+            document.querySelectorAll('#root-ul, .children-container').forEach(ul => recalculateTreeLines(ul));
+            requestAnimationFrame(() => drawCrossLinks());
+        }
+
+        function addLegalEntity(btn) {
+            event.stopPropagation();
+            const card = btn.closest('.node-card');
+            let ul = card.nextElementSibling;
+            if (!ul || !ul.classList.contains('children-container')) {
+                ul = document.createElement('ul');
+                ul.className = 'children-container empty-node';
+                card.parentNode.appendChild(ul);
+            }
+            
+            const hasLE = Array.from(ul.children).some(c => {
+                const n = c.querySelector('.node-card');
+                return n && n.getAttribute('data-type') === 'legalEntity';
+            });
+            if (hasLE) {
+                alert('Only one Legal Entity allowed per Account Holder.');
+                return;
+            }
+
+            const li = document.createElement('li');
+            li.draggable = true; setupDragEvents(li);
+            li.innerHTML = generateNodeHTML('legalEntity', defaultNames.legalEntity, 'Legal Entity', false, true, false, false);
+            
+            ul.appendChild(li);
+            updateChildrenVisibility(ul, card.getAttribute('data-type')); 
+            recalculateAllTreeLines();
+            saveState();
         }
 
         function addChildNode(btn) {
@@ -583,47 +769,36 @@
                 card.parentNode.appendChild(ul);
             }
 
-            const li = document.createElement('li');
-            li.draggable = true; setupDragEvents(li);
-            const count = ul.children.length + 1;
-
-            let childType, childLabel, childSubLabel, hasTerminals = false, hasAddBtn = true, toggleable = false;
+            let childType, childLabel, childSubLabel, hasTerminals = false, hasAddBtn = true, toggleable = false, hasAddLE = false;
 
             if (type === 'company') {
-                childType = 'pos'; childLabel = 'POS ' + count; childSubLabel = 'Merchant Account'; hasTerminals = true; toggleable = true;
+                childType = 'pos'; childLabel = defaultNames.pos; childSubLabel = 'Merchant Account'; hasTerminals = true; toggleable = true;
             } else if (type === 'pos' || type === 'ecom') {
-                childType = 'store'; childLabel = 'Store ' + count; childSubLabel = 'Store'; hasTerminals = true; hasAddBtn = false;
+                childType = 'store'; childLabel = defaultNames.store; childSubLabel = 'Store'; hasTerminals = true; hasAddBtn = true;
             } else if (type === 'bp') {
-                childType = 'accHolder'; childLabel = 'Holder ' + count; childSubLabel = 'Account Holder'; 
+                childType = 'accHolder'; childLabel = defaultNames.accHolder; childSubLabel = 'Account Holder'; hasAddLE = true; toggleable = true;
             } else if (type === 'accHolder') {
-                childType = 'balanceAcc'; childLabel = 'Balance Acc ' + count; childSubLabel = 'Balance Account'; toggleable = true;
-            } else if (type === 'balanceAcc') {
-                childType = 'payInstCard'; childLabel = 'Card ' + count; childSubLabel = 'Adyen-issued Card'; toggleable = true; hasAddBtn = false;
+                childType = 'balanceAcc'; childLabel = defaultNames.balanceAcc; childSubLabel = 'Balance Account'; toggleable = true;
+            } else if (type === 'liableAccHolder') {
+                childType = 'liableBalanceAcc'; childLabel = defaultNames.liableBalanceAcc; childSubLabel = 'Liable Balance Account'; toggleable = true;
+            } else if (type === 'balanceAcc' || type === 'liableBalanceAcc') {
+                childType = 'payInstCard'; childLabel = defaultNames.payInstCard; childSubLabel = 'Adyen-issued Card'; toggleable = true; hasAddBtn = false;
             } else if (type === 'grantAcc') {
-                childType = 'grantRef'; childLabel = 'Grant Ref ' + count; childSubLabel = 'Grant Reference'; hasAddBtn = false;
+                childType = 'grantRef'; childLabel = defaultNames.grantRef; childSubLabel = 'Grant Reference'; hasAddBtn = false;
+            } else if (type === 'store' || type === 'legalEntity') {
+                const hasBL = Array.from(ul.children).some(c => {
+                    const n = c.querySelector('.node-card');
+                    return n && n.getAttribute('data-type') === 'businessLine';
+                });
+                const isLinkedTo = document.querySelector(`.node-card[data-type="businessLine"][data-linked-to="${card.id}"]`);
+                if (hasBL || isLinkedTo) { alert(`Only one Business Line allowed per ${type === 'store' ? 'Store' : 'Legal Entity'}.`); return; }
+                childType = 'businessLine'; childLabel = defaultNames.businessLine; childSubLabel = 'Business Line'; hasAddBtn = false;
             }
 
-            const toggleClass = toggleable ? 'icon-wrapper' : 'static-icon icon-wrapper';
-            const clickAttr = toggleable ? `onclick="toggleNodeType(this)"` : '';
-
-            let termRowHtml = hasTerminals ? `<div class="terminals-row"><button class="btn-add-term" onclick="openTermModal(this)">+</button></div>` : '';
-            let addBtnHtml = hasAddBtn ? `<button class="btn-float btn-add" onclick="addChildNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>` : '';
-
-            li.innerHTML = `
-                <div class="line-drop"></div>
-                <div class="bp-receiver"></div>
-                <div class="bp-transmitter"></div>
-                <div class="node-card" data-type="${childType}" data-note="">
-                    ${icons.note}
-                    <button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-                    <div class="${toggleClass}" ${clickAttr}>${icons[childType] || icons.store}</div>
-                    <span class="label" contenteditable="true" onblur="validateName(this, '${childLabel}')">${childLabel}</span>
-                    <span class="sub-label">${childSubLabel}</span>
-                    ${termRowHtml}
-                    ${addBtnHtml}
-                </div>
-                <ul class="children-container empty-node"></ul>
-            `;
+            const li = document.createElement('li');
+            li.draggable = true; setupDragEvents(li);
+            li.innerHTML = generateNodeHTML(childType, childLabel, childSubLabel, hasTerminals, hasAddBtn, toggleable, hasAddLE);
+            
             ul.appendChild(li);
             updateChildrenVisibility(ul, type); 
             recalculateAllTreeLines();
@@ -634,11 +809,19 @@
             event.stopPropagation();
             const li = btn.closest('li');
             const ul = li.parentNode;
-            if(activeCard === li.querySelector('.node-card')) closeCard();
+            const cardToRemove = li.querySelector('.node-card');
+            
+            if (cardToRemove) {
+                document.querySelectorAll(`.node-card[data-linked-to="${cardToRemove.id}"]`).forEach(src => {
+                    src.removeAttribute('data-linked-to');
+                });
+            }
+
+            if(activeCard === cardToRemove) closeCard();
             li.remove();
             
-            if (ul) {
-                if (ul.previousElementSibling) updateChildrenVisibility(ul, ul.previousElementSibling.getAttribute('data-type'));
+            if (ul && ul.previousElementSibling) {
+                updateChildrenVisibility(ul, ul.previousElementSibling.getAttribute('data-type'));
             }
             recalculateAllTreeLines();
             saveState();
@@ -653,10 +836,16 @@
             if (current === 'pos') next = 'ecom';
             else if (current === 'ecom') next = 'bp';
             else if (current === 'bp') next = 'pos';
-            else if (current === 'balanceAcc') next = 'grantAcc';
-            else if (current === 'grantAcc') next = 'balanceAcc';
+            else if (current === 'balanceAcc' || current === 'liableBalanceAcc') next = 'grantAcc';
+            else if (current === 'grantAcc') {
+                const parentType = card.closest('.children-container').previousElementSibling.getAttribute('data-type');
+                next = parentType === 'liableAccHolder' ? 'liableBalanceAcc' : 'balanceAcc';
+            }
             else if (current === 'payInstCard') next = 'payInstBiz';
-            else if (current === 'payInstBiz') next = 'payInstCard';
+            else if (current === 'payInstBiz') next = 'transferInst';
+            else if (current === 'transferInst') next = 'payInstCard';
+            else if (current === 'accHolder') next = 'liableAccHolder';
+            else if (current === 'liableAccHolder') next = 'accHolder';
             else return;
 
             applyNodeType(card, next);
@@ -688,10 +877,9 @@
 
             if (visibleItems.length === 0) {
                 topBridge.style.display = 'none';
-                ul.classList.add('empty-node'); // Fully disables the parent's vertical down-drop line
+                ul.classList.add('empty-node'); 
                 return;
             }
-            
             ul.classList.remove('empty-node');
 
             let firstStd = -1, lastStd = -1;
@@ -730,11 +918,27 @@
                         if (!isBp && ld) ld.style.display = 'block';
 
                         const tx = Array.from(li.children).find(c => c.classList.contains('bp-transmitter'));
-                        if (isBp && i + 1 < visibleItems.length) {
-                            if (tx) tx.style.display = 'block';
-                            const nextLi = visibleItems[i + 1];
-                            const nextRx = Array.from(nextLi.children).find(c => c.classList.contains('bp-receiver'));
-                            if (nextRx) nextRx.style.display = 'block';
+                        const rx = Array.from(li.children).find(c => c.classList.contains('bp-receiver'));
+                        
+                        if (isBp) {
+                            let rightMerch = visibleItems.findIndex((v, idx) => idx > i && !v.classList.contains('is-bp'));
+                            let leftMerch = visibleItems.findLastIndex((v, idx) => idx < i && !v.classList.contains('is-bp'));
+
+                            if (rightMerch !== -1) {
+                                if (tx) tx.style.display = 'block';
+                                if (i + 1 < visibleItems.length) {
+                                    const nextRx = Array.from(visibleItems[i+1].children).find(c => c.classList.contains('bp-receiver'));
+                                    if (nextRx) nextRx.style.display = 'block';
+                                }
+                            } else if (leftMerch !== -1) {
+                                if (rx) rx.style.display = 'block';
+                                if (i - 1 >= 0) {
+                                    const prevTx = Array.from(visibleItems[i-1].children).find(c => c.classList.contains('bp-transmitter'));
+                                    if (prevTx) prevTx.style.display = 'block';
+                                }
+                            } else {
+                                if (ld) ld.style.display = 'block'; 
+                            }
                         }
                     }
                 } else {
@@ -771,11 +975,11 @@
                 let shouldShow = true;
                 
                 if (parentType === 'bp' && childType === 'store') shouldShow = false;
-                if ((parentType === 'pos' || parentType === 'ecom') && childType === 'accHolder') shouldShow = false;
+                if ((parentType === 'pos' || parentType === 'ecom') && (childType === 'accHolder' || childType === 'liableAccHolder' || childType === 'legalEntity')) shouldShow = false;
                 if (parentType === 'ecom' && childType === 'store') shouldShow = false;
                 
                 if (parentType === 'balanceAcc' && childType === 'grantRef') shouldShow = false;
-                if (parentType === 'grantAcc' && (childType === 'payInstCard' || childType === 'payInstBiz')) shouldShow = false;
+                if (parentType === 'grantAcc' && (childType === 'payInstCard' || childType === 'payInstBiz' || childType === 'transferInst')) shouldShow = false;
                 
                 li.style.display = shouldShow ? '' : 'none';
             });
@@ -791,45 +995,65 @@
             recalculateAllTreeLines();
         }
 
-        function applyNodeType(card, next) {
+        function applyNodeType(card, next, skipSave = false) {
             const wrapper = card.querySelector('.icon-wrapper');
             card.setAttribute('data-type', next);
             wrapper.innerHTML = icons[next];
+            
             const lbl = card.querySelector('.label');
             const subLbl = card.querySelector('.sub-label');
             const ul = card.nextElementSibling;
             const btn = card.querySelector('.btn-add');
             const termRow = card.querySelector('.terminals-row');
 
+            const currentName = lbl.innerText.trim();
+            const isDefault = Object.values(defaultNames).includes(currentName);
+            if (isDefault) lbl.innerText = defaultNames[next];
+
             if (next === 'bp') {
-                if(lbl.innerText.includes('POS') || lbl.innerText.includes('ECOM')) lbl.innerText = 'Balance Platform';
                 subLbl.innerText = 'Balance Platform';
                 if (btn) btn.style.display = 'flex';
                 if (termRow) termRow.style.display = 'none'; 
             } else if (next === 'pos' || next === 'ecom') {
                 subLbl.innerText = 'Merchant Account';
                 if(next === 'pos') {
-                    if(lbl.innerText.includes('ECOM') || lbl.innerText.includes('Balance')) lbl.innerText = 'POS 1';
                     if(btn) btn.style.display = 'flex';
                     if(termRow) termRow.style.display = 'flex';
                 } else {
-                    if(lbl.innerText.includes('POS') || lbl.innerText.includes('Balance')) lbl.innerText = 'ECOM 1';
                     if(btn) btn.style.display = 'none';
                     if(termRow) termRow.style.display = 'none';
                 }
-            } else if (next === 'balanceAcc' || next === 'grantAcc') {
-                subLbl.innerText = next === 'balanceAcc' ? 'Balance Account' : 'Grant Account';
-                if(lbl.innerText.includes('Account')) lbl.innerText = subLbl.innerText;
-            } else if (next === 'payInstCard' || next === 'payInstBiz') {
-                subLbl.innerText = next === 'payInstCard' ? 'Adyen-issued Card' : 'Business Account';
-                if(lbl.innerText.includes('Card') || lbl.innerText.includes('Business')) lbl.innerText = subLbl.innerText;
+            } else if (next === 'accHolder' || next === 'liableAccHolder') {
+                const isLiable = next === 'liableAccHolder';
+                subLbl.innerText = isLiable ? 'Liable Account Holder' : 'Account Holder';
+                
+                if (ul) {
+                    Array.from(ul.children).forEach(li => {
+                        const childCard = li.querySelector('.node-card');
+                        if (childCard) {
+                            const ct = childCard.getAttribute('data-type');
+                            if (isLiable && ct === 'balanceAcc') applyNodeType(childCard, 'liableBalanceAcc', true);
+                            else if (!isLiable && ct === 'liableBalanceAcc') applyNodeType(childCard, 'balanceAcc', true);
+                        }
+                    });
+                }
+            } else if (next === 'balanceAcc' || next === 'liableBalanceAcc' || next === 'grantAcc') {
+                if (next === 'balanceAcc') subLbl.innerText = 'Balance Account';
+                else if (next === 'liableBalanceAcc') subLbl.innerText = 'Liable Balance Account';
+                else subLbl.innerText = 'Grant Account';
+            } else if (next === 'payInstCard' || next === 'payInstBiz' || next === 'transferInst') {
+                if (next === 'payInstCard') subLbl.innerText = 'Adyen-issued Card';
+                else if (next === 'payInstBiz') subLbl.innerText = 'Business Account';
+                else subLbl.innerText = 'Transfer Instrument';
             }
             
             if (activeCard === card) updateSideSheetUI(next);
             if (ul) updateChildrenVisibility(ul, next);
             
-            recalculateAllTreeLines();
-            saveState();
+            if (!skipSave) {
+                recalculateAllTreeLines();
+                saveState();
+            }
         }
 
         let dragSrcEl = null;
@@ -842,37 +1066,71 @@
         function dragStart(e) {
             e.stopPropagation(); dragSrcEl = this;
             this.classList.add('dragging');
+            document.body.classList.add('is-dragging');
+            
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/html', this.innerHTML);
-            e.dataTransfer.setDragImage(this.querySelector('.node-card'), 75, 25);
-            const isMerchant = this.parentNode.id === 'merchant-level';
-            document.querySelector('.tree').classList.add(isMerchant ? 'drag-merchant' : 'drag-store');
+            
+            const srcCard = dragSrcEl.querySelector('.node-card');
+            e.dataTransfer.setDragImage(srcCard, 75, 25);
+            const srcType = srcCard.getAttribute('data-type');
+            
+            Array.from(dragSrcEl.parentNode.children).forEach(sibling => {
+                if (sibling.style.display !== 'none') {
+                    const scard = sibling.querySelector('.node-card');
+                    if (scard) scard.classList.add('valid-drop-target');
+                }
+            });
+
+            if (srcType === 'businessLine') {
+                const parentType = dragSrcEl.parentNode.previousElementSibling.getAttribute('data-type');
+                const allowedTargetType = parentType === 'store' ? 'legalEntity' : 'store';
+
+                document.querySelectorAll(`.node-card[data-type="${allowedTargetType}"]`).forEach(targetCard => {
+                    const targetLi = targetCard.closest('li');
+                    if (targetLi.style.display === 'none') return;
+                    
+                    const targetUl = targetCard.nextElementSibling;
+                    let hasBLChild = false;
+                    if (targetUl && targetUl.classList.contains('children-container')) {
+                        hasBLChild = Array.from(targetUl.children).some(c => c.querySelector('.node-card[data-type="businessLine"]'));
+                    }
+                    const isLinkedTo = document.querySelector(`.node-card[data-type="businessLine"][data-linked-to="${targetCard.id}"]`);
+
+                    if (!hasBLChild && !isLinkedTo && targetCard !== srcCard.parentNode.parentNode.querySelector('.node-card')) {
+                        targetCard.classList.add('valid-drop-target');
+                    }
+                });
+            }
         }
+        
         function dragOver(e) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; }
+        
         function dragEnd() {
+            document.body.classList.remove('is-dragging');
             document.querySelectorAll('.tree li').forEach(i => i.classList.remove('dragging'));
-            document.querySelector('.tree').classList.remove('drag-merchant', 'drag-store');
+            document.querySelectorAll('.valid-drop-target').forEach(el => el.classList.remove('valid-drop-target'));
         }
+        
         function drop(e) {
             e.stopPropagation();
-            if(dragSrcEl !== this) {
-                const sM = dragSrcEl.parentNode.id==='merchant-level', tM = this.parentNode.id==='merchant-level';
-                if(sM === tM) {
-                    if(!sM && dragSrcEl.parentNode !== this.parentNode) return;
+            if (dragSrcEl !== this) {
+                const targetCard = this.querySelector(':scope > .node-card');
+                if (!targetCard || !targetCard.classList.contains('valid-drop-target')) return false;
+
+                const srcCard = dragSrcEl.querySelector('.node-card');
+                const srcType = srcCard.getAttribute('data-type');
+
+                if (dragSrcEl.parentNode === this.parentNode) {
                     const p = this.parentNode;
-                    const srcP = dragSrcEl.parentNode;
                     const ch = Array.from(p.children);
-                    
                     if(ch.indexOf(dragSrcEl) < ch.indexOf(this)) p.insertBefore(dragSrcEl, this.nextSibling);
                     else p.insertBefore(dragSrcEl, this);
                     
-                    if (srcP !== p && srcP.previousElementSibling) {
-                        updateChildrenVisibility(srcP, srcP.previousElementSibling.getAttribute('data-type'));
-                    }
-                    if (p.previousElementSibling) {
-                        updateChildrenVisibility(p, p.previousElementSibling.getAttribute('data-type'));
-                    }
-
+                    recalculateAllTreeLines();
+                    saveState();
+                } else if (srcType === 'businessLine') {
+                    srcCard.setAttribute('data-linked-to', targetCard.id);
                     recalculateAllTreeLines();
                     saveState();
                 }
@@ -887,10 +1145,12 @@
                 const card = li.querySelector('.node-card');
                 if(!card) return;
                 const nodeData = {
+                    id: card.id,
                     t: card.getAttribute('data-type'),
                     n: card.querySelector('.label').innerText,
                     nt: card.getAttribute('data-note') || "",
                     tm: card.getAttribute('data-terms') || "",
+                    lt: card.getAttribute('data-linked-to') || ""
                 };
                 const childUl = li.querySelector('ul.children-container');
                 if(childUl && childUl.children.length > 0) {
@@ -916,6 +1176,8 @@
             const type = node.t;
             const mNote = node.nt ? 'has-note' : '';
             const mTerms = node.tm ? node.tm.split(',') : [];
+            const cardId = node.id || generateId();
+            const linkedToAttr = node.lt ? `data-linked-to="${node.lt}"` : '';
 
             let termRowHtml = '';
             if(type === 'pos' || type === 'store') {
@@ -929,18 +1191,26 @@
             else if(type === 'pos' || type === 'ecom') subLbl = 'Merchant Account';
             else if(type === 'bp') subLbl = 'Balance Platform';
             else if(type === 'accHolder') subLbl = 'Account Holder';
+            else if(type === 'liableAccHolder') subLbl = 'Liable Account Holder';
             else if(type === 'balanceAcc') subLbl = 'Balance Account';
+            else if(type === 'liableBalanceAcc') subLbl = 'Liable Balance Account';
             else if(type === 'grantAcc') subLbl = 'Grant Account';
             else if(type === 'payInstCard') subLbl = 'Adyen-issued Card';
             else if(type === 'payInstBiz') subLbl = 'Business Account';
+            else if(type === 'transferInst') subLbl = 'Transfer Instrument';
             else if(type === 'grantRef') subLbl = 'Grant Reference';
             else if(type === 'store') subLbl = 'Store';
+            else if(type === 'legalEntity') subLbl = 'Legal Entity';
+            else if(type === 'businessLine') subLbl = 'Business Line';
 
-            let hasAdd = (type !== 'ecom' && type !== 'store' && type !== 'payInstCard' && type !== 'payInstBiz' && type !== 'grantRef');
+            let hasAdd = (type !== 'ecom' && type !== 'store' && type !== 'payInstCard' && type !== 'payInstBiz' && type !== 'transferInst' && type !== 'grantRef' && type !== 'legalEntity' && type !== 'businessLine');
+            if (type === 'store' || type === 'legalEntity') hasAdd = true;
+
             let addBtnHtml = hasAdd ? `<button class="btn-float btn-add" onclick="addChildNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>` : '';
             let delBtnHtml = !isRoot ? `<button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button>` : '';
+            let addLeBtnHtml = (type === 'accHolder' || type === 'liableAccHolder') ? `<button class="btn-float btn-add-secondary" onclick="addLegalEntity(this)" title="Add Legal Entity">LE</button>` : '';
 
-            let isToggleable = (type==='pos'||type==='ecom'||type==='bp'||type==='balanceAcc'||type==='grantAcc'||type==='payInstCard'||type==='payInstBiz');
+            let isToggleable = (['pos','ecom','bp','balanceAcc','liableBalanceAcc','grantAcc','payInstCard','payInstBiz','transferInst','accHolder','liableAccHolder'].includes(type));
             let wrapperCls = isToggleable ? 'icon-wrapper' : 'static-icon icon-wrapper';
             let clickAttr = isToggleable ? `onclick="toggleNodeType(this)"` : '';
 
@@ -948,14 +1218,15 @@
                 <div class="line-drop" style="display:none;"></div>
                 <div class="bp-receiver" style="display:none;"></div>
                 <div class="bp-transmitter" style="display:none;"></div>
-                <div class="node-card ${mNote}" data-type="${type}" data-note="${node.nt||''}" data-terms="${node.tm||''}" ${isRoot?'id="company-node"':''}>
+                <div class="node-card ${mNote}" id="${cardId}" data-type="${type}" data-note="${node.nt||''}" data-terms="${node.tm||''}" ${linkedToAttr} ${isRoot?'id="company-node"':''}>
                     <div class="note-indicator">${icons.note}</div>
                     ${delBtnHtml}
                     <div class="${wrapperCls}" ${clickAttr}>${icons[type]||icons.store}</div>
-                    <span class="label" contenteditable="true" onblur="validateName(this, '${node.n}')">${node.n}</span>
+                    <span class="label" contenteditable="true" onblur="validateName(this)">${node.n}</span>
                     <span class="sub-label">${subLbl}</span>
                     ${termRowHtml}
                     ${addBtnHtml}
+                    ${addLeBtnHtml}
                 </div>`;
 
             if(node.c && node.c.length > 0) {
@@ -963,7 +1234,7 @@
                 html += `<ul class="children-container empty-node" ${ulId}>`;
                 node.c.forEach(child => { html += jsonToDOM(child, type, false); });
                 html += `</ul>`;
-            } else if(hasAdd) {
+            } else if(hasAdd || type === 'accHolder' || type === 'liableAccHolder') {
                 const ulId = isRoot ? 'id="merchant-level"' : '';
                 html += `<ul class="children-container empty-node" ${ulId}></ul>`;
             }
@@ -985,6 +1256,7 @@
                 root.innerHTML = jsonToDOM(cfg, null, true);
             }
             
+            ensureIds();
             cleanVisibilityState(root);
             reattachEvents();
             setTimeout(fitToScreen, 50);
