@@ -82,31 +82,32 @@
             justify-content: flex-start;
         }
 
-        /* --- Custom JS-Driven Lines Framework --- */
-        .tree li::before, .tree li::after { display: none !important; } /* Strip default pseudo-lines */
+        /* --- Exact JS-Driven Connector Framework --- */
+        .tree li::before, .tree li::after { display: none !important; }
 
-        .line-left, .line-right, .line-drop {
-            position: absolute; top: 0; z-index: 1; display: none;
-        }
-        .line-left { right: 50%; width: 50%; border-top: 2px solid var(--line-color); height: 40px; }
-        .line-right { left: 50%; width: 50%; border-top: 2px solid var(--line-color); height: 40px; }
-        .line-drop { left: 50%; width: 0; border-left: 2px solid var(--line-color); height: 40px; }
-
-        /* Safeguard: Ensure no structural lines escape above the root element */
-        #root-ul > li > .line-left,
-        #root-ul > li > .line-right,
-        #root-ul > li > .line-drop {
-            display: none !important;
-        }
-
-        /* Standard Top Drop */
+        /* Parent Top Drop */
         .tree ul ul::before {
             content: ''; position: absolute; top: 0; left: 50%;
             border-left: 2px solid var(--line-color); width: 0; height: 40px; z-index: 1;
         }
         .tree > ul::before { display: none; }
         .tree ul:empty::before { display: none; }
+        .tree ul.empty-node::before { display: none !important; } /* Stops false drops on nodes with no children */
         .tree ul.hidden { display: none; }
+        
+        /* The Calculated Horizontal Spine */
+        .top-bridge {
+            position: absolute;
+            top: 40px; 
+            height: 2px;
+            background-color: var(--line-color);
+            z-index: 1;
+        }
+
+        /* Individual Node Drops */
+        .line-drop {
+            position: absolute; left: 50%; top: 0; width: 0; border-left: 2px solid var(--line-color); height: 40px; z-index: 1; display: none;
+        }
 
         /* BP to Merchant Horizontal Linkers */
         .bp-transmitter {
@@ -350,9 +351,7 @@
 
         const defaultTemplate = `
             <li>
-                <div class="line-left" style="display:none;"></div>
-                <div class="line-right" style="display:none;"></div>
-                <div class="line-drop" style="display:none;"></div>
+                <div class="line-drop"></div>
                 <div class="bp-receiver"></div>
                 <div class="bp-transmitter"></div>
                 <div class="node-card" id="company-node" data-type="company" data-note="">
@@ -362,10 +361,8 @@
                     <span class="sub-label">Company Account</span>
                     <button class="btn-float btn-add" onclick="addChildNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                 </div>
-                <ul id="merchant-level" class="children-container">
+                <ul id="merchant-level" class="children-container empty-node">
                     <li draggable="true">
-                        <div class="line-left"></div>
-                        <div class="line-right"></div>
                         <div class="line-drop"></div>
                         <div class="bp-receiver"></div>
                         <div class="bp-transmitter"></div>
@@ -378,10 +375,8 @@
                             <div class="terminals-row"><button class="btn-add-term" onclick="openTermModal(this)">+</button></div>
                             <button class="btn-float btn-add" onclick="addChildNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                         </div>
-                        <ul class="children-container">
+                        <ul class="children-container empty-node">
                             <li draggable="true">
-                                <div class="line-left"></div>
-                                <div class="line-right"></div>
                                 <div class="line-drop"></div>
                                 <div class="bp-receiver"></div>
                                 <div class="bp-transmitter"></div>
@@ -393,6 +388,7 @@
                                     <span class="sub-label">Store</span>
                                     <div class="terminals-row"><button class="btn-add-term" onclick="openTermModal(this)">+</button></div>
                                 </div>
+                                <ul class="children-container empty-node"></ul>
                             </li>
                         </ul>
                     </li>
@@ -424,7 +420,7 @@
         }
 
         function loadFromStorage() {
-            const saved = localStorage.getItem('adyen_v46');
+            const saved = localStorage.getItem('adyen_v49');
             const root = document.getElementById('root-ul');
             root.innerHTML = saved || defaultTemplate;
             cleanVisibilityState(root);
@@ -441,7 +437,7 @@
                 historyStack = historyStack.slice(0, historyIndex + 1);
             }
             const state = document.getElementById('root-ul').innerHTML;
-            localStorage.setItem('adyen_v46', state);
+            localStorage.setItem('adyen_v49', state);
             historyStack.push(state);
             historyIndex++;
             updateUndoUI();
@@ -450,7 +446,7 @@
 
         function resetAll() {
             if(confirm("Reset structure?")) {
-                localStorage.removeItem('adyen_v46');
+                localStorage.removeItem('adyen_v49');
                 location.reload();
             }
         }
@@ -569,6 +565,12 @@
             saveState();
         }
 
+        function recalculateAllTreeLines() {
+            document.querySelectorAll('#root-ul, .children-container').forEach(ul => {
+                recalculateTreeLines(ul);
+            });
+        }
+
         function addChildNode(btn) {
             event.stopPropagation();
             const card = btn.closest('.node-card');
@@ -577,7 +579,7 @@
             let ul = card.nextElementSibling;
             if (!ul || !ul.classList.contains('children-container')) {
                 ul = document.createElement('ul');
-                ul.className = 'children-container';
+                ul.className = 'children-container empty-node';
                 card.parentNode.appendChild(ul);
             }
 
@@ -608,8 +610,6 @@
             let addBtnHtml = hasAddBtn ? `<button class="btn-float btn-add" onclick="addChildNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>` : '';
 
             li.innerHTML = `
-                <div class="line-left"></div>
-                <div class="line-right"></div>
                 <div class="line-drop"></div>
                 <div class="bp-receiver"></div>
                 <div class="bp-transmitter"></div>
@@ -622,10 +622,11 @@
                     ${termRowHtml}
                     ${addBtnHtml}
                 </div>
-                <ul class="children-container"></ul>
+                <ul class="children-container empty-node"></ul>
             `;
             ul.appendChild(li);
             updateChildrenVisibility(ul, type); 
+            recalculateAllTreeLines();
             saveState();
         }
 
@@ -638,8 +639,8 @@
             
             if (ul) {
                 if (ul.previousElementSibling) updateChildrenVisibility(ul, ul.previousElementSibling.getAttribute('data-type'));
-                else recalculateTreeLines(ul);
             }
+            recalculateAllTreeLines();
             saveState();
         }
 
@@ -661,77 +662,107 @@
             applyNodeType(card, next);
         }
 
-        // Accurately maps dynamic connections
         function recalculateTreeLines(ul) {
             if (!ul || !ul.classList.contains('children-container')) return;
             const visibleItems = Array.from(ul.children).filter(li => li.tagName === 'LI' && li.style.display !== 'none');
 
-            // Reset lines
+            let topBridge = Array.from(ul.children).find(c => c.classList.contains('top-bridge'));
+            if (!topBridge) {
+                topBridge = document.createElement('div');
+                topBridge.className = 'top-bridge';
+                ul.insertBefore(topBridge, ul.firstChild);
+            }
+
             Array.from(ul.children).forEach(li => {
                 if(li.tagName === 'LI') {
                     li.classList.remove('is-bp');
                     const tx = Array.from(li.children).find(c => c.classList.contains('bp-transmitter'));
                     const rx = Array.from(li.children).find(c => c.classList.contains('bp-receiver'));
-                    const ll = Array.from(li.children).find(c => c.classList.contains('line-left'));
-                    const lr = Array.from(li.children).find(c => c.classList.contains('line-right'));
                     const ld = Array.from(li.children).find(c => c.classList.contains('line-drop'));
                     
                     if (tx) tx.style.display = 'none';
                     if (rx) rx.style.display = 'none';
-                    if (ll) ll.style.display = 'none';
-                    if (lr) lr.style.display = 'none';
                     if (ld) ld.style.display = 'none';
                 }
             });
 
-            if (visibleItems.length === 0) return;
+            if (visibleItems.length === 0) {
+                topBridge.style.display = 'none';
+                ul.classList.add('empty-node'); // Fully disables the parent's vertical down-drop line
+                return;
+            }
+            
+            ul.classList.remove('empty-node');
 
             let firstStd = -1, lastStd = -1;
             for (let i = 0; i < visibleItems.length; i++) {
                 const card = visibleItems[i].querySelector('.node-card');
                 const isBp = card && card.getAttribute('data-type') === 'bp';
                 if (isBp) visibleItems[i].classList.add('is-bp');
-                
-                if (!isBp) {
+                else {
                     if (firstStd === -1) firstStd = i;
                     lastStd = i;
                 }
             }
-            
-            if (firstStd === -1) { firstStd = 0; lastStd = visibleItems.length - 1; }
 
-            const n = visibleItems.length;
-            const ulCenterIdx = (n - 1) / 2;
-            const bridgeStart = Math.min(firstStd, ulCenterIdx);
-            const bridgeEnd = Math.max(lastStd, ulCenterIdx);
+            requestAnimationFrame(() => {
+                if (firstStd !== -1) {
+                    topBridge.style.display = 'block';
+                    
+                    const ulCenter = ul.offsetWidth / 2;
+                    const firstLi = visibleItems[firstStd];
+                    const lastLi = visibleItems[lastStd];
+                    
+                    const firstCenter = firstLi.offsetLeft + (firstLi.offsetWidth / 2);
+                    const lastCenter = lastLi.offsetLeft + (lastLi.offsetWidth / 2);
 
-            for (let i = 0; i < n; i++) {
-                const li = visibleItems[i];
-                const isBp = li.classList.contains('is-bp');
-                
-                const lineLeft = Array.from(li.children).find(c => c.classList.contains('line-left'));
-                const lineRight = Array.from(li.children).find(c => c.classList.contains('line-right'));
-                const lineDrop = Array.from(li.children).find(c => c.classList.contains('line-drop'));
-                
-                if (lineLeft) lineLeft.style.display = (bridgeStart < i && bridgeEnd > i - 0.5) ? 'block' : 'none';
-                if (lineRight) lineRight.style.display = (bridgeStart < i + 0.5 && bridgeEnd > i) ? 'block' : 'none';
-                if (lineDrop) lineDrop.style.display = !isBp ? 'block' : 'none';
+                    const bridgeStart = Math.min(ulCenter, firstCenter);
+                    const bridgeEnd = Math.max(ulCenter, lastCenter);
 
-                // Horizontal BP Connectors
-                const tx = Array.from(li.children).find(c => c.classList.contains('bp-transmitter'));
-                if (isBp && i + 1 < n) {
-                    if (tx) tx.style.display = 'block';
-                    const nextLi = visibleItems[i + 1];
-                    const nextRx = Array.from(nextLi.children).find(c => c.classList.contains('bp-receiver'));
-                    if (nextRx) nextRx.style.display = 'block';
+                    topBridge.style.left = bridgeStart + 'px';
+                    topBridge.style.width = (bridgeEnd - bridgeStart) + 'px';
+
+                    for (let i = 0; i < visibleItems.length; i++) {
+                        const li = visibleItems[i];
+                        const isBp = li.classList.contains('is-bp');
+                        const ld = Array.from(li.children).find(c => c.classList.contains('line-drop'));
+                        
+                        if (!isBp && ld) ld.style.display = 'block';
+
+                        const tx = Array.from(li.children).find(c => c.classList.contains('bp-transmitter'));
+                        if (isBp && i + 1 < visibleItems.length) {
+                            if (tx) tx.style.display = 'block';
+                            const nextLi = visibleItems[i + 1];
+                            const nextRx = Array.from(nextLi.children).find(c => c.classList.contains('bp-receiver'));
+                            if (nextRx) nextRx.style.display = 'block';
+                        }
+                    }
+                } else {
+                    topBridge.style.display = 'none';
+
+                    for (let i = 0; i < visibleItems.length; i++) {
+                        const li = visibleItems[i];
+                        const isBp = li.classList.contains('is-bp');
+                        const ld = Array.from(li.children).find(c => c.classList.contains('line-drop'));
+                        
+                        if (i === 0 && ld) ld.style.display = 'block';
+                        else if (ld) ld.style.display = 'none';
+
+                        const tx = Array.from(li.children).find(c => c.classList.contains('bp-transmitter'));
+                        if (isBp && i + 1 < visibleItems.length) {
+                            if (tx) tx.style.display = 'block';
+                            const nextLi = visibleItems[i + 1];
+                            const nextRx = Array.from(nextLi.children).find(c => c.classList.contains('bp-receiver'));
+                            if (nextRx) nextRx.style.display = 'block';
+                        }
+                    }
                 }
-            }
+            });
         }
 
         function updateChildrenVisibility(ul, parentType) {
             if (!ul || !ul.classList.contains('children-container')) return;
             
-            let anyVisible = false;
             Array.from(ul.children).forEach(li => {
                 const childCard = li.querySelector('.node-card');
                 if (!childCard) return;
@@ -747,11 +778,7 @@
                 if (parentType === 'grantAcc' && (childType === 'payInstCard' || childType === 'payInstBiz')) shouldShow = false;
                 
                 li.style.display = shouldShow ? '' : 'none';
-                if (shouldShow) anyVisible = true;
             });
-            
-            ul.style.display = anyVisible ? '' : 'none';
-            recalculateTreeLines(ul);
         }
         
         function cleanVisibilityState(rootNode) {
@@ -759,11 +786,9 @@
                 const parentCard = ul.previousElementSibling;
                 if(parentCard && parentCard.classList.contains('node-card')) {
                     updateChildrenVisibility(ul, parentCard.getAttribute('data-type'));
-                } else {
-                    recalculateTreeLines(ul); 
                 }
             });
-            recalculateTreeLines(document.getElementById('root-ul')); 
+            recalculateAllTreeLines();
         }
 
         function applyNodeType(card, next) {
@@ -803,9 +828,7 @@
             if (activeCard === card) updateSideSheetUI(next);
             if (ul) updateChildrenVisibility(ul, next);
             
-            const parentUl = card.closest('ul');
-            if (parentUl) recalculateTreeLines(parentUl);
-            
+            recalculateAllTreeLines();
             saveState();
         }
 
@@ -843,13 +866,14 @@
                     if(ch.indexOf(dragSrcEl) < ch.indexOf(this)) p.insertBefore(dragSrcEl, this.nextSibling);
                     else p.insertBefore(dragSrcEl, this);
                     
-                    if (srcP !== p) {
-                        if (srcP.previousElementSibling) updateChildrenVisibility(srcP, srcP.previousElementSibling.getAttribute('data-type'));
-                        else recalculateTreeLines(srcP);
+                    if (srcP !== p && srcP.previousElementSibling) {
+                        updateChildrenVisibility(srcP, srcP.previousElementSibling.getAttribute('data-type'));
                     }
-                    if (p.previousElementSibling) updateChildrenVisibility(p, p.previousElementSibling.getAttribute('data-type'));
-                    else recalculateTreeLines(p);
+                    if (p.previousElementSibling) {
+                        updateChildrenVisibility(p, p.previousElementSibling.getAttribute('data-type'));
+                    }
 
+                    recalculateAllTreeLines();
                     saveState();
                 }
             }
@@ -921,8 +945,6 @@
             let clickAttr = isToggleable ? `onclick="toggleNodeType(this)"` : '';
 
             html += `<li ${!isRoot?'draggable="true"':''}>
-                <div class="line-left" style="display:none;"></div>
-                <div class="line-right" style="display:none;"></div>
                 <div class="line-drop" style="display:none;"></div>
                 <div class="bp-receiver" style="display:none;"></div>
                 <div class="bp-transmitter" style="display:none;"></div>
@@ -938,12 +960,12 @@
 
             if(node.c && node.c.length > 0) {
                 const ulId = isRoot ? 'id="merchant-level"' : '';
-                html += `<ul class="children-container" ${ulId}>`;
+                html += `<ul class="children-container empty-node" ${ulId}>`;
                 node.c.forEach(child => { html += jsonToDOM(child, type, false); });
                 html += `</ul>`;
             } else if(hasAdd) {
                 const ulId = isRoot ? 'id="merchant-level"' : '';
-                html += `<ul class="children-container" ${ulId}></ul>`;
+                html += `<ul class="children-container empty-node" ${ulId}></ul>`;
             }
             html += `</li>`;
             return html;
@@ -986,6 +1008,7 @@
             void w.offsetWidth;
             const scale = Math.min(1, (document.getElementById('viewport').clientWidth - 40) / document.querySelector('.tree').scrollWidth);
             w.style.transform = `scale(${scale})`;
+            recalculateAllTreeLines();
         }
 
         async function exportPDF() {
