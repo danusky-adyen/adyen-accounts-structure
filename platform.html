@@ -407,6 +407,8 @@
 
         // Smart Hover Listeners 
         document.addEventListener('mouseover', (e) => {
+            if (document.body.classList.contains('is-dragging')) return;
+
             const card = e.target.closest('.node-card');
             const linkBtn = e.target.closest('.cross-link-del-btn');
             const hoverPath = e.target.closest('.hover-path');
@@ -415,9 +417,7 @@
 
             if (card) {
                 const li = card.closest('li');
-                if (li) {
-                    li.classList.add('highlight-tree');
-                }
+                if (li) li.classList.add('highlight-tree');
                 
                 const linkedTo = card.getAttribute('data-linked-to');
                 if (linkedTo) {
@@ -461,6 +461,8 @@
         });
         
         document.addEventListener('mouseout', (e) => {
+            if (document.body.classList.contains('is-dragging')) return;
+
             const card = e.target.closest('.node-card');
             if (card) {
                 const li = card.closest('li');
@@ -492,7 +494,7 @@
         }
 
         function loadFromStorage() {
-            const saved = localStorage.getItem('adyen_v63');
+            const saved = localStorage.getItem('adyen_v64');
             const root = document.getElementById('root-ul');
             root.innerHTML = saved || defaultTemplate;
             ensureIds();
@@ -510,7 +512,7 @@
                 historyStack = historyStack.slice(0, historyIndex + 1);
             }
             const state = document.getElementById('root-ul').innerHTML;
-            localStorage.setItem('adyen_v63', state);
+            localStorage.setItem('adyen_v64', state);
             historyStack.push(state);
             historyIndex++;
             updateUndoUI();
@@ -520,7 +522,7 @@
 
         function resetAll() {
             if(confirm("Reset structure?")) {
-                localStorage.removeItem('adyen_v63');
+                localStorage.removeItem('adyen_v64');
                 location.reload();
             }
         }
@@ -1174,6 +1176,10 @@
             e.stopPropagation(); dragSrcEl = this;
             this.classList.add('dragging');
             document.body.classList.add('is-dragging');
+
+            document.querySelectorAll('.highlight-tree').forEach(el => el.classList.remove('highlight-tree'));
+            document.querySelectorAll('.cross-link-group').forEach(g => g.classList.remove('active-link'));
+            document.querySelectorAll('.cross-link-del-btn').forEach(b => b.classList.remove('show'));
             
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/html', this.innerHTML);
@@ -1190,15 +1196,21 @@
             });
 
             if (srcType === 'businessLine') {
-                document.querySelectorAll(`.node-card[data-type="store"]`).forEach(targetCard => {
+                const parentType = dragSrcEl.parentNode.previousElementSibling.getAttribute('data-type');
+                const allowedTargetType = parentType === 'store' ? 'legalEntity' : 'store';
+
+                document.querySelectorAll(`.node-card[data-type="${allowedTargetType}"]`).forEach(targetCard => {
                     const targetLi = targetCard.closest('li');
                     if (!isElementVisible(targetLi)) return;
                     
-                    const isLinkedTo = Array.from(document.querySelectorAll('.node-card[data-type="businessLine"]')).some(bl => {
-                        return (bl.getAttribute('data-linked-to') || '').split(',').includes(targetCard.id);
-                    });
+                    const targetUl = targetCard.nextElementSibling;
+                    let hasBLChild = false;
+                    if (targetUl && targetUl.classList.contains('children-container')) {
+                        hasBLChild = Array.from(targetUl.children).some(c => c.querySelector('.node-card[data-type="businessLine"]'));
+                    }
+                    const isLinkedTo = document.querySelector(`.node-card[data-type="businessLine"][data-linked-to="${targetCard.id}"]`);
 
-                    if (!isLinkedTo && targetCard !== srcCard.parentNode.parentNode.querySelector('.node-card')) {
+                    if (!hasBLChild && !isLinkedTo && targetCard !== srcCard.parentNode.parentNode.querySelector('.node-card')) {
                         targetCard.classList.add('valid-drop-target');
                     }
                 });
@@ -1209,8 +1221,14 @@
         
         function dragEnd() {
             document.body.classList.remove('is-dragging');
-            document.querySelectorAll('.tree li').forEach(i => i.classList.remove('dragging'));
+            document.querySelectorAll('.tree li').forEach(i => {
+                i.classList.remove('dragging');
+                i.classList.remove('highlight-tree');
+            });
             document.querySelectorAll('.valid-drop-target').forEach(el => el.classList.remove('valid-drop-target'));
+
+            document.querySelectorAll('.cross-link-group').forEach(g => g.classList.remove('active-link'));
+            document.querySelectorAll('.cross-link-del-btn').forEach(b => b.classList.remove('show'));
         }
         
         function drop(e) {
