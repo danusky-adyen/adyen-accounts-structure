@@ -88,8 +88,8 @@
         .bp-transmitter { position: absolute; top: 105px; left: 50%; width: 50%; border-top: 2px solid var(--line-color); z-index: 0; display: none; }
         .bp-receiver { position: absolute; top: 105px; right: 50%; width: 50%; border-top: 2px solid var(--line-color); z-index: 0; display: none; }
 
-        /* Cascading Sub-Tree Highlight Mechanism */
-        li.highlight-tree > ul.children-container::before { border-left-color: var(--highlight-color) !important; }
+        /* Cascading Sub-Tree Highlight Mechanism (Recursive Fix Applied) */
+        li.highlight-tree .children-container::before { border-left-color: var(--highlight-color) !important; }
         li.highlight-tree .children-container .line-drop,
         li.highlight-tree .children-container .bp-transmitter,
         li.highlight-tree .children-container .bp-receiver { border-color: var(--highlight-color) !important; }
@@ -265,6 +265,11 @@
                 <div class="type-opt" id="opt-bp" onclick="setSheetType('bp')">Balance PF</div>
             </div>
 
+            <div class="type-switch" id="switch-accHolder" style="display:none;">
+                <div class="type-opt" id="opt-accHolder" onclick="setSheetType('accHolder')">Standard</div>
+                <div class="type-opt" id="opt-liableAccHolder" onclick="setSheetType('liableAccHolder')">Liable</div>
+            </div>
+
             <div class="type-switch" id="switch-account" style="display:none;">
                 <div class="type-opt" id="opt-balanceAcc" onclick="setSheetType('balanceAcc')">Balance Acc</div>
                 <div class="type-opt" id="opt-grantAcc" onclick="setSheetType('grantAcc')">Grant Acc</div>
@@ -417,7 +422,9 @@
 
             if (card) {
                 const li = card.closest('li');
-                if (li) li.classList.add('highlight-tree');
+                if (li) {
+                    li.classList.add('highlight-tree');
+                }
                 
                 const linkedTo = card.getAttribute('data-linked-to');
                 if (linkedTo) {
@@ -494,7 +501,7 @@
         }
 
         function loadFromStorage() {
-            const saved = localStorage.getItem('adyen_v64');
+            const saved = localStorage.getItem('adyen_v66');
             const root = document.getElementById('root-ul');
             root.innerHTML = saved || defaultTemplate;
             ensureIds();
@@ -512,7 +519,7 @@
                 historyStack = historyStack.slice(0, historyIndex + 1);
             }
             const state = document.getElementById('root-ul').innerHTML;
-            localStorage.setItem('adyen_v64', state);
+            localStorage.setItem('adyen_v66', state);
             historyStack.push(state);
             historyIndex++;
             updateUndoUI();
@@ -522,7 +529,7 @@
 
         function resetAll() {
             if(confirm("Reset structure?")) {
-                localStorage.removeItem('adyen_v64');
+                localStorage.removeItem('adyen_v66');
                 location.reload();
             }
         }
@@ -533,6 +540,7 @@
             document.getElementById('switch-account').style.display = 'none';
             document.getElementById('switch-instrument').style.display = 'none';
             document.getElementById('switch-le-child').style.display = 'none';
+            document.getElementById('switch-accHolder').style.display = 'none';
 
             if(['pos', 'ecom', 'bp'].includes(type)) {
                 typeSec.style.display = 'block';
@@ -540,6 +548,11 @@
                 document.getElementById('opt-pos').className = type === 'pos' ? 'type-opt active' : 'type-opt';
                 document.getElementById('opt-ecom').className = type === 'ecom' ? 'type-opt active' : 'type-opt';
                 document.getElementById('opt-bp').className = type === 'bp' ? 'type-opt active' : 'type-opt';
+            } else if (['accHolder', 'liableAccHolder'].includes(type)) {
+                typeSec.style.display = 'block';
+                document.getElementById('switch-accHolder').style.display = 'flex';
+                document.getElementById('opt-accHolder').className = type === 'accHolder' ? 'type-opt active' : 'type-opt';
+                document.getElementById('opt-liableAccHolder').className = type === 'liableAccHolder' ? 'type-opt active' : 'type-opt';
             } else if (['balanceAcc', 'grantAcc', 'liableBalanceAcc'].includes(type)) {
                 typeSec.style.display = 'block';
                 document.getElementById('switch-account').style.display = 'flex';
@@ -1144,16 +1157,10 @@
                 if (next === 'balanceAcc') subLbl.innerText = 'Balance Account';
                 else if (next === 'liableBalanceAcc') subLbl.innerText = 'Liable Balance Account';
                 else subLbl.innerText = 'Grant Account';
-            } else if (next === 'payInstCard' || next === 'payInstBiz') {
+            } else if (next === 'payInstCard' || next === 'payInstBiz' || next === 'transferInst') {
                 if (next === 'payInstCard') subLbl.innerText = 'Adyen-issued Card';
-                else subLbl.innerText = 'Business Account';
-            } else if (next === 'businessLine' || next === 'transferInst') {
-                if (next === 'businessLine') subLbl.innerText = 'Business Line';
+                else if (next === 'payInstBiz') subLbl.innerText = 'Business Account';
                 else subLbl.innerText = 'External Bank Account';
-            }
-
-            if (next !== 'businessLine' && card.hasAttribute('data-linked-to')) {
-                card.removeAttribute('data-linked-to');
             }
             
             if (activeCard === card) updateSideSheetUI(next);
