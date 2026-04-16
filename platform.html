@@ -85,14 +85,10 @@
         
         .top-bridge { position: absolute; top: 40px; height: 2px; background-color: var(--line-color); z-index: 1; }
         .line-drop { position: absolute; left: 50%; top: 0; width: 0; border-left: 2px solid var(--line-color); height: 40px; z-index: 1; display: none; }
-        .bp-transmitter { position: absolute; top: 105px; left: 50%; width: 50%; border-top: 2px solid var(--line-color); z-index: 0; display: none; }
-        .bp-receiver { position: absolute; top: 105px; right: 50%; width: 50%; border-top: 2px solid var(--line-color); z-index: 0; display: none; }
 
-        /* Cascading Sub-Tree Highlight Mechanism (Recursive Fix Applied) */
+        /* Cascading Sub-Tree Highlight Mechanism */
         li.highlight-tree .children-container::before { border-left-color: var(--highlight-color) !important; }
-        li.highlight-tree .children-container .line-drop,
-        li.highlight-tree .children-container .bp-transmitter,
-        li.highlight-tree .children-container .bp-receiver { border-color: var(--highlight-color) !important; }
+        li.highlight-tree .children-container .line-drop { border-color: var(--highlight-color) !important; }
         li.highlight-tree .children-container .top-bridge { background-color: var(--highlight-color) !important; }
 
         /* --- Node Card --- */
@@ -368,8 +364,6 @@
             
             return `
                 <div class="line-drop"></div>
-                <div class="bp-receiver"></div>
-                <div class="bp-transmitter"></div>
                 <div class="node-card" id="${generateId()}" data-type="${type}" data-note="" data-terms="" ${linkedToAttr} ${bpPrefAttr}>
                     ${icons.note}
                     <button class="btn-float btn-del" onclick="removeNode(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
@@ -387,8 +381,6 @@
         const defaultTemplate = `
             <li>
                 <div class="line-drop"></div>
-                <div class="bp-receiver"></div>
-                <div class="bp-transmitter"></div>
                 <div class="node-card" id="${generateId()}" data-type="company" data-note="">
                     ${icons.note}
                     <div class="static-icon icon-wrapper">${icons.company}</div>
@@ -398,7 +390,7 @@
                 </div>
                 <ul id="merchant-level" class="children-container empty-node">
                     <li draggable="true">
-                        ${generateNodeHTML('pos', defaultNames.pos, 'Merchant Account', true, true, true, false)}
+                        ${generateNodeHTML('pos', defaultNames.pos, 'Merchant Account', false, true, true, false)}
                     </li>
                 </ul>
             </li>
@@ -501,7 +493,7 @@
         }
 
         function loadFromStorage() {
-            const saved = localStorage.getItem('adyen_v66');
+            const saved = localStorage.getItem('adyen_v70');
             const root = document.getElementById('root-ul');
             root.innerHTML = saved || defaultTemplate;
             ensureIds();
@@ -519,7 +511,7 @@
                 historyStack = historyStack.slice(0, historyIndex + 1);
             }
             const state = document.getElementById('root-ul').innerHTML;
-            localStorage.setItem('adyen_v66', state);
+            localStorage.setItem('adyen_v70', state);
             historyStack.push(state);
             historyIndex++;
             updateUndoUI();
@@ -529,7 +521,7 @@
 
         function resetAll() {
             if(confirm("Reset structure?")) {
-                localStorage.removeItem('adyen_v66');
+                localStorage.removeItem('adyen_v70');
                 location.reload();
             }
         }
@@ -696,12 +688,10 @@
 
         function updateAddButtons() {
             document.querySelectorAll('.node-card[data-type="store"]').forEach(card => {
-                const isLinkedTo = Array.from(document.querySelectorAll('.node-card[data-type="businessLine"]')).some(bl => {
-                    const links = (bl.getAttribute('data-linked-to') || '').split(',');
+                const isLinkedTo = Array.from(document.querySelectorAll('.node-card[data-type="businessLine"], .node-card[data-type="bp"], .node-card[data-type="pos"], .node-card[data-type="ecom"]')).some(src => {
+                    const links = (src.getAttribute('data-linked-to') || '').split(',');
                     return links.includes(card.id);
                 });
-                const addBtn = card.querySelector('.btn-add');
-                if (addBtn) addBtn.style.display = isLinkedTo ? 'none' : 'flex';
             });
 
             document.querySelectorAll('.node-card[data-type="legalEntity"]').forEach(card => {
@@ -752,10 +742,14 @@
                     const srcPos = getRelativePos(sourceCard, container);
                     const trgPos = getRelativePos(targetCard, container);
                     
+                    const srcType = sourceCard.getAttribute('data-type');
+                    const trgType = targetCard.getAttribute('data-type');
+                    const isHorizontal = ['bp', 'pos', 'ecom'].includes(srcType) && ['bp', 'pos', 'ecom'].includes(trgType);
+
                     const srcX = srcPos.x + sourceCard.offsetWidth / 2;
-                    const srcY = srcPos.y + sourceCard.offsetHeight;
+                    let srcY = srcPos.y + sourceCard.offsetHeight;
                     const trgX = trgPos.x + targetCard.offsetWidth / 2;
-                    const trgY = trgPos.y + targetCard.offsetHeight;
+                    let trgY = trgPos.y + targetCard.offsetHeight;
                     
                     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                     g.setAttribute('class', 'cross-link-group');
@@ -764,52 +758,108 @@
                     g.setAttribute('data-target', targetCard.id);
 
                     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    const bottomY = Math.max(srcY, trgY) + 40; 
-                    path.setAttribute('d', `M ${srcX} ${srcY} V ${bottomY} H ${trgX} V ${trgY}`);
+                    
+                    if (isHorizontal) {
+                        const isSrcLeft = srcPos.x < trgPos.x;
+                        const srcEdgeX = isSrcLeft ? srcPos.x + sourceCard.offsetWidth : srcPos.x;
+                        const trgEdgeX = isSrcLeft ? trgPos.x : trgPos.x + targetCard.offsetWidth;
+                        const srcCenterY = srcPos.y + sourceCard.offsetHeight / 2;
+                        const trgCenterY = trgPos.y + targetCard.offsetHeight / 2;
+
+                        path.setAttribute('d', `M ${srcEdgeX} ${srcCenterY} C ${(srcEdgeX+trgEdgeX)/2} ${srcCenterY}, ${(srcEdgeX+trgEdgeX)/2} ${trgCenterY}, ${trgEdgeX} ${trgCenterY}`);
+                        
+                        const hoverPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        hoverPath.setAttribute('d', `M ${srcEdgeX} ${srcCenterY} C ${(srcEdgeX+trgEdgeX)/2} ${srcCenterY}, ${(srcEdgeX+trgEdgeX)/2} ${trgCenterY}, ${trgEdgeX} ${trgCenterY}`);
+                        hoverPath.setAttribute('class', 'hover-path');
+                        hoverPath.setAttribute('stroke', 'transparent');
+                        hoverPath.setAttribute('stroke-width', '20');
+                        hoverPath.setAttribute('fill', 'none');
+                        hoverPath.style.pointerEvents = 'stroke';
+                        
+                        const createDeleteBtn = (x, y, relatedCardId) => {
+                            const btn = document.createElement('button');
+                            btn.className = `btn-float btn-del cross-link-del-btn source-${sourceCard.id} target-${targetCard.id}`;
+                            btn.style.position = 'absolute';
+                            btn.style.left = (x - 14) + 'px';
+                            btn.style.top = (y - 14) + 'px';
+                            btn.style.margin = '0'; 
+                            btn.setAttribute('data-source-id', sourceCard.id);
+                            btn.setAttribute('data-target-id', targetCard.id);
+                            btn.setAttribute('data-btn-for', relatedCardId);
+                            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
+                            
+                            btn.onclick = (e) => {
+                                e.stopPropagation();
+                                let links = sourceCard.getAttribute('data-linked-to').split(',');
+                                links = links.filter(id => id !== targetCard.id);
+                                if (links.length > 0) sourceCard.setAttribute('data-linked-to', links.join(','));
+                                else sourceCard.removeAttribute('data-linked-to');
+                                recalculateAllTreeLines();
+                                saveState();
+                            };
+                            return btn;
+                        };
+
+                        const srcBtn = createDeleteBtn(isSrcLeft ? srcEdgeX + 20 : srcEdgeX - 20, srcCenterY, sourceCard.id);
+                        const trgBtn = createDeleteBtn(isSrcLeft ? trgEdgeX - 20 : trgEdgeX + 20, trgCenterY, targetCard.id);
+
+                        htmlOverlay.appendChild(srcBtn);
+                        htmlOverlay.appendChild(trgBtn);
+                        g.appendChild(path);
+                        g.appendChild(hoverPath);
+
+                    } else {
+                        const bottomY = Math.max(srcY, trgY) + 40; 
+                        path.setAttribute('d', `M ${srcX} ${srcY} V ${bottomY} H ${trgX} V ${trgY}`);
+                        
+                        const hoverPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        hoverPath.setAttribute('d', `M ${srcX} ${srcY} V ${bottomY} H ${trgX} V ${trgY}`);
+                        hoverPath.setAttribute('class', 'hover-path');
+                        hoverPath.setAttribute('stroke', 'transparent');
+                        hoverPath.setAttribute('stroke-width', '20');
+                        hoverPath.setAttribute('fill', 'none');
+                        hoverPath.style.pointerEvents = 'stroke';
+                        
+                        const createDeleteBtn = (x, y, relatedCardId) => {
+                            const btn = document.createElement('button');
+                            btn.className = `btn-float btn-del cross-link-del-btn source-${sourceCard.id} target-${targetCard.id}`;
+                            btn.style.position = 'absolute';
+                            btn.style.left = (x - 14) + 'px';
+                            btn.style.top = (y - 14) + 'px';
+                            btn.style.margin = '0'; 
+                            btn.setAttribute('data-source-id', sourceCard.id);
+                            btn.setAttribute('data-target-id', targetCard.id);
+                            btn.setAttribute('data-btn-for', relatedCardId);
+                            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
+                            
+                            btn.onclick = (e) => {
+                                e.stopPropagation();
+                                let links = sourceCard.getAttribute('data-linked-to').split(',');
+                                links = links.filter(id => id !== targetCard.id);
+                                if (links.length > 0) sourceCard.setAttribute('data-linked-to', links.join(','));
+                                else sourceCard.removeAttribute('data-linked-to');
+                                recalculateAllTreeLines();
+                                saveState();
+                            };
+                            return btn;
+                        };
+
+                        const srcBtn = createDeleteBtn(srcX, srcY + 15, sourceCard.id);
+                        const trgBtn = createDeleteBtn(trgX, trgY + 15, targetCard.id);
+
+                        htmlOverlay.appendChild(srcBtn);
+                        htmlOverlay.appendChild(trgBtn);
+                        g.appendChild(path);
+                        g.appendChild(hoverPath);
+                    }
+
                     path.setAttribute('class', 'visible-path');
                     path.setAttribute('stroke', '#a0aab5');
                     path.setAttribute('stroke-width', '2');
                     path.setAttribute('stroke-linejoin', 'round');
                     path.setAttribute('stroke-dasharray', '6,6');
                     path.setAttribute('fill', 'none');
-                    
-                    const hoverPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    hoverPath.setAttribute('d', `M ${srcX} ${srcY} V ${bottomY} H ${trgX} V ${trgY}`);
-                    hoverPath.setAttribute('class', 'hover-path');
-                    hoverPath.setAttribute('stroke', 'transparent');
-                    hoverPath.setAttribute('stroke-width', '20');
-                    hoverPath.setAttribute('fill', 'none');
-                    hoverPath.style.pointerEvents = 'stroke';
-                    
-                    const createDeleteBtn = (x, y, relatedCardId) => {
-                        const btn = document.createElement('button');
-                        btn.className = `btn-float btn-del cross-link-del-btn source-${sourceCard.id} target-${targetCard.id}`;
-                        btn.style.position = 'absolute';
-                        btn.style.left = (x - 14) + 'px';
-                        btn.style.top = (y - 14) + 'px';
-                        btn.style.margin = '0'; 
-                        btn.setAttribute('data-source-id', sourceCard.id);
-                        btn.setAttribute('data-target-id', targetCard.id);
-                        btn.setAttribute('data-btn-for', relatedCardId);
-                        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
-                        
-                        btn.onclick = (e) => {
-                            e.stopPropagation();
-                            let links = sourceCard.getAttribute('data-linked-to').split(',');
-                            links = links.filter(id => id !== targetCard.id);
-                            if (links.length > 0) sourceCard.setAttribute('data-linked-to', links.join(','));
-                            else sourceCard.removeAttribute('data-linked-to');
-                            recalculateAllTreeLines();
-                            saveState();
-                        };
-                        return btn;
-                    };
 
-                    htmlOverlay.appendChild(createDeleteBtn(srcX, srcY, sourceCard.id));
-                    htmlOverlay.appendChild(createDeleteBtn(trgX, trgY, targetCard.id));
-
-                    g.appendChild(path);
-                    g.appendChild(hoverPath);
                     svg.appendChild(g);
                 });
             });
@@ -866,11 +916,28 @@
             let childType, childLabel, childSubLabel, hasTerminals = false, hasAddBtn = true, toggleable = false, hasAddLE = false;
 
             if (type === 'company') {
-                childType = 'pos'; childLabel = defaultNames.pos; childSubLabel = 'Merchant Account'; hasTerminals = true; toggleable = true;
+                childType = 'pos'; childLabel = defaultNames.pos; childSubLabel = 'Merchant Account'; hasTerminals = false; toggleable = true;
             } else if (type === 'pos' || type === 'ecom') {
                 childType = 'store'; childLabel = defaultNames.store; childSubLabel = 'Store'; hasTerminals = true; hasAddBtn = false; 
             } else if (type === 'bp') {
-                childType = 'accHolder'; childLabel = defaultNames.accHolder; childSubLabel = 'Account Holder'; hasAddLE = true; toggleable = true;
+                if (ul.children.length === 0) {
+                    const li1 = document.createElement('li');
+                    li1.draggable = true; setupDragEvents(li1);
+                    li1.innerHTML = generateNodeHTML('liableAccHolder', defaultNames.liableAccHolder, 'Liable Account Holder', false, true, true, true);
+                    ul.appendChild(li1);
+
+                    const li2 = document.createElement('li');
+                    li2.draggable = true; setupDragEvents(li2);
+                    li2.innerHTML = generateNodeHTML('accHolder', defaultNames.accHolder, 'Account Holder', false, true, true, true);
+                    ul.appendChild(li2);
+                    
+                    updateChildrenVisibility(ul, type); 
+                    recalculateAllTreeLines();
+                    saveState();
+                    return;
+                } else {
+                    childType = 'accHolder'; childLabel = defaultNames.accHolder; childSubLabel = 'Account Holder'; hasAddLE = true; toggleable = true;
+                }
             } else if (type === 'accHolder') {
                 childType = 'balanceAcc'; childLabel = defaultNames.balanceAcc; childSubLabel = 'Balance Account'; toggleable = true;
             } else if (type === 'liableAccHolder') {
@@ -882,7 +949,7 @@
             } else if (type === 'legalEntity') {
                 childType = 'businessLine'; childLabel = defaultNames.businessLine; childSubLabel = 'Business Line'; hasAddBtn = false; toggleable = true;
             } else if (type === 'store') {
-                return; // Stores cannot have native children anymore.
+                return; 
             }
 
             if(childType) {
@@ -905,12 +972,12 @@
             
             if (cardToRemove) {
                 cardToRemove.removeAttribute('data-linked-to');
-                document.querySelectorAll('.node-card[data-type="businessLine"]').forEach(bl => {
-                    let links = (bl.getAttribute('data-linked-to') || '').split(',').filter(x => x);
+                document.querySelectorAll('.node-card').forEach(src => {
+                    let links = (src.getAttribute('data-linked-to') || '').split(',').filter(x => x);
                     if (links.includes(cardToRemove.id)) {
                         links = links.filter(id => id !== cardToRemove.id);
-                        if (links.length > 0) bl.setAttribute('data-linked-to', links.join(','));
-                        else bl.removeAttribute('data-linked-to');
+                        if (links.length > 0) src.setAttribute('data-linked-to', links.join(','));
+                        else src.removeAttribute('data-linked-to');
                     }
                 });
             }
@@ -942,7 +1009,7 @@
             else if (current === 'payInstCard') next = 'payInstBiz';
             else if (current === 'payInstBiz') next = 'payInstCard';
             else if (current === 'businessLine') next = 'transferInst';
-            else if (current === 'transferInst') next = 'businessLine';
+            else if (current === 'transferInst' && card.closest('ul').previousElementSibling && card.closest('ul').previousElementSibling.getAttribute('data-type') === 'legalEntity') next = 'businessLine';
             else if (current === 'accHolder') next = 'liableAccHolder';
             else if (current === 'liableAccHolder') next = 'accHolder';
             else return;
@@ -964,12 +1031,7 @@
             Array.from(ul.children).forEach(li => {
                 if(li.tagName === 'LI') {
                     li.classList.remove('is-bp');
-                    const tx = Array.from(li.children).find(c => c.classList.contains('bp-transmitter'));
-                    const rx = Array.from(li.children).find(c => c.classList.contains('bp-receiver'));
                     const ld = Array.from(li.children).find(c => c.classList.contains('line-drop'));
-                    
-                    if (tx) tx.style.display = 'none';
-                    if (rx) rx.style.display = 'none';
                     if (ld) ld.style.display = 'none';
                 }
             });
@@ -1016,42 +1078,6 @@
                         const ld = Array.from(li.children).find(c => c.classList.contains('line-drop'));
                         
                         if (!isBp && ld) ld.style.display = 'block';
-
-                        const tx = Array.from(li.children).find(c => c.classList.contains('bp-transmitter'));
-                        const rx = Array.from(li.children).find(c => c.classList.contains('bp-receiver'));
-                        
-                        if (isBp) {
-                            let rightMerchIdx = visibleItems.findIndex((v, idx) => idx > i && !v.classList.contains('is-bp'));
-                            let leftMerchIdx = visibleItems.findLastIndex((v, idx) => idx < i && !v.classList.contains('is-bp'));
-
-                            let rightMerch = rightMerchIdx !== -1 ? visibleItems[rightMerchIdx] : null;
-                            let leftMerch = leftMerchIdx !== -1 ? visibleItems[leftMerchIdx] : null;
-
-                            let prefId = card ? card.getAttribute('data-bp-preference') : null;
-                            let connectTo = 'none';
-
-                            if (prefId) {
-                                if (leftMerch && leftMerch.querySelector('.node-card').id === prefId) connectTo = 'left';
-                                else if (rightMerch && rightMerch.querySelector('.node-card').id === prefId) connectTo = 'right';
-                            }
-
-                            if (connectTo === 'none') {
-                                if (rightMerch) connectTo = 'right';
-                                else if (leftMerch) connectTo = 'left';
-                            }
-
-                            if (connectTo === 'right') {
-                                if (tx) tx.style.display = 'block';
-                                const nextRx = Array.from(rightMerch.children).find(c => c.classList.contains('bp-receiver'));
-                                if (nextRx) nextRx.style.display = 'block';
-                            } else if (connectTo === 'left') {
-                                if (rx) rx.style.display = 'block';
-                                const prevTx = Array.from(leftMerch.children).find(c => c.classList.contains('bp-transmitter'));
-                                if (prevTx) prevTx.style.display = 'block';
-                            } else {
-                                if (ld) ld.style.display = 'block'; 
-                            }
-                        }
                     }
                 } else {
                     topBridge.style.display = 'none';
@@ -1061,18 +1087,7 @@
                         const isBp = li.classList.contains('is-bp');
                         const ld = Array.from(li.children).find(c => c.classList.contains('line-drop'));
                         
-                        if (i === 0 && ld) ld.style.display = 'block';
-                        else if (ld) ld.style.display = 'none';
-
-                        const tx = Array.from(li.children).find(c => c.classList.contains('bp-transmitter'));
-                        const rx = Array.from(li.children).find(c => c.classList.contains('bp-receiver'));
-                        
-                        if (isBp && i + 1 < visibleItems.length) {
-                            if (tx) tx.style.display = 'block';
-                            const nextLi = visibleItems[i + 1];
-                            const nextRx = Array.from(nextLi.children).find(c => c.classList.contains('bp-receiver'));
-                            if (nextRx) nextRx.style.display = 'block';
-                        }
+                        if (ld) ld.style.display = 'none';
                     }
                 }
             });
@@ -1088,6 +1103,7 @@
                 const childType = childCard.getAttribute('data-type');
                 let shouldShow = true;
                 
+                if (parentType === 'store' && (childType === 'businessLine' || childType === 'transferInst')) shouldShow = false;
                 if (parentType === 'bp' && childType === 'store') shouldShow = false;
                 if ((parentType === 'pos' || parentType === 'ecom') && (childType === 'accHolder' || childType === 'liableAccHolder' || childType === 'legalEntity')) shouldShow = false;
                 if (parentType === 'ecom' && childType === 'store') shouldShow = false;
@@ -1096,6 +1112,10 @@
                 if (parentType === 'grantAcc' && (childType === 'payInstCard' || childType === 'payInstBiz' || childType === 'transferInst')) shouldShow = false;
                 
                 li.style.display = shouldShow ? '' : 'none';
+                
+                if (!shouldShow && childCard.hasAttribute('data-linked-to')) {
+                    childCard.removeAttribute('data-linked-to');
+                }
             });
         }
         
@@ -1134,7 +1154,7 @@
                     if(btn) btn.style.display = 'none';
                     const hasStoreChildren = ul && Array.from(ul.children).some(c => c.querySelector('.node-card'));
                     if(btn && !hasStoreChildren) btn.style.display = 'flex';
-                    if(termRow) termRow.style.display = 'flex';
+                    if(termRow) termRow.style.display = 'none'; 
                 } else {
                     if(btn) btn.style.display = 'none';
                     if(termRow) termRow.style.display = 'none';
@@ -1161,6 +1181,12 @@
                 if (next === 'payInstCard') subLbl.innerText = 'Adyen-issued Card';
                 else if (next === 'payInstBiz') subLbl.innerText = 'Business Account';
                 else subLbl.innerText = 'External Bank Account';
+            } else if (next === 'businessLine') {
+                subLbl.innerText = 'Business Line';
+            }
+
+            if (next !== 'businessLine' && next !== 'bp' && next !== 'pos' && next !== 'ecom' && card.hasAttribute('data-linked-to')) {
+                card.removeAttribute('data-linked-to');
             }
             
             if (activeCard === card) updateSideSheetUI(next);
@@ -1221,6 +1247,31 @@
                         targetCard.classList.add('valid-drop-target');
                     }
                 });
+            } else if (srcType === 'legalEntity') {
+                document.querySelectorAll(`.node-card[data-type="businessLine"]`).forEach(tc => {
+                    const pUl = tc.closest('.children-container');
+                    if(pUl && pUl.previousElementSibling && pUl.previousElementSibling.getAttribute('data-type') === 'store') {
+                        if(!tc.getAttribute('data-linked-to')) tc.classList.add('valid-drop-target');
+                    }
+                });
+            } else if (srcType === 'store') {
+                document.querySelectorAll(`.node-card[data-type="businessLine"]`).forEach(tc => {
+                    const pUl = tc.closest('.children-container');
+                    if(pUl && pUl.previousElementSibling && pUl.previousElementSibling.getAttribute('data-type') === 'legalEntity') {
+                        if(!tc.getAttribute('data-linked-to')) tc.classList.add('valid-drop-target');
+                    }
+                });
+            } else if (srcType === 'bp' || srcType === 'pos' || srcType === 'ecom') {
+                document.querySelectorAll('.node-card[data-type="bp"], .node-card[data-type="pos"], .node-card[data-type="ecom"]').forEach(targetCard => {
+                    const targetLi = targetCard.closest('li');
+                    if (!isElementVisible(targetLi)) return;
+                    
+                    if (targetCard !== srcCard) {
+                        const alreadyLinked = (srcCard.getAttribute('data-linked-to') || '').split(',').includes(targetCard.id) ||
+                                              (targetCard.getAttribute('data-linked-to') || '').split(',').includes(srcCard.id);
+                        if (!alreadyLinked) targetCard.classList.add('valid-drop-target');
+                    }
+                });
             }
         }
         
@@ -1242,34 +1293,55 @@
             e.stopPropagation();
             if (dragSrcEl !== this) {
                 const targetCard = this.querySelector(':scope > .node-card');
-                if (!targetCard || !targetCard.classList.contains('valid-drop-target')) return false;
-
+                const droppedOnCard = e.target.closest('.node-card');
+                
                 const srcCard = dragSrcEl.querySelector('.node-card');
                 const srcType = srcCard.getAttribute('data-type');
-                const targetType = targetCard.getAttribute('data-type');
+                
+                let handledAsLink = false;
 
-                if (dragSrcEl.parentNode === this.parentNode) {
+                if (droppedOnCard && droppedOnCard === targetCard && targetCard.classList.contains('valid-drop-target')) {
+                    const targetType = targetCard.getAttribute('data-type');
+                    
+                    if (srcType === 'businessLine' && targetType === 'store') {
+                        let links = (srcCard.getAttribute('data-linked-to') || '').split(',').filter(x => x);
+                        const alreadyLinked = links.includes(targetCard.id) || (targetCard.getAttribute('data-linked-to') || '').split(',').includes(srcCard.id);
+                        if (!alreadyLinked) {
+                            links.push(targetCard.id);
+                            srcCard.setAttribute('data-linked-to', [...new Set(links)].join(','));
+                            recalculateAllTreeLines();
+                            saveState();
+                        }
+                        handledAsLink = true;
+                    } else if (targetType === 'businessLine' && (srcType === 'legalEntity' || srcType === 'store')) {
+                        let links = (targetCard.getAttribute('data-linked-to') || '').split(',').filter(x => x);
+                        const alreadyLinked = links.includes(srcCard.id) || (srcCard.getAttribute('data-linked-to') || '').split(',').includes(targetCard.id);
+                        if (!alreadyLinked) {
+                            links.push(srcCard.id);
+                            targetCard.setAttribute('data-linked-to', [...new Set(links)].join(','));
+                            recalculateAllTreeLines();
+                            saveState();
+                        }
+                        handledAsLink = true;
+                    } else if (['bp', 'pos', 'ecom'].includes(srcType) && ['bp', 'pos', 'ecom'].includes(targetType)) {
+                        let links = (srcCard.getAttribute('data-linked-to') || '').split(',').filter(x => x);
+                        const alreadyLinked = links.includes(targetCard.id) || (targetCard.getAttribute('data-linked-to') || '').split(',').includes(srcCard.id);
+                        if (!alreadyLinked) {
+                            links.push(targetCard.id);
+                            srcCard.setAttribute('data-linked-to', [...new Set(links)].join(','));
+                            recalculateAllTreeLines();
+                            saveState();
+                        }
+                        handledAsLink = true;
+                    }
+                }
+
+                if (!handledAsLink && dragSrcEl.parentNode === this.parentNode) {
                     const p = this.parentNode;
                     const ch = Array.from(p.children);
                     if(ch.indexOf(dragSrcEl) < ch.indexOf(this)) p.insertBefore(dragSrcEl, this.nextSibling);
                     else p.insertBefore(dragSrcEl, this);
                     
-                    recalculateAllTreeLines();
-                    saveState();
-                } else if (srcType === 'businessLine' && targetType === 'store') {
-                    let links = (srcCard.getAttribute('data-linked-to') || '').split(',').filter(x => x);
-                    if (!links.includes(targetCard.id)) {
-                        links.push(targetCard.id);
-                        srcCard.setAttribute('data-linked-to', links.join(','));
-                        recalculateAllTreeLines();
-                        saveState();
-                    }
-                } else if (srcType === 'bp' && (targetType === 'pos' || targetType === 'ecom')) {
-                    srcCard.setAttribute('data-bp-preference', targetCard.id);
-                    const p = this.parentNode;
-                    const ch = Array.from(p.children);
-                    if(ch.indexOf(dragSrcEl) < ch.indexOf(this)) p.insertBefore(dragSrcEl, this.nextSibling);
-                    else p.insertBefore(dragSrcEl, this);
                     recalculateAllTreeLines();
                     saveState();
                 }
@@ -1321,7 +1393,7 @@
             const bpPrefAttr = node.bpp ? `data-bp-preference="${node.bpp}"` : '';
 
             let termRowHtml = '';
-            if(type === 'pos' || type === 'store') {
+            if(type === 'store') {
                 termRowHtml = `<div class="terminals-row">`;
                 mTerms.forEach(t => { if(t) termRowHtml += `<span class="term-icon-sm" onclick="event.stopPropagation(); removeTerminalFromCard(this.closest('.node-card'), '${t}'); this.remove();">${termIcons[t]}</span>`; });
                 termRowHtml += `<button class="btn-add-term" onclick="openTermModal(this)">+</button></div>`;
@@ -1356,8 +1428,6 @@
 
             html += `<li ${!isRoot?'draggable="true"':''}>
                 <div class="line-drop" style="display:none;"></div>
-                <div class="bp-receiver" style="display:none;"></div>
-                <div class="bp-transmitter" style="display:none;"></div>
                 <div class="node-card ${mNote}" id="${cardId}" data-type="${type}" data-note="${node.nt||''}" data-terms="${node.tm||''}" ${linkedToAttr} ${bpPrefAttr} ${isRoot?'id="company-node"':''}>
                     <div class="note-indicator">${icons.note}</div>
                     ${delBtnHtml}
