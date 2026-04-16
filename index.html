@@ -314,7 +314,7 @@
             company: 'My Company', pos: 'POS', ecom: 'Ecom', bp: 'Balance Platform',
             store: 'Store', accHolder: 'Account Holder', liableAccHolder: 'Liable Account Holder',
             balanceAcc: 'Balance Account', liableBalanceAcc: 'Liable Balance Account', grantAcc: 'Grant Account',
-            payInstCard: 'Card', payInstBiz: 'Business Account', transferInst: 'External Bank Account',
+            payInstCard: 'Card', payInstBiz: 'Business Account', transferInst: 'Transfer Instrument',
             grantRef: 'Grant Reference', legalEntity: 'Legal Entity', businessLine: 'Business Line'
         };
 
@@ -414,7 +414,9 @@
 
             if (card) {
                 const li = card.closest('li');
-                if (li) li.classList.add('highlight-tree');
+                if (li) {
+                    li.classList.add('highlight-tree');
+                }
                 
                 const linkedTo = card.getAttribute('data-linked-to');
                 if (linkedTo) {
@@ -491,7 +493,7 @@
         }
 
         function loadFromStorage() {
-            const saved = localStorage.getItem('adyen_v71');
+            const saved = localStorage.getItem('adyen_v70');
             const root = document.getElementById('root-ul');
             root.innerHTML = saved || defaultTemplate;
             ensureIds();
@@ -509,7 +511,7 @@
                 historyStack = historyStack.slice(0, historyIndex + 1);
             }
             const state = document.getElementById('root-ul').innerHTML;
-            localStorage.setItem('adyen_v71', state);
+            localStorage.setItem('adyen_v70', state);
             historyStack.push(state);
             historyIndex++;
             updateUndoUI();
@@ -519,7 +521,7 @@
 
         function resetAll() {
             if(confirm("Reset structure?")) {
-                localStorage.removeItem('adyen_v71');
+                localStorage.removeItem('adyen_v70');
                 location.reload();
             }
         }
@@ -686,12 +688,10 @@
 
         function updateAddButtons() {
             document.querySelectorAll('.node-card[data-type="store"]').forEach(card => {
-                const isLinkedTo = Array.from(document.querySelectorAll('.node-card[data-type="businessLine"]')).some(bl => {
-                    const links = (bl.getAttribute('data-linked-to') || '').split(',');
+                const isLinkedTo = Array.from(document.querySelectorAll('.node-card[data-type="businessLine"], .node-card[data-type="bp"], .node-card[data-type="pos"], .node-card[data-type="ecom"]')).some(src => {
+                    const links = (src.getAttribute('data-linked-to') || '').split(',');
                     return links.includes(card.id);
                 });
-                const addBtn = card.querySelector('.btn-add');
-                if (addBtn) addBtn.style.display = isLinkedTo ? 'none' : 'flex';
             });
 
             document.querySelectorAll('.node-card[data-type="legalEntity"]').forEach(card => {
@@ -1009,7 +1009,7 @@
             else if (current === 'payInstCard') next = 'payInstBiz';
             else if (current === 'payInstBiz') next = 'payInstCard';
             else if (current === 'businessLine') next = 'transferInst';
-            else if (current === 'transferInst') next = 'businessLine';
+            else if (current === 'transferInst' && card.closest('ul').previousElementSibling && card.closest('ul').previousElementSibling.getAttribute('data-type') === 'legalEntity') next = 'businessLine';
             else if (current === 'accHolder') next = 'liableAccHolder';
             else if (current === 'liableAccHolder') next = 'accHolder';
             else return;
@@ -1030,16 +1030,9 @@
 
             Array.from(ul.children).forEach(li => {
                 if(li.tagName === 'LI') {
+                    li.classList.remove('is-bp');
                     const ld = Array.from(li.children).find(c => c.classList.contains('line-drop'));
-                    const card = li.querySelector('.node-card');
-                    
-                    if (card && card.getAttribute('data-type') === 'bp') {
-                        if (ld) ld.style.display = 'none'; // BPs float, no drop line
-                        li.classList.add('is-bp');
-                    } else {
-                        li.classList.remove('is-bp');
-                        if (ld) ld.style.display = 'block'; // Ensure non-BPs have their drop line restored
-                    }
+                    if (ld) ld.style.display = 'none';
                 }
             });
 
@@ -1050,21 +1043,53 @@
             }
             ul.classList.remove('empty-node');
 
+            let firstStd = -1, lastStd = -1;
+            for (let i = 0; i < visibleItems.length; i++) {
+                const card = visibleItems[i].querySelector('.node-card');
+                const isBp = card && card.getAttribute('data-type') === 'bp';
+                if (isBp) visibleItems[i].classList.add('is-bp');
+                else {
+                    if (firstStd === -1) firstStd = i;
+                    lastStd = i;
+                }
+            }
+
             requestAnimationFrame(() => {
-                topBridge.style.display = 'block';
-                
-                const ulCenter = ul.offsetWidth / 2;
-                const firstLi = visibleItems[0];
-                const lastLi = visibleItems[visibleItems.length - 1];
-                
-                const firstCenter = firstLi.offsetLeft + (firstLi.offsetWidth / 2);
-                const lastCenter = lastLi.offsetLeft + (lastLi.offsetWidth / 2);
+                if (firstStd !== -1) {
+                    topBridge.style.display = 'block';
+                    
+                    const ulCenter = ul.offsetWidth / 2;
+                    const firstLi = visibleItems[firstStd];
+                    const lastLi = visibleItems[lastStd];
+                    
+                    const firstCenter = firstLi.offsetLeft + (firstLi.offsetWidth / 2);
+                    const lastCenter = lastLi.offsetLeft + (lastLi.offsetWidth / 2);
 
-                const bridgeStart = Math.min(ulCenter, firstCenter);
-                const bridgeEnd = Math.max(ulCenter, lastCenter);
+                    const bridgeStart = Math.min(ulCenter, firstCenter);
+                    const bridgeEnd = Math.max(ulCenter, lastCenter);
 
-                topBridge.style.left = bridgeStart + 'px';
-                topBridge.style.width = (bridgeEnd - bridgeStart) + 'px';
+                    topBridge.style.left = bridgeStart + 'px';
+                    topBridge.style.width = (bridgeEnd - bridgeStart) + 'px';
+
+                    for (let i = 0; i < visibleItems.length; i++) {
+                        const li = visibleItems[i];
+                        const isBp = li.classList.contains('is-bp');
+                        const card = li.querySelector('.node-card');
+                        const ld = Array.from(li.children).find(c => c.classList.contains('line-drop'));
+                        
+                        if (!isBp && ld) ld.style.display = 'block';
+                    }
+                } else {
+                    topBridge.style.display = 'none';
+
+                    for (let i = 0; i < visibleItems.length; i++) {
+                        const li = visibleItems[i];
+                        const isBp = li.classList.contains('is-bp');
+                        const ld = Array.from(li.children).find(c => c.classList.contains('line-drop'));
+                        
+                        if (ld) ld.style.display = 'none';
+                    }
+                }
             });
         }
 
@@ -1216,7 +1241,7 @@
                     if (targetUl && targetUl.classList.contains('children-container')) {
                         hasBLChild = Array.from(targetUl.children).some(c => c.querySelector('.node-card[data-type="businessLine"]'));
                     }
-                    const isLinkedTo = document.querySelector(`.node-card[data-type="businessLine"][data-linked-to*="${targetCard.id}"]`);
+                    const isLinkedTo = document.querySelector(`.node-card[data-type="businessLine"][data-linked-to="${targetCard.id}"]`);
 
                     if (!hasBLChild && !isLinkedTo && targetCard !== srcCard.parentNode.parentNode.querySelector('.node-card')) {
                         targetCard.classList.add('valid-drop-target');
@@ -1237,20 +1262,13 @@
                     }
                 });
             } else if (srcType === 'bp' || srcType === 'pos' || srcType === 'ecom') {
-                const isSrcBP = srcType === 'bp';
-                
                 document.querySelectorAll('.node-card[data-type="bp"], .node-card[data-type="pos"], .node-card[data-type="ecom"]').forEach(targetCard => {
                     const targetLi = targetCard.closest('li');
                     if (!isElementVisible(targetLi)) return;
                     
-                    const targetType = targetCard.getAttribute('data-type');
-                    const isTargetBP = targetType === 'bp';
-
-                    // Enforce BP <-> MA (No MA <-> MA links)
-                    if (isSrcBP !== isTargetBP && targetCard !== srcCard) {
-                        const srcLinks = (srcCard.getAttribute('data-linked-to') || '').split(',');
-                        const targetLinks = (targetCard.getAttribute('data-linked-to') || '').split(',');
-                        const alreadyLinked = srcLinks.includes(targetCard.id) || targetLinks.includes(srcCard.id);
+                    if (targetCard !== srcCard) {
+                        const alreadyLinked = (srcCard.getAttribute('data-linked-to') || '').split(',').includes(targetCard.id) ||
+                                              (targetCard.getAttribute('data-linked-to') || '').split(',').includes(srcCard.id);
                         if (!alreadyLinked) targetCard.classList.add('valid-drop-target');
                     }
                 });
@@ -1274,13 +1292,15 @@
         function drop(e) {
             e.stopPropagation();
             if (dragSrcEl !== this) {
-                const targetCard = e.target.closest('.node-card.valid-drop-target');
+                const targetCard = this.querySelector(':scope > .node-card');
+                const droppedOnCard = e.target.closest('.node-card');
+                
                 const srcCard = dragSrcEl.querySelector('.node-card');
                 const srcType = srcCard.getAttribute('data-type');
                 
                 let handledAsLink = false;
 
-                if (targetCard) {
+                if (droppedOnCard && droppedOnCard === targetCard && targetCard.classList.contains('valid-drop-target')) {
                     const targetType = targetCard.getAttribute('data-type');
                     
                     if (srcType === 'businessLine' && targetType === 'store') {
@@ -1304,25 +1324,11 @@
                         }
                         handledAsLink = true;
                     } else if (['bp', 'pos', 'ecom'].includes(srcType) && ['bp', 'pos', 'ecom'].includes(targetType)) {
-                        const isSrcBP = srcType === 'bp';
-                        const bpCard = isSrcBP ? srcCard : targetCard;
-                        const maCard = isSrcBP ? targetCard : srcCard;
-
-                        // Ensure MA drops from any other BP (Many-to-One enforcement)
-                        document.querySelectorAll('.node-card[data-type="bp"]').forEach(bp => {
-                            let links = (bp.getAttribute('data-linked-to') || '').split(',').filter(x => x);
-                            if (links.includes(maCard.id)) {
-                                links = links.filter(id => id !== maCard.id);
-                                if (links.length > 0) bp.setAttribute('data-linked-to', links.join(','));
-                                else bp.removeAttribute('data-linked-to');
-                            }
-                        });
-                        maCard.removeAttribute('data-linked-to'); 
-
-                        let bpLinks = (bpCard.getAttribute('data-linked-to') || '').split(',').filter(x => x);
-                        if (!bpLinks.includes(maCard.id)) {
-                            bpLinks.push(maCard.id);
-                            bpCard.setAttribute('data-linked-to', [...new Set(bpLinks)].join(','));
+                        let links = (srcCard.getAttribute('data-linked-to') || '').split(',').filter(x => x);
+                        const alreadyLinked = links.includes(targetCard.id) || (targetCard.getAttribute('data-linked-to') || '').split(',').includes(srcCard.id);
+                        if (!alreadyLinked) {
+                            links.push(targetCard.id);
+                            srcCard.setAttribute('data-linked-to', [...new Set(links)].join(','));
                             recalculateAllTreeLines();
                             saveState();
                         }
@@ -1331,15 +1337,10 @@
                 }
 
                 if (!handledAsLink && dragSrcEl.parentNode === this.parentNode) {
-                    const rect = this.getBoundingClientRect();
-                    const insertAfter = e.clientX > (rect.left + rect.width / 2);
-                    
                     const p = this.parentNode;
-                    if (insertAfter) {
-                        p.insertBefore(dragSrcEl, this.nextSibling);
-                    } else {
-                        p.insertBefore(dragSrcEl, this);
-                    }
+                    const ch = Array.from(p.children);
+                    if(ch.indexOf(dragSrcEl) < ch.indexOf(this)) p.insertBefore(dragSrcEl, this.nextSibling);
+                    else p.insertBefore(dragSrcEl, this);
                     
                     recalculateAllTreeLines();
                     saveState();
