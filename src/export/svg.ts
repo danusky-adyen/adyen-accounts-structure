@@ -11,6 +11,7 @@
 import { monogram, peekCompanyLogo, peekPaymentLogos } from '../design/brand';
 import { getIcon, getTerminalIcon, type IconDef } from '../design/icons';
 import { PALETTES, TINTS, tintFill, type ThemeName } from '../design/palette';
+import { BORDER_WIDTH, RADIUS, TYPE } from '../design/tokens';
 import { specOf } from '../domain/kinds';
 import type { Layout, LayoutNode } from '../layout';
 import { FONT_STACK } from '../layout/measure';
@@ -65,12 +66,12 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
     spec.tone === 'management'
       ? palette.surfaceSunken
       : item.insidePlatform
-        ? mix(palette.accent, palette.surface, 0.04)
+        ? palette.highlightSoft
         : palette.surface;
 
   const parts: string[] = [
-    `<rect x="${round(item.x)}" y="${round(item.y)}" width="${round(item.width)}" height="${round(item.height)}" rx="${CARD.radius}" fill="${surface}" stroke="${palette.border}" stroke-width="1"/>`,
-    `<rect x="${round(item.x + slots.icon.x)}" y="${round(item.y + slots.icon.y)}" width="${round(slots.icon.width)}" height="${round(slots.icon.height)}" rx="12" fill="${fill}"/>`,
+    `<rect x="${round(item.x)}" y="${round(item.y)}" width="${round(item.width)}" height="${round(item.height)}" rx="${CARD.radius}" fill="${surface}" stroke="${palette.border}" stroke-width="${BORDER_WIDTH.s}"/>`,
+    `<rect x="${round(item.x + slots.icon.x)}" y="${round(item.y + slots.icon.y)}" width="${round(slots.icon.width)}" height="${round(slots.icon.height)}" rx="${RADIUS.m}" fill="${fill}"/>`,
     iconMarkup(
       getIcon(spec.icon),
       CARD.iconSize - ICON_INSET * 2,
@@ -88,13 +89,13 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
     // small in the corner exactly as the card does it.
     const box = { x: item.x + slots.logo.x, y: item.y + slots.logo.y };
     parts.push(
-      `<rect x="${round(box.x)}" y="${round(box.y)}" width="${round(slots.logo.width)}" height="${round(slots.logo.height)}" rx="12" fill="${palette.surface}" stroke="${palette.border}"/>`,
+      `<rect x="${round(box.x)}" y="${round(box.y)}" width="${round(slots.logo.width)}" height="${round(slots.logo.height)}" rx="${RADIUS.m}" fill="${palette.surface}"/>`,
     );
 
     const logo = peekCompanyLogo(item.node.logoDomain);
     if (logo === null) {
       parts.push(
-        `<text x="${round(box.x + slots.logo.width / 2)}" y="${round(box.y + slots.logo.height / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="15" font-weight="800" fill="${tint.line}">${escapeXml(monogram(item.node.name))}</text>`,
+        `<text x="${round(box.x + slots.logo.width / 2)}" y="${round(box.y + slots.logo.height / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="15" font-weight="${TYPE.title.weight}" fill="${tint.line}">${escapeXml(monogram(item.node.name))}</text>`,
       );
     } else {
       parts.push(
@@ -104,7 +105,7 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
 
     const glyph = CARD.logoKindSize;
     parts.push(
-      `<rect x="${round(box.x + slots.logo.width - glyph + 5)}" y="${round(box.y + slots.logo.height - glyph + 5)}" width="${glyph}" height="${glyph}" rx="5" fill="${fill}" stroke="${palette.surface}"/>`,
+      `<rect x="${round(box.x + slots.logo.width - glyph + 5)}" y="${round(box.y + slots.logo.height - glyph + 5)}" width="${glyph}" height="${glyph}" rx="${RADIUS.s}" fill="${fill}" stroke="${palette.surface}"/>`,
       iconMarkup(
         getIcon(spec.icon),
         glyph - 3,
@@ -124,7 +125,7 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
   });
 
   parts.push(
-    `<text x="${round(centerX)}" y="${round(item.y + slots.captionBaselineTop + CARD.captionLineHeight / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="${CARD.captionSize}" font-weight="${CARD.captionWeight}" letter-spacing="0.55" fill="${palette.textFaint}">${escapeXml(item.caption.toUpperCase())}</text>`,
+    `<text x="${round(centerX)}" y="${round(item.y + slots.captionBaselineTop + CARD.captionLineHeight / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="${CARD.captionSize}" font-weight="${CARD.captionWeight}" fill="${palette.textMuted}">${escapeXml(item.caption)}</text>`,
   );
 
   if (item.node.note.trim() !== '') {
@@ -158,13 +159,13 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
     const box = slots.methodOverflowBox;
     parts.push(
       `<rect x="${round(item.x + box.x)}" y="${round(item.y + box.y)}" width="${round(box.width)}" height="${round(box.height)}" rx="${CARD.methodRadius}" fill="${palette.surfaceSunken}" stroke="${palette.border}"/>`,
-      `<text x="${round(item.x + box.x + box.width / 2)}" y="${round(item.y + box.y + box.height / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="9.5" font-weight="700" fill="${palette.textFaint}">+${slots.methodOverflow}</text>`,
+      `<text x="${round(item.x + box.x + box.width / 2)}" y="${round(item.y + box.y + box.height / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="10" font-weight="${TYPE.captionStronger.weight}" fill="${palette.textFaint}">+${slots.methodOverflow}</text>`,
     );
   }
 
   if (slots.badgeTop !== null) {
     parts.push(
-      `<text x="${round(centerX)}" y="${round(item.y + slots.badgeTop + CARD.badgeHeight / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="${CARD.badgeTextSize}" font-weight="${CARD.badgeTextWeight}" fill="${palette.textFaint}">${escapeXml(slots.badgeLabel)}</text>`,
+      `<text x="${round(centerX)}" y="${round(item.y + slots.badgeTop + CARD.badgeHeight / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="${CARD.badgeTextSize}" font-weight="${CARD.badgeTextWeight}" fill="${palette.textMuted}">${escapeXml(slots.badgeLabel)}</text>`,
     );
   }
 
@@ -175,7 +176,7 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
     const top = item.y + slots.terminalsTop + (CARD.terminalRowHeight - CARD.terminalSize) / 2;
     for (const terminal of terminals) {
       parts.push(
-        `<rect x="${round(cursor)}" y="${round(top)}" width="${CARD.terminalSize}" height="${CARD.terminalSize}" rx="7" fill="${palette.surfaceSunken}" stroke="${palette.border}"/>`,
+        `<rect x="${round(cursor)}" y="${round(top)}" width="${CARD.terminalSize}" height="${CARD.terminalSize}" rx="${RADIUS.s}" fill="${palette.surfaceSunken}" stroke="${palette.border}"/>`,
         iconMarkup(getTerminalIcon(terminal), CARD.terminalSize - 6, cursor + 3, top + 3, tint.line, fill),
       );
       cursor += CARD.terminalSize + CARD.terminalSpacing;
@@ -230,17 +231,3 @@ function stripSvgWrapper(svg: string): string {
   return svg.slice(opening + 1, closing);
 }
 
-function mix(color: string, base: string, amount: number): string {
-  const a = parseHex(color);
-  const b = parseHex(base);
-  if (!a || !b) return base;
-  const channels = a.map((value, index) => Math.round(value * amount + (b[index] ?? 0) * (1 - amount)));
-  return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
-}
-
-function parseHex(value: string): [number, number, number] | null {
-  const match = /^#([0-9a-f]{6})$/i.exec(value.trim());
-  if (!match?.[1]) return null;
-  const int = Number.parseInt(match[1], 16);
-  return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
-}

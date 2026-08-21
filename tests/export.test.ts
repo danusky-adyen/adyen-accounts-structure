@@ -100,7 +100,8 @@ describe('renderDiagramSvg', () => {
 
     expect(svg.match(/<text /g) ?? []).toHaveLength(expected);
     expect(svg).toContain('>Kalverstraat<');
-    expect(svg).toContain('>STORE<');
+    // Bento captions are sentence case: no uppercasing, no tracking.
+    expect(svg).toContain('>Store<');
   });
 
   it('escapes text that would otherwise be markup', () => {
@@ -130,8 +131,9 @@ describe('renderDiagramSvg', () => {
     const dark = renderDiagramSvg(layout, { theme: 'dark', background: true, title: 'Retail' });
 
     expect(light).not.toBe(dark);
-    expect(light).toContain('#f6f7f9');
-    expect(dark).not.toContain('#f6f7f9');
+    // Bento `background-secondary`, the light-theme canvas.
+    expect(light).toContain('#f4f5f6');
+    expect(dark).not.toContain('#f4f5f6');
   });
 
   it('sizes the canvas to the diagram bounds', () => {

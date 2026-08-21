@@ -5,6 +5,7 @@
  */
 
 import { PALETTES, TINTS, type ThemeName } from './palette';
+import { tokenDeclarations } from './tokens';
 
 const STYLE_ELEMENT_ID = 'aas-design-tokens';
 
@@ -23,9 +24,16 @@ function tintBlock(): string {
   for (const [name, tint] of Object.entries(TINTS)) {
     light.push(`  --tint-${name}-line: ${tint.line};`);
     light.push(`  --tint-${name}-fill: ${tint.fill};`);
+    dark.push(`  --tint-${name}-line: ${tint.lineDark};`);
     dark.push(`  --tint-${name}-fill: ${tint.fillDark};`);
   }
   return `:root {\n${light.join('\n')}\n}\n:root[data-theme='dark'] {\n${dark.join('\n')}\n}`;
+}
+
+function primitiveBlock(): string {
+  return `:root {\n${tokenDeclarations()
+    .map((line) => `  ${line}`)
+    .join('\n')}\n}`;
 }
 
 /** Called once before the first render so no frame paints unstyled. */
@@ -34,6 +42,7 @@ export function installDesignTokens(): void {
   const style = document.createElement('style');
   style.id = STYLE_ELEMENT_ID;
   style.textContent = [
+    primitiveBlock(),
     paletteBlock('light', ':root'),
     paletteBlock('dark', ":root[data-theme='dark']"),
     tintBlock(),

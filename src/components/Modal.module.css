@@ -1,53 +1,64 @@
+/**
+ * Bento modal: `background-modal`, radius `l`, `shadow-high`, and an entrance
+ * that fades in while translating up over 150ms on the `enter` curve. The
+ * scrim is the flat `support-overlay` token, not a blur.
+ */
+
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--b-z-instant-interaction);
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--c-canvas) 55%, transparent);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  animation: fadeIn 0.14s ease-out;
+  background: var(--c-overlay);
+  animation: fadeIn var(--b-duration-moderate) var(--b-ease-enter);
 }
 
 .dialog {
-  width: min(420px, calc(100vw - 32px));
-  max-height: calc(100vh - 64px);
+  width: min(420px, calc(100vw - var(--b-spacer-100)));
+  max-height: calc(100vh - var(--b-spacer-140));
   overflow: auto;
-  padding: 22px;
-  border-radius: 20px;
-  background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  box-shadow: 0 32px 70px -24px var(--c-shadow-strong);
-  animation: dialogIn 0.16s ease-out;
+  padding: var(--b-spacer-090);
+  border-radius: var(--b-radius-l);
+  background: var(--c-surface-raised);
+  border: var(--b-border-width-s) solid var(--c-border);
+  box-shadow: var(--b-shadow-high);
+  animation: dialogIn var(--b-duration-moderate) var(--b-ease-enter);
 }
 
 .dialogWide {
-  width: min(660px, calc(100vw - 32px));
+  width: min(660px, calc(100vw - var(--b-spacer-100)));
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 4px;
+  gap: var(--b-spacer-060);
+  margin-bottom: var(--b-spacer-020);
 }
 
 .closeButton {
   flex: none;
-  width: 26px;
-  height: 26px;
-  margin: -4px -4px -4px 0;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  margin: calc(-1 * var(--b-spacer-020)) calc(-1 * var(--b-spacer-020)) calc(-1 * var(--b-spacer-020)) 0;
+  border-radius: var(--b-radius-m);
   display: grid;
   place-items: center;
-  color: var(--c-text-faint);
+  color: var(--c-text-muted);
+  transition:
+    background var(--b-duration-fast) var(--b-ease-linear),
+    color var(--b-duration-fast) var(--b-ease-linear);
 }
 
 .closeButton:hover {
-  background: color-mix(in srgb, var(--c-text) 8%, transparent);
+  background: var(--c-surface-hover);
   color: var(--c-text);
+}
+
+.closeButton:active {
+  background: var(--c-surface-active);
 }
 
 .closeButton svg {
@@ -60,56 +71,69 @@
 }
 
 .title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: var(--b-text-title-size);
+  line-height: var(--b-text-title-line-height);
+  font-weight: var(--b-text-title-weight);
 }
 
 .description {
-  margin: 0 0 18px;
-  font-size: 13px;
-  line-height: 1.5;
+  margin: 0 0 var(--b-spacer-070);
+  font-size: var(--b-text-body-size);
+  line-height: var(--b-text-body-line-height);
   color: var(--c-text-muted);
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
+  gap: var(--b-spacer-040);
+  margin-top: var(--b-spacer-080);
 }
 
+/* Bento button: radius `m`, 8px/12px padding, 100ms linear state change. */
 .button {
-  padding: 8px 14px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  border: 1px solid var(--c-border);
+  padding: var(--b-spacer-040) var(--b-spacer-060);
+  border-radius: var(--b-radius-m);
+  font-size: var(--b-text-body-size);
+  line-height: var(--b-text-body-line-height);
+  font-weight: var(--b-text-body-stronger-weight);
+  border: var(--b-border-width-s) solid var(--c-border);
   color: var(--c-text);
   background: var(--c-surface);
+  transition:
+    background var(--b-duration-fast) var(--b-ease-linear),
+    border-color var(--b-duration-fast) var(--b-ease-linear);
 }
 
 .button:hover {
-  background: var(--c-surface-sunken);
+  background: var(--c-surface-hover);
+  border-color: var(--c-border-hover);
+}
+
+.button:active {
+  background: var(--c-surface-active);
 }
 
 .buttonPrimary {
   border-color: transparent;
   background: var(--c-accent);
-  color: #fff;
+  color: var(--c-text-inverse);
 }
 
 .buttonPrimary:hover {
-  background: color-mix(in srgb, var(--c-accent) 88%, #000);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--c-accent) 88%, var(--c-text));
 }
 
 .buttonDanger {
   border-color: transparent;
   background: var(--c-danger);
-  color: #fff;
+  color: var(--c-text-inverse);
 }
 
 .buttonDanger:hover {
-  background: color-mix(in srgb, var(--c-danger) 88%, #000);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--c-danger) 88%, var(--c-text));
 }
 
 @keyframes fadeIn {
@@ -121,6 +145,6 @@
 @keyframes dialogIn {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(var(--b-spacer-090));
   }
 }

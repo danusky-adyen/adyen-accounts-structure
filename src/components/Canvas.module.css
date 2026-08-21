@@ -11,6 +11,8 @@
   cursor: grabbing;
 }
 
+/* The dot grid is world geometry, not spacing: the 1px dot and its offset are
+   set here and scaled by the viewport transform, so they stay literal. */
 .grid {
   position: absolute;
   inset: 0;

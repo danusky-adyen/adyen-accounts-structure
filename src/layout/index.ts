@@ -235,7 +235,7 @@ export function measureCard(
 
   const maxTextWidth = CARD.maxWidth - CARD.paddingX * 2;
   const wrapped = wrapText(node.name, maxTextWidth, CARD.nameMaxLines, measure, CARD.nameWeight, CARD.nameSize);
-  const captionWidth = measure(caption.toUpperCase(), CARD.captionWeight, CARD.captionSize) + 0.5 * caption.length;
+  const captionWidth = measure(caption, CARD.captionWeight, CARD.captionSize);
 
   // An empty terminal row is not reserved: the row would read as dead space on
   // every store and merchant card. Adding the first terminal grows the card.

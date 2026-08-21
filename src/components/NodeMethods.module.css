@@ -1,33 +1,34 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--b-spacer-040);
 }
 
 .empty {
-  font-size: 12px;
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
   color: var(--c-text-faint);
 }
 
 .selected {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: var(--b-spacer-030);
 }
 
 .selectedMark {
   position: relative;
   width: 38px;
   height: 25px;
-  border-radius: 5px;
+  border-radius: var(--b-radius-s);
   overflow: hidden;
-  border: 1px solid var(--c-border);
+  border: var(--b-border-width-s) solid var(--c-border);
   background: var(--c-surface);
   display: grid;
   place-items: center;
   transition:
-    border-color 0.15s ease,
-    opacity 0.15s ease;
+    border-color var(--b-duration-fast) var(--b-ease-linear),
+    opacity var(--b-duration-fast) var(--b-ease-linear);
 }
 
 .selectedMark img {
@@ -41,10 +42,12 @@
   opacity: 0.65;
 }
 
+/* Fallback wordmark inside a 38x25 tile: below Bento's caption size by
+   necessity, so the size stays literal. */
 .markText {
   font-size: 8px;
-  font-weight: 700;
-  padding: 0 2px;
+  font-weight: var(--b-text-caption-stronger-weight);
+  padding: 0 var(--b-spacer-010);
   text-align: center;
   line-height: 1.1;
   color: var(--c-text-faint);
@@ -54,12 +57,13 @@
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: 9px;
-  border: 1px dashed var(--c-border-strong);
-  font-size: 12px;
-  font-weight: 600;
+  gap: var(--b-spacer-030);
+  padding: var(--b-spacer-030) var(--b-spacer-050);
+  border-radius: var(--b-radius-m);
+  border: var(--b-border-width-s) dashed var(--c-border-strong);
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-stronger-weight);
   color: var(--c-text-muted);
 }
 
@@ -81,7 +85,7 @@
 .picker {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--b-spacer-060);
   max-height: min(58vh, 460px);
   overflow-y: auto;
 }
@@ -89,31 +93,30 @@
 .group {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--b-spacer-040);
 }
 
 .groupTitle {
   margin: 0;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-stronger-weight);
   color: var(--c-text-faint);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-  gap: 6px;
+  gap: var(--b-spacer-030);
 }
 
 .option {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 9px;
-  border: 1px solid var(--c-border);
+  gap: var(--b-spacer-040);
+  padding: var(--b-spacer-030) var(--b-spacer-040);
+  border-radius: var(--b-radius-m);
+  border: var(--b-border-width-s) solid var(--c-border);
   background: var(--c-surface);
   text-align: left;
 }
@@ -131,7 +134,7 @@
   flex: none;
   width: 34px;
   height: 22px;
-  border-radius: 4px;
+  border-radius: var(--b-radius-s);
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -146,8 +149,9 @@
 
 .optionLabel {
   min-width: 0;
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-stronger-weight);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

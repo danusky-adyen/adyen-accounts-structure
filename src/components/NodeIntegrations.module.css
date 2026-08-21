@@ -1,28 +1,30 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--b-spacer-030);
 }
 
 .empty {
-  font-size: 12px;
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
   color: var(--c-text-faint);
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 8px;
-  border-radius: 10px;
+  gap: var(--b-spacer-020);
+  padding: var(--b-spacer-030) var(--b-spacer-040);
+  border-radius: var(--b-radius-m);
   background: var(--c-surface-sunken);
 }
 
 .name {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-stronger-weight);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -31,14 +33,15 @@
 .version {
   flex: none;
   width: 72px;
-  padding: 4px 6px;
-  border-radius: 7px;
-  border: 1px solid var(--c-border);
+  padding: var(--b-spacer-020) var(--b-spacer-030);
+  border-radius: var(--b-radius-s);
+  border: var(--b-border-width-s) solid var(--c-border);
   background: var(--c-surface);
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-stronger-weight);
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--b-duration-fast) var(--b-ease-linear);
 }
 
 .version:focus {
@@ -49,7 +52,7 @@
   flex: none;
   width: 22px;
   height: 22px;
-  border-radius: 6px;
+  border-radius: var(--b-radius-s);
   display: grid;
   place-items: center;
   color: var(--c-text-faint);
@@ -73,12 +76,13 @@
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: 9px;
-  border: 1px dashed var(--c-border-strong);
-  font-size: 12px;
-  font-weight: 600;
+  gap: var(--b-spacer-030);
+  padding: var(--b-spacer-020) var(--b-spacer-050);
+  border-radius: var(--b-radius-m);
+  border: var(--b-border-width-s) dashed var(--c-border-strong);
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-stronger-weight);
   color: var(--c-text-muted);
 }
 
@@ -100,7 +104,7 @@
 .picker {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--b-spacer-060);
   max-height: min(58vh, 460px);
   overflow-y: auto;
 }
@@ -108,31 +112,32 @@
 .group {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--b-spacer-030);
 }
 
+/* Bento captions carry no tracking and no case transform. */
 .groupTitle {
   margin: 0;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-stronger-weight);
   color: var(--c-text-faint);
 }
 
 .options {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--b-spacer-030);
 }
 
 .option {
-  padding: 7px 11px;
-  border-radius: 9px;
-  border: 1px solid var(--c-border);
+  padding: var(--b-spacer-030) var(--b-spacer-050);
+  border-radius: var(--b-radius-m);
+  border: var(--b-border-width-s) solid var(--c-border);
   background: var(--c-surface);
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-stronger-weight);
   color: var(--c-text);
 }
 

@@ -1,30 +1,36 @@
+/**
+ * Canvas card. Bento cards are flat: `background-primary`, a 1px
+ * `outline-primary`, radius `l`, and no shadow. Hover and press come from the
+ * `background-primary-hover` / `-active` tokens. Only genuinely floating parts
+ * (the hover buttons) carry elevation.
+ *
+ * Geometry comes from `layout/metrics.ts`; keep any change here in step with
+ * `export/svg.ts` so exported diagrams match the screen.
+ */
+
 .card {
   position: absolute;
-  border-radius: 18px;
+  border-radius: var(--b-radius-l);
   background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  box-shadow:
-    0 1px 2px var(--c-shadow),
-    0 8px 20px -14px var(--c-shadow-strong);
+  border: var(--b-border-width-s) solid var(--c-border);
   transition:
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
-    opacity 0.18s ease,
-    transform 0.12s ease;
+    background var(--b-duration-fast) var(--b-ease-linear),
+    border-color var(--b-duration-fast) var(--b-ease-linear),
+    box-shadow var(--b-duration-fast) var(--b-ease-linear),
+    opacity var(--b-duration-moderate) var(--b-ease-standard),
+    transform var(--b-duration-fast) var(--b-ease-standard);
   cursor: grab;
   user-select: none;
   touch-action: none;
 }
 
 .card:hover {
-  border-color: var(--c-border-strong);
-  box-shadow:
-    0 1px 2px var(--c-shadow),
-    0 16px 34px -16px var(--c-shadow-strong);
+  background: var(--c-surface-hover);
+  border-color: var(--c-border-hover);
 }
 
 .card[data-platform='true'] {
-  background: color-mix(in srgb, var(--c-accent) 4%, var(--c-surface));
+  background: var(--c-highlight-soft);
 }
 
 .card[data-tone='management'] {
@@ -35,15 +41,14 @@
   border-color: var(--c-border-strong);
 }
 
+/* Selection reads as a ring rather than elevation, so the row stays flat. */
 .card[data-selected='true'] {
   border-color: var(--c-accent);
-  box-shadow:
-    0 0 0 3px var(--c-accent-soft),
-    0 16px 34px -16px var(--c-shadow-strong);
+  box-shadow: 0 0 0 var(--b-border-width-l) var(--c-accent-soft);
 }
 
 .card[data-dragging='true'] {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: grabbing;
 }
 
@@ -62,25 +67,25 @@
   border-color: var(--c-accent);
   background: var(--c-accent-soft);
   opacity: 1;
-  transform: scale(1.03);
+  transform: scale(1.02);
 }
 
 .iconBox {
   position: absolute;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: var(--b-radius-m);
 }
 
 .name {
   position: absolute;
   left: 0;
   right: 0;
-  padding: 0 14px;
+  padding: 0 var(--b-spacer-060);
   display: flex;
   flex-direction: column;
   text-align: center;
-  font-weight: 650;
+  font-weight: var(--b-text-body-strongest-weight);
   color: var(--c-text);
   overflow: hidden;
 }
@@ -95,11 +100,11 @@
 .nameInput {
   position: absolute;
   text-align: center;
-  font-weight: 650;
-  border: 1px solid var(--c-accent);
-  border-radius: 8px;
+  font-weight: var(--b-text-body-strongest-weight);
+  border: var(--b-border-width-s) solid var(--c-accent);
+  border-radius: var(--b-radius-s);
   background: var(--c-surface);
-  padding: 0 4px;
+  padding: 0 var(--b-spacer-020);
   outline: none;
   width: auto;
 }
@@ -108,12 +113,10 @@
   position: absolute;
   left: 0;
   right: 0;
-  padding: 0 12px;
+  padding: 0 var(--b-spacer-060);
   text-align: center;
-  font-weight: 700;
-  letter-spacing: 0.055em;
-  text-transform: uppercase;
-  color: var(--c-text-faint);
+  font-weight: var(--b-text-caption-weight);
+  color: var(--c-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -126,19 +129,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: var(--b-spacer-020);
 }
 
 .terminal {
   display: grid;
   place-items: center;
-  border-radius: 7px;
+  border-radius: var(--b-radius-s);
   background: var(--c-surface-sunken);
-  border: 1px solid var(--c-border);
+  border: var(--b-border-width-s) solid var(--c-border);
   color: var(--c-text-muted);
   transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+    border-color var(--b-duration-fast) var(--b-ease-linear),
+    background var(--b-duration-fast) var(--b-ease-linear);
 }
 
 .terminal:hover {
@@ -149,13 +152,13 @@
 .addTerminal {
   display: grid;
   place-items: center;
-  border-radius: 7px;
-  border: 1px dashed var(--c-border-strong);
+  border-radius: var(--b-radius-s);
+  border: var(--b-border-width-s) dashed var(--c-border-strong);
   color: var(--c-text-faint);
-  font-size: 13px;
+  font-size: var(--b-text-caption-size);
   line-height: 1;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--b-duration-fast) var(--b-ease-linear);
 }
 
 .card:hover .addTerminal,
@@ -173,18 +176,18 @@
   position: absolute;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  box-shadow: 0 3px 10px -3px var(--c-shadow-strong);
+  border: var(--b-border-width-s) solid var(--c-border);
+  box-shadow: var(--b-shadow-low);
   opacity: 0;
   pointer-events: none;
   transition:
-    opacity 0.15s ease,
-    transform 0.15s ease,
-    background 0.15s ease;
+    opacity var(--b-duration-fast) var(--b-ease-linear),
+    transform var(--b-duration-fast) var(--b-ease-standard),
+    background var(--b-duration-fast) var(--b-ease-linear);
   z-index: 2;
 }
 
@@ -195,79 +198,78 @@
 }
 
 .floatButton svg {
-  width: 13px;
-  height: 13px;
+  width: 12px;
+  height: 12px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2.4;
+  stroke-width: 2.2;
   stroke-linecap: round;
 }
 
 .addButton {
-  bottom: -13px;
+  bottom: -12px;
   left: 50%;
-  margin-left: -13px;
+  margin-left: -12px;
   color: var(--c-accent-text);
   border-color: var(--c-accent-border);
 }
 
 .addButton:hover {
   background: var(--c-accent);
-  color: #fff;
-  transform: scale(1.12);
+  color: var(--c-text-inverse);
+  transform: scale(1.1);
 }
 
 .secondaryButton {
-  bottom: -13px;
+  bottom: -12px;
   left: 22%;
-  margin-left: -13px;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  margin-left: -12px;
+  font-size: 10px;
+  font-weight: var(--b-text-body-strongest-weight);
   color: var(--c-accent-text);
   border-color: var(--c-accent-border);
 }
 
 .secondaryButton:hover {
   background: var(--c-accent);
-  color: #fff;
-  transform: scale(1.12);
+  color: var(--c-text-inverse);
+  transform: scale(1.1);
 }
 
 .terminalButton {
-  bottom: -13px;
+  bottom: -12px;
   left: 78%;
-  margin-left: -13px;
+  margin-left: -12px;
   color: var(--c-text-muted);
 }
 
 .terminalButton svg {
-  stroke-width: 1.9;
+  stroke-width: 1.8;
 }
 
 .terminalButton:hover {
   background: var(--c-accent);
-  color: #fff;
-  transform: scale(1.12);
+  color: var(--c-text-inverse);
+  transform: scale(1.1);
 }
 
 .deleteButton {
-  top: -13px;
-  right: -9px;
+  top: -12px;
+  right: -8px;
   color: var(--c-danger);
-  border-color: color-mix(in srgb, var(--c-danger) 40%, transparent);
+  border-color: var(--c-danger);
 }
 
 .deleteButton:hover {
   background: var(--c-danger);
-  color: #fff;
-  transform: scale(1.12);
+  color: var(--c-text-inverse);
+  transform: scale(1.1);
 }
 
 .noteBadge {
   position: absolute;
-  top: 9px;
-  right: 10px;
+  top: var(--b-spacer-040);
+  right: var(--b-spacer-050);
   width: 14px;
   height: 14px;
   color: var(--c-text-faint);
@@ -278,20 +280,20 @@
   height: 100%;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.9;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .linkBadge {
   position: absolute;
-  top: 9px;
-  left: 10px;
+  top: var(--b-spacer-040);
+  left: var(--b-spacer-050);
   display: flex;
   align-items: center;
-  gap: 2px;
-  font-size: 9.5px;
-  font-weight: 700;
+  gap: var(--b-spacer-010);
+  font-size: 10px;
+  font-weight: var(--b-text-caption-stronger-weight);
   color: var(--c-accent-text);
 }
 
@@ -306,50 +308,50 @@
 
 .monogram {
   font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  font-weight: var(--b-text-title-weight);
 }
 
 .logo {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  border-radius: 10px;
+  border-radius: var(--b-radius-s);
 }
 
 .logoKind {
   position: absolute;
-  right: -5px;
-  bottom: -5px;
+  right: -4px;
+  bottom: -4px;
   display: grid;
   place-items: center;
   width: 16px;
   height: 16px;
-  border-radius: 5px;
-  border: 1px solid var(--c-surface);
+  border-radius: var(--b-radius-s);
+  border: var(--b-border-width-s) solid var(--c-surface);
 }
 
+/* Bento tag: radius `s`, weak background, caption-stronger label. */
 .chip {
   position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--b-radius-s);
   background: var(--c-surface-sunken);
-  border: 1px solid var(--c-border);
+  border: var(--b-border-width-s) solid var(--c-border);
   color: var(--c-text-muted);
-  font-weight: 600;
+  font-weight: var(--b-text-caption-stronger-weight);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 0 5px;
+  padding: 0 var(--b-spacer-030);
 }
 
 .method {
   position: absolute;
   display: grid;
   place-items: center;
-  border-radius: 3px;
+  border-radius: var(--b-radius-xs);
   overflow: hidden;
   background: var(--c-surface-sunken);
 }
@@ -364,12 +366,12 @@
   position: absolute;
   display: grid;
   place-items: center;
-  border-radius: 3px;
+  border-radius: var(--b-radius-xs);
   background: var(--c-surface-sunken);
-  border: 1px solid var(--c-border);
+  border: var(--b-border-width-s) solid var(--c-border);
   color: var(--c-text-faint);
-  font-size: 9.5px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: var(--b-text-caption-stronger-weight);
 }
 
 .settingsBadge {
@@ -379,9 +381,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  color: var(--c-text-faint);
-  font-weight: 600;
+  gap: var(--b-spacer-020);
+  color: var(--c-text-muted);
+  font-weight: var(--b-text-caption-stronger-weight);
   white-space: nowrap;
 }
 

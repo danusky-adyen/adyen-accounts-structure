@@ -5,14 +5,16 @@
   pointer-events: none;
 }
 
+/* Stroke widths and dash patterns are diagram geometry shared with
+   `export/svg.ts`, not Bento border widths, so they stay literal. */
 .edge {
   fill: none;
   stroke: var(--c-edge);
   stroke-width: 1.75;
   stroke-linecap: round;
   transition:
-    stroke 0.18s ease,
-    stroke-width 0.18s ease;
+    stroke var(--b-duration-fast) var(--b-ease-linear),
+    stroke-width var(--b-duration-moderate) var(--b-ease-standard);
 }
 
 .edgeActive {
@@ -27,8 +29,8 @@
   stroke-dasharray: 5 5;
   stroke-linecap: round;
   transition:
-    stroke 0.18s ease,
-    stroke-width 0.18s ease;
+    stroke var(--b-duration-fast) var(--b-ease-linear),
+    stroke-width var(--b-duration-moderate) var(--b-ease-standard);
 }
 
 .linkActive {
@@ -49,7 +51,7 @@
   pointer-events: auto;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--b-duration-fast) var(--b-ease-linear);
 }
 
 .handleVisible {

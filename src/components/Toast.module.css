@@ -1,33 +1,41 @@
+/**
+ * Bento toast: capped at the 420px toast width, radius `l`, 12px inner /
+ * 16px outer spacing, and a 250ms entrance that rises into place. Bento
+ * anchors toasts bottom-centre, which is also where the canvas has room.
+ */
+
 .toast {
   position: absolute;
-  bottom: 22px;
+  bottom: var(--b-spacer-080);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 60;
-  padding: 9px 16px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--c-surface);
-  background: color-mix(in srgb, var(--c-text) 92%, transparent);
-  box-shadow: 0 12px 28px -12px var(--c-shadow-strong);
-  animation: toastIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: var(--b-z-instant-interaction);
+  max-width: min(var(--b-toast-width), calc(100vw - var(--b-spacer-100)));
+  padding: var(--b-spacer-060) var(--b-spacer-070);
+  border-radius: var(--b-radius-l);
+  font-size: var(--b-text-body-size);
+  line-height: var(--b-text-body-line-height);
+  font-weight: var(--b-text-body-stronger-weight);
+  color: var(--c-text-inverse);
+  background: var(--c-text);
+  box-shadow: var(--b-shadow-high);
+  animation: toastIn var(--b-duration-slow) var(--b-ease-enter);
   cursor: pointer;
 }
 
 .toast[data-tone='success'] {
   background: var(--c-accent);
-  color: #fff;
+  color: var(--c-text-inverse);
 }
 
 .toast[data-tone='error'] {
   background: var(--c-danger);
-  color: #fff;
+  color: var(--c-text-inverse);
 }
 
 @keyframes toastIn {
   from {
-    opacity: 0;
-    transform: translate(-50%, 10px);
+    opacity: 0.7;
+    transform: translate(-50%, 150%);
   }
 }

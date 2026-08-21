@@ -1,18 +1,19 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--b-spacer-030);
 }
 
 .heading {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--b-spacer-040);
 }
 
 .count {
-  font-size: 11px;
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
   color: var(--c-text-faint);
   white-space: nowrap;
 }
@@ -20,11 +21,11 @@
 .row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 7px 8px;
-  border-radius: 10px;
+  gap: var(--b-spacer-020);
+  padding: var(--b-spacer-030) var(--b-spacer-040);
+  border-radius: var(--b-radius-m);
   background: var(--c-surface-sunken);
-  border: 1px solid transparent;
+  border: var(--b-border-width-s) solid transparent;
 }
 
 .row[data-source='own'] {
@@ -35,20 +36,21 @@
 .rowFields {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--b-spacer-020);
 }
 
 .keyInput,
 .valueInput {
   min-width: 0;
-  padding: 5px 7px;
-  border-radius: 7px;
-  border: 1px solid var(--c-border);
+  padding: var(--b-spacer-020) var(--b-spacer-030);
+  border-radius: var(--b-radius-s);
+  border: var(--b-border-width-s) solid var(--c-border);
   background: var(--c-surface);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-stronger-weight);
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--b-duration-fast) var(--b-ease-linear);
 }
 
 .keyInput {
@@ -57,7 +59,6 @@
 
 .valueInput {
   flex: 1;
-  font-weight: 500;
 }
 
 .keyInput:focus,
@@ -68,38 +69,39 @@
 .keyText,
 .valueText {
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .keyText {
-  font-weight: 600;
+  font-weight: var(--b-text-caption-stronger-weight);
   color: var(--c-text-muted);
 }
 
 .valueText {
   color: var(--c-text);
-  font-weight: 500;
+  font-weight: var(--b-text-caption-stronger-weight);
 }
 
 .tags {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--b-spacer-020);
 }
 
 .tag,
 .tagButton {
   display: inline-flex;
   align-items: center;
-  padding: 2px 6px;
-  border-radius: 5px;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
+  padding: var(--b-spacer-010) var(--b-spacer-030);
+  border-radius: var(--b-radius-s);
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-stronger-weight);
   background: color-mix(in srgb, var(--c-text) 7%, transparent);
   color: var(--c-text-faint);
   max-width: 100%;
@@ -110,11 +112,12 @@
 
 .tag[data-kind='own'] {
   background: var(--c-accent);
-  color: #fff;
+  color: var(--c-text-inverse);
 }
 
+/* Bento's weak accent background is the hover pair for accent-text labels. */
 .tagButton:hover {
-  background: color-mix(in srgb, var(--c-accent) 22%, transparent);
+  background: var(--c-accent-soft);
   color: var(--c-accent-text);
 }
 
@@ -126,7 +129,7 @@
 .addRow {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--b-spacer-020);
 }
 
 .addButton,
@@ -134,11 +137,11 @@
   flex: none;
   width: 24px;
   height: 24px;
-  border-radius: 7px;
+  border-radius: var(--b-radius-s);
   display: grid;
   place-items: center;
   color: var(--c-text-faint);
-  border: 1px solid var(--c-border);
+  border: var(--b-border-width-s) solid var(--c-border);
   background: var(--c-surface);
 }
 
@@ -174,12 +177,13 @@
 .overrideButton {
   flex: none;
   margin-left: auto;
-  padding: 2px 7px;
-  border-radius: 5px;
-  font-size: 10px;
-  font-weight: 650;
+  padding: var(--b-spacer-010) var(--b-spacer-030);
+  border-radius: var(--b-radius-s);
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-stronger-weight);
   color: var(--c-text-muted);
-  border: 1px solid var(--c-border);
+  border: var(--b-border-width-s) solid var(--c-border);
   background: var(--c-surface);
 }
 

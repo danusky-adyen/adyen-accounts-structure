@@ -2,34 +2,34 @@
   position: absolute;
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 5px;
-  /* Above the inspector: a toolbar dropdown opens over the panel, and a
-     z-index inside this bar is only compared against its siblings. */
-  z-index: 30;
+  gap: var(--b-spacer-010);
+  padding: var(--b-spacer-020);
+  /* Bento's navigation tier: above the elevated inspector, so a toolbar
+     dropdown opens over the panel rather than behind it. */
+  z-index: var(--b-z-navigation);
 }
 
 .topLeft {
-  top: 16px;
-  left: 16px;
-  gap: 10px;
-  padding: 7px 13px;
+  top: var(--b-spacer-070);
+  left: var(--b-spacer-070);
+  gap: var(--b-spacer-050);
+  padding: var(--b-spacer-030) var(--b-spacer-060);
 }
 
 .topCenter {
-  top: 16px;
+  top: var(--b-spacer-070);
   left: 50%;
   transform: translateX(-50%);
 }
 
 .topRight {
-  top: 16px;
-  right: 16px;
+  top: var(--b-spacer-070);
+  right: var(--b-spacer-070);
 }
 
 .bottomLeft {
-  bottom: 16px;
-  left: 16px;
+  bottom: var(--b-spacer-070);
+  left: var(--b-spacer-070);
 }
 
 @media (max-width: 820px) {
@@ -41,28 +41,26 @@
 .wordmark {
   display: flex;
   flex-direction: column;
-  gap: 1px;
   line-height: 1.25;
 }
 
 .wordmarkTitle {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: var(--b-text-body-size);
+  font-weight: var(--b-text-body-strongest-weight);
 }
 
 .wordmarkMeta {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--c-text-faint);
+  font-size: var(--b-text-caption-size);
+  font-weight: var(--b-text-caption-weight);
+  color: var(--c-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .zoomValue {
   min-width: 46px;
   text-align: center;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--b-text-caption-size);
+  font-weight: var(--b-text-caption-stronger-weight);
   font-variant-numeric: tabular-nums;
   color: var(--c-text-muted);
 }
@@ -73,39 +71,44 @@
 
 .menu {
   position: absolute;
-  top: calc(100% + 9px);
+  top: calc(100% + var(--b-spacer-040));
   right: 0;
-  min-width: 218px;
-  padding: 6px;
+  min-width: 224px;
+  padding: var(--b-spacer-020);
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  z-index: 30;
-  animation: menuIn 0.14s ease-out;
+  z-index: var(--b-z-navigation);
+  animation: menuIn var(--b-duration-moderate) var(--b-ease-enter);
 }
 
 @keyframes menuIn {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(calc(-1 * var(--b-spacer-020)));
   }
 }
 
 .menuItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 9px;
-  font-size: 13px;
-  font-weight: 550;
+  gap: var(--b-spacer-040);
+  padding: var(--b-spacer-040) var(--b-spacer-060);
+  border-radius: var(--b-radius-m);
+  font-size: var(--b-text-body-size);
+  line-height: var(--b-text-body-line-height);
+  font-weight: var(--b-text-body-stronger-weight);
   text-align: left;
   color: var(--c-text);
   width: 100%;
+  transition: background var(--b-duration-fast) var(--b-ease-linear);
 }
 
 .menuItem:hover {
-  background: color-mix(in srgb, var(--c-text) 7%, transparent);
+  background: var(--c-surface-hover);
+}
+
+.menuItem:active {
+  background: var(--c-surface-active);
 }
 
 .menuItem svg {
@@ -114,20 +117,20 @@
   flex: none;
   fill: none;
   stroke: var(--c-text-muted);
-  stroke-width: 1.7;
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .menuHint {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--b-text-caption-size);
   color: var(--c-text-faint);
-  font-weight: 500;
+  font-weight: var(--b-text-caption-weight);
 }
 
 .menuSeparator {
-  height: 1px;
-  margin: 5px 4px;
+  height: var(--b-border-width-s);
+  margin: var(--b-spacer-020);
   background: var(--c-border);
 }
