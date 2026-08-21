@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { findNode } from '../domain/document';
 import { specOf } from '../domain/kinds';
 import type { Layout } from '../layout';
 import { useStore } from '../state/store';
@@ -111,6 +112,21 @@ export function useKeyboard({ layout, view, onToggleHelp, onCloseOverlays }: Key
         return;
       }
 
+      // Shift turns the arrows from navigation into editing: down grows the
+      // tree, sideways walks through the types a card can be.
+      if (event.shiftKey && event.key === 'ArrowDown') {
+        event.preventDefault();
+        const created = store.addChild(selectedId);
+        if (created) selectAndReveal(created, view);
+        return;
+      }
+
+      if (event.shiftKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+        event.preventDefault();
+        store.cycleKind(selectedId, event.key === 'ArrowRight' ? 'next' : 'prev');
+        return;
+      }
+
       switch (event.key) {
         case 'ArrowUp':
         case 'ArrowDown':
@@ -139,21 +155,18 @@ export function useKeyboard({ layout, view, onToggleHelp, onCloseOverlays }: Key
           if (parentId) selectAndReveal(parentId, view);
           break;
         }
-        case 'n':
-        case 'N': {
+        default: {
+          // Typing on a selected card renames it. A card still carrying its
+          // default name starts from scratch; one the user has already named
+          // carries on from what is there.
+          if (event.key.length !== 1 || event.altKey || modifier) break;
+          const node = findNode(store.doc, selectedId);
+          if (!node) break;
           event.preventDefault();
-          const created = store.addChild(selectedId);
-          if (created) selectAndReveal(created, view);
+          const fresh = node.name === specOf(node.kind).defaultName;
+          store.setEditing(selectedId, fresh ? event.key : node.name + event.key);
           break;
         }
-        case 't':
-        case 'T': {
-          event.preventDefault();
-          store.cycleKind(selectedId);
-          break;
-        }
-        default:
-          break;
       }
     };
 

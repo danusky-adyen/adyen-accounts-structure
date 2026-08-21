@@ -6,11 +6,20 @@ import {
   forEachNode,
   type StructureDocument,
 } from '../src/domain/document';
-import { addLink, addTerminal, areLinked, setNote } from '../src/domain/operations';
-import { decodeDocument, encodeDocument } from '../src/share/codec';
+import {
+  addIntegration,
+  addLink,
+  addTerminal,
+  areLinked,
+  setLogoDomain,
+  setMethods,
+  setNote,
+  setSetting,
+} from '../src/domain/operations';
+import { SHARE_FORMAT_VERSION, decodeDocument, encodeDocument } from '../src/share/codec';
 import { decodeLegacyShareLink } from '../src/share/legacy';
 import { buildShareUrl, readSharedDocument } from '../src/share/url';
-import { byName, doc, ids, named, node } from './helpers';
+import { byName, doc, ids, kinds, named, node } from './helpers';
 
 /** A structure with enough variety to be worth measuring. */
 function sampleDocument(): StructureDocument {
@@ -140,6 +149,101 @@ describe('share codec v2', () => {
     const document = decoded as StructureDocument;
     const [, first, second] = ids(document) as [string, string, string];
     expect(areLinked(document, first, second)).toBe(true);
+  });
+});
+
+/** The sample structure with the v3 fields filled in. */
+function configuredDocument(): StructureDocument {
+  let document = sampleDocument();
+  document = setLogoDomain(document, document.root.id, 'https://www.Acme.com/about');
+  document = setSetting(document, document.root.id, 'captureDelay', 'immediate');
+
+  const retail = byName(document, 'Retail NL');
+  document = setSetting(document, retail.id, 'shopperStatement', 'ACME NL');
+  document = setSetting(document, retail.id, 'captureDelay', 'manual');
+  document = addIntegration(document, retail.id, 'terminalApiCloud');
+  document = addIntegration(document, retail.id, 'posMobileSdk', 'v5.x');
+  document = setMethods(document, retail.id, ['visa', 'mc', 'bcmc']);
+
+  const webshop = byName(document, 'Webshop');
+  document = addIntegration(document, webshop.id, 'webDropin', 'v6');
+  document = setMethods(document, webshop.id, ['ideal', 'paypal']);
+  document = setLogoDomain(document, webshop.id, 'shop.acme.com');
+
+  document = setMethods(document, byName(document, 'Kalverstraat').id, ['visa']);
+  return document;
+}
+
+describe('share codec v3', () => {
+  it('announces itself as version 3', () => {
+    expect(SHARE_FORMAT_VERSION).toBe(3);
+  });
+
+  it('round-trips settings, integrations, methods and a logo domain', () => {
+    const original = configuredDocument();
+    const decoded = decodeDocument(encodeDocument(original));
+
+    expect(decoded).not.toBeNull();
+    const document = decoded as StructureDocument;
+
+    expect(document.root.logoDomain).toBe('acme.com');
+    expect(document.root.settings).toEqual([{ key: 'captureDelay', value: 'immediate' }]);
+
+    const retail = byName(document, 'Retail NL');
+    expect(retail.settings).toEqual([
+      { key: 'shopperStatement', value: 'ACME NL' },
+      { key: 'captureDelay', value: 'manual' },
+    ]);
+    expect(retail.methods).toEqual(['visa', 'mc', 'bcmc']);
+
+    const webshop = byName(document, 'Webshop');
+    expect(webshop.logoDomain).toBe('shop.acme.com');
+    expect(webshop.methods).toEqual(['ideal', 'paypal']);
+    expect(byName(document, 'Kalverstraat').methods).toEqual(['visa']);
+  });
+
+  it('carries an integration with and without a version', () => {
+    const decoded = decodeDocument(encodeDocument(configuredDocument())) as StructureDocument;
+
+    expect(byName(decoded, 'Retail NL').integrations).toEqual([
+      { id: 'terminalApiCloud', version: '' },
+      { id: 'posMobileSdk', version: 'v5.x' },
+    ]);
+    expect(byName(decoded, 'Webshop').integrations).toEqual([{ id: 'webDropin', version: 'v6' }]);
+  });
+
+  it('still reads a v2 payload, which simply has none of the new fields', () => {
+    const payload = LZString.compressToEncodedURIComponent(
+      JSON.stringify([2, [0, 'Old Company', [[1, 'Retail', [[4, 'Shop']]], [2, 'Webshop']]], [1, 3]]),
+    );
+
+    const decoded = decodeDocument(payload);
+    expect(decoded).not.toBeNull();
+    const document = decoded as StructureDocument;
+
+    expect(document.root.name).toBe('Old Company');
+    expect(kinds(document)).toEqual(['company', 'pos', 'store', 'ecom']);
+    expect(areLinked(document, byName(document, 'Retail').id, byName(document, 'Webshop').id)).toBe(true);
+    expect(byName(document, 'Retail').settings).toEqual([]);
+    expect(byName(document, 'Retail').methods).toEqual([]);
+  });
+
+  it('rejects a version this build cannot read', () => {
+    expect(decodeDocument(LZString.compressToEncodedURIComponent(JSON.stringify([99, [0]])))).toBeNull();
+    expect(decodeDocument(LZString.compressToEncodedURIComponent(JSON.stringify([4, [0]])))).toBeNull();
+  });
+
+  it('still keeps an untouched diagram to a very short link', () => {
+    expect(encodeDocument(createDefaultDocument()).length).toBeLessThan(40);
+  });
+
+  it('stays a fraction of the document it describes, settings and methods included', () => {
+    const document = configuredDocument();
+    const encoded = encodeDocument(document);
+
+    // Recorded so a regression in payload size shows up as a failing test.
+    expect(encoded.length).toBeLessThan(JSON.stringify(document).length * 0.25);
+    expect(encoded.length + 'https://example.com/#d='.length).toBeLessThan(650);
   });
 });
 

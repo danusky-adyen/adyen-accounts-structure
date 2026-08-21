@@ -303,3 +303,93 @@
   stroke-width: 2;
   stroke-linecap: round;
 }
+
+.monogram {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.logoKind {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border: 1px solid var(--c-surface);
+}
+
+.chip {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--c-surface-sunken);
+  border: 1px solid var(--c-border);
+  color: var(--c-text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 5px;
+}
+
+.method {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--c-surface-sunken);
+}
+
+.method img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.methodOverflow {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+  background: var(--c-surface-sunken);
+  border: 1px solid var(--c-border);
+  color: var(--c-text-faint);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.settingsBadge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--c-text-faint);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.settingsBadge svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}

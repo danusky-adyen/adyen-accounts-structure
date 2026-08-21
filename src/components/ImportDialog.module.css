@@ -1,0 +1,140 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stepHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stepNumber {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--c-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stepHint {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+}
+
+.copyButton {
+  flex: none;
+  margin-left: auto;
+  padding: 6px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--c-accent-border);
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.copyButton:hover {
+  background: var(--c-accent);
+  color: #fff;
+}
+
+.prompt,
+.paste {
+  width: 100%;
+  resize: vertical;
+  padding: 10px 11px;
+  border-radius: 11px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface-sunken);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.paste {
+  background: var(--c-surface);
+}
+
+.prompt:focus,
+.paste:focus {
+  border-color: var(--c-accent);
+}
+
+.error {
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: var(--c-danger-soft);
+  color: var(--c-danger);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--c-border);
+}
+
+.warning {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--c-text-faint);
+  line-height: 1.35;
+}
+
+.primary,
+.secondary {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 650;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
+
+.secondary:hover {
+  background: var(--c-surface-sunken);
+}
+
+.primary {
+  border-color: transparent;
+  background: var(--c-accent);
+  color: #fff;
+}
+
+.primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.primary:disabled {
+  opacity: 0.5;
+}

@@ -3,6 +3,7 @@
  * cannot disagree with what the canvas shows.
  */
 
+import { loadCompanyLogo, loadPaymentLogos } from '../design/brand';
 import type { ThemeName } from '../design/palette';
 import type { Layout } from '../layout';
 import { buildImagePdf, deflate, rgbaToRgb, supportsFlate, type PdfImage } from './pdf';
@@ -15,6 +16,8 @@ export interface ExportContext {
 }
 
 const PNG_SCALE = 2.5;
+/** Enough to keep text crisp without the file size of a lossless export. */
+const JPEG_QUALITY = 0.92;
 
 function fileName(title: string, extension: string): string {
   const slug = title
@@ -38,12 +41,33 @@ export function buildSvg({ layout, theme, title }: ExportContext): string {
   return renderDiagramSvg(layout, { theme, background: true, title });
 }
 
-export function exportSvg(context: ExportContext): void {
+/**
+ * Makes sure every brand mark is in memory before the diagram is serialised.
+ * The renderer reads them synchronously, and an image-loaded SVG cannot fetch
+ * anything itself, so whatever is missing here is missing from the file.
+ */
+async function withBrandMarks(context: ExportContext): Promise<void> {
+  const needsPaymentLogos = context.layout.nodes.some((item) => item.slots.methods.length > 0);
+  const domains = new Set(
+    context.layout.nodes
+      .filter((item) => item.slots.logo !== null)
+      .map((item) => item.node.logoDomain),
+  );
+
+  await Promise.all([
+    needsPaymentLogos ? loadPaymentLogos() : Promise.resolve(),
+    ...[...domains].map((domain) => loadCompanyLogo(domain)),
+  ]);
+}
+
+export async function exportSvg(context: ExportContext): Promise<void> {
+  await withBrandMarks(context);
   const svg = buildSvg(context);
   download(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), fileName(context.title, 'svg'));
 }
 
 async function renderToCanvas(context: ExportContext, scale: number): Promise<HTMLCanvasElement> {
+  await withBrandMarks(context);
   const svg = buildSvg(context);
   const { width, height } = context.layout.bounds;
 
@@ -62,13 +86,18 @@ async function renderToCanvas(context: ExportContext, scale: number): Promise<HT
   canvas.height = Math.ceil(height * scale);
   const context2d = canvas.getContext('2d');
   if (!context2d) throw new Error('Canvas is unavailable');
+  // JPEG has no alpha, so anything transparent would come out black.
+  context2d.fillStyle = '#ffffff';
+  context2d.fillRect(0, 0, canvas.width, canvas.height);
   context2d.drawImage(image, 0, 0, canvas.width, canvas.height);
   return canvas;
 }
 
-async function rasterise(context: ExportContext, scale: number): Promise<Blob> {
+async function rasterise(context: ExportContext, scale: number, type: 'image/png' | 'image/jpeg'): Promise<Blob> {
   const canvas = await renderToCanvas(context, scale);
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, type, type === 'image/jpeg' ? JPEG_QUALITY : undefined),
+  );
   if (!blob) throw new Error('Could not encode the image');
   return blob;
 }
@@ -90,12 +119,17 @@ async function canvasToPdfImage(canvas: HTMLCanvasElement): Promise<PdfImage> {
 }
 
 export async function exportPng(context: ExportContext): Promise<void> {
-  const blob = await rasterise(context, PNG_SCALE);
+  const blob = await rasterise(context, PNG_SCALE, 'image/png');
   download(blob, fileName(context.title, 'png'));
 }
 
+export async function exportJpeg(context: ExportContext): Promise<void> {
+  const blob = await rasterise(context, PNG_SCALE, 'image/jpeg');
+  download(blob, fileName(context.title, 'jpg'));
+}
+
 export async function copyPngToClipboard(context: ExportContext): Promise<void> {
-  const blob = await rasterise(context, PNG_SCALE);
+  const blob = await rasterise(context, PNG_SCALE, 'image/png');
   await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
 }
 

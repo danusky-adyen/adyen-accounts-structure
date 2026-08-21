@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyTheme } from '../design/theme';
 import type { TerminalKind } from '../domain/kinds';
-import { copyPngToClipboard, exportPdf, exportPng, exportSvg } from '../export';
+import { copyPngToClipboard, exportJpeg, exportPdf, exportPng, exportSvg } from '../export';
 import { useKeyboard } from '../hooks/useKeyboard';
 import { useLayout } from '../hooks/useLayout';
 import { useViewport } from '../hooks/useViewport';
@@ -9,6 +9,7 @@ import { buildShareUrl } from '../share/url';
 import { startupNotice, useStore } from '../state/store';
 import { Canvas } from './Canvas';
 import { HelpDialog } from './HelpDialog';
+import { ImportDialog } from './ImportDialog';
 import { Inspector } from './Inspector';
 import { ConfirmDialog } from './Modal';
 import { TerminalPicker } from './TerminalPicker';
@@ -29,6 +30,7 @@ export function App() {
 
   const [helpOpen, setHelpOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [terminalFor, setTerminalFor] = useState<string | null>(null);
 
   useEffect(() => {
@@ -56,8 +58,12 @@ export function App() {
       setHelpOpen(false);
       return true;
     }
+    if (importOpen) {
+      setImportOpen(false);
+      return true;
+    }
     return false;
-  }, [helpOpen, resetOpen, terminalFor]);
+  }, [helpOpen, importOpen, resetOpen, terminalFor]);
 
   useKeyboard({
     layout,
@@ -78,17 +84,22 @@ export function App() {
   }, [doc, notify]);
 
   const runExport = useCallback(
-    async (action: 'png' | 'svg' | 'pdf' | 'copy') => {
+    async (action: 'png' | 'jpeg' | 'svg' | 'pdf' | 'copy') => {
       const context = { layout, theme, title: doc.root.name };
       try {
         if (action === 'svg') {
-          exportSvg(context);
+          await exportSvg(context);
           notify('SVG downloaded', 'success');
           return;
         }
         if (action === 'png') {
           await exportPng(context);
           notify('PNG downloaded', 'success');
+          return;
+        }
+        if (action === 'jpeg') {
+          await exportJpeg(context);
+          notify('JPEG downloaded', 'success');
           return;
         }
         if (action === 'pdf') {
@@ -118,11 +129,13 @@ export function App() {
         view={view}
         onShare={() => void handleShare()}
         onExportPng={() => void runExport('png')}
+        onExportJpeg={() => void runExport('jpeg')}
         onExportSvg={() => void runExport('svg')}
         onExportPdf={() => void runExport('pdf')}
         onCopyPng={() => void runExport('copy')}
         onReset={() => setResetOpen(true)}
         onToggleHelp={() => setHelpOpen((open) => !open)}
+        onOpenImport={() => setImportOpen(true)}
       />
 
       <Inspector />
@@ -137,6 +150,8 @@ export function App() {
           }}
         />
       ) : null}
+
+      {importOpen ? <ImportDialog onClose={() => setImportOpen(false)} /> : null}
 
       {helpOpen ? <HelpDialog onClose={() => setHelpOpen(false)} /> : null}
 

@@ -20,10 +20,20 @@ import {
   type NodeId,
   type StructureDocument,
 } from './document';
-import { canLink, linkOwnerId, specOf, type NodeKind, type TerminalKind } from './kinds';
+import { canLink, linkLimit, linkOwnerId, specOf, type NodeKind, type TerminalKind } from './kinds';
+import { isPaymentMethodId } from './paymentMethods';
+import {
+  MAX_SETTINGS_PER_NODE,
+  MAX_SETTING_VALUE_LENGTH,
+  findSetting,
+  settingKey,
+} from './settings';
 
 export const MAX_NAME_LENGTH = 64;
 export const MAX_NOTE_LENGTH = 2000;
+export const MAX_VERSION_LENGTH = 24;
+export const MAX_INTEGRATION_ID_LENGTH = 40;
+export const MAX_DOMAIN_LENGTH = 63;
 
 export interface AddChildResult {
   readonly doc: StructureDocument;
@@ -142,6 +152,9 @@ export function setKind(doc: StructureDocument, id: NodeId, nextKind: NodeKind):
     kind: nextKind,
     name: renamed,
     terminals: spec.supportsTerminals ? current.terminals : [],
+    integrations: spec.supportsIntegrations ? current.integrations : [],
+    methods: spec.supportsMethods ? current.methods : [],
+    logoDomain: spec.supportsLogo ? current.logoDomain : '',
     children,
   }));
 
@@ -162,11 +175,176 @@ export function removeTerminalAt(doc: StructureDocument, id: NodeId, position: n
   });
 }
 
+function cleanSettingValue(value: string): string {
+  // Newlines would break the single-line rows in the card and the SVG export.
+  return value.replace(/[\r\n\t]+/g, ' ').trim().slice(0, MAX_SETTING_VALUE_LENGTH);
+}
+
+/**
+ * Adds or replaces a setting. An empty key is ignored, so a half-filled row in
+ * the editor never reaches the document.
+ */
+export function setSetting(
+  doc: StructureDocument,
+  id: NodeId,
+  key: string,
+  value: string,
+): StructureDocument {
+  const cleanKey = settingKey(key);
+  if (cleanKey === '') return doc;
+  const cleanValue = cleanSettingValue(value);
+
+  return mapNode(doc, id, (node) => {
+    const existing = findSetting(node.settings, cleanKey);
+    if (existing) {
+      if (existing.value === cleanValue) return node;
+      return {
+        ...node,
+        settings: node.settings.map((setting) =>
+          setting.key === cleanKey ? { key: cleanKey, value: cleanValue } : setting,
+        ),
+      };
+    }
+    if (node.settings.length >= MAX_SETTINGS_PER_NODE) return node;
+    return { ...node, settings: [...node.settings, { key: cleanKey, value: cleanValue }] };
+  });
+}
+
+/** Renames a key in place, keeping its position in the list. */
+export function renameSetting(
+  doc: StructureDocument,
+  id: NodeId,
+  from: string,
+  to: string,
+): StructureDocument {
+  const previous = settingKey(from);
+  const next = settingKey(to);
+  if (previous === next) return doc;
+
+  return mapNode(doc, id, (node) => {
+    if (!findSetting(node.settings, previous)) return node;
+    // An empty new key removes the row; a colliding one would create a duplicate.
+    if (next === '') return { ...node, settings: node.settings.filter((setting) => setting.key !== previous) };
+    if (findSetting(node.settings, next)) return node;
+    return {
+      ...node,
+      settings: node.settings.map((setting) =>
+        setting.key === previous ? { key: next, value: setting.value } : setting,
+      ),
+    };
+  });
+}
+
+export function removeSetting(doc: StructureDocument, id: NodeId, key: string): StructureDocument {
+  const wanted = settingKey(key);
+  return mapNode(doc, id, (node) => {
+    if (!findSetting(node.settings, wanted)) return node;
+    return { ...node, settings: node.settings.filter((setting) => setting.key !== wanted) };
+  });
+}
+
+export function addIntegration(
+  doc: StructureDocument,
+  id: NodeId,
+  integrationId: string,
+  version = '',
+): StructureDocument {
+  const cleanId = integrationId.trim().slice(0, MAX_INTEGRATION_ID_LENGTH);
+  if (cleanId === '') return doc;
+  const cleanVersion = version.trim().slice(0, MAX_VERSION_LENGTH);
+
+  return mapNode(doc, id, (node) => {
+    if (!specOf(node.kind).supportsIntegrations) return node;
+    if (node.integrations.some((entry) => entry.id === cleanId && entry.version === cleanVersion)) return node;
+    return { ...node, integrations: [...node.integrations, { id: cleanId, version: cleanVersion }] };
+  });
+}
+
+export function setIntegrationVersion(
+  doc: StructureDocument,
+  id: NodeId,
+  position: number,
+  version: string,
+): StructureDocument {
+  const cleanVersion = version.trim().slice(0, MAX_VERSION_LENGTH);
+  return mapNode(doc, id, (node) => {
+    const current = node.integrations[position];
+    if (!current || current.version === cleanVersion) return node;
+    return {
+      ...node,
+      integrations: node.integrations.map((entry, index) =>
+        index === position ? { ...entry, version: cleanVersion } : entry,
+      ),
+    };
+  });
+}
+
+export function removeIntegrationAt(doc: StructureDocument, id: NodeId, position: number): StructureDocument {
+  return mapNode(doc, id, (node) => {
+    if (position < 0 || position >= node.integrations.length) return node;
+    return { ...node, integrations: node.integrations.filter((_, index) => index !== position) };
+  });
+}
+
+export function toggleMethod(doc: StructureDocument, id: NodeId, method: string): StructureDocument {
+  if (!isPaymentMethodId(method)) return doc;
+  return mapNode(doc, id, (node) => {
+    if (!specOf(node.kind).supportsMethods) return node;
+    const has = node.methods.includes(method);
+    return {
+      ...node,
+      methods: has ? node.methods.filter((entry) => entry !== method) : [...node.methods, method],
+    };
+  });
+}
+
+export function setMethods(doc: StructureDocument, id: NodeId, methods: readonly string[]): StructureDocument {
+  const clean = methods.filter(isPaymentMethodId);
+  return mapNode(doc, id, (node) => (specOf(node.kind).supportsMethods ? { ...node, methods: clean } : node));
+}
+
+/**
+ * Stores a bare domain. Anything URL-shaped is reduced to its host so a pasted
+ * address works, and the value stays short enough to keep share links small.
+ */
+export function setLogoDomain(doc: StructureDocument, id: NodeId, input: string): StructureDocument {
+  const domain = normalizeDomain(input);
+  return mapNode(doc, id, (node) => {
+    if (!specOf(node.kind).supportsLogo || node.logoDomain === domain) return node;
+    return { ...node, logoDomain: domain };
+  });
+}
+
+export function normalizeDomain(input: string): string {
+  const trimmed = input.trim().toLowerCase();
+  if (trimmed === '') return '';
+  const withoutScheme = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//, '');
+  const host = withoutScheme.split(/[/?#]/)[0] ?? '';
+  const bare = host.replace(/^www\./, '');
+  // A domain needs at least one dot and only host-safe characters.
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(bare)) return '';
+  return bare.slice(0, MAX_DOMAIN_LENGTH);
+}
+
 export function areLinked(doc: StructureDocument, a: NodeId, b: NodeId): boolean {
   const nodeA = findNode(doc, a);
   const nodeB = findNode(doc, b);
   if (!nodeA || !nodeB) return false;
   return nodeA.links.includes(b) || nodeB.links.includes(a);
+}
+
+/**
+ * True when the owner side has room for another link of that kind. Merchant
+ * account to balance platform is capped at one, so a second platform has to
+ * replace the first rather than sit beside it.
+ */
+function withinLinkLimit(doc: StructureDocument, ownerId: NodeId, targetKind: NodeKind): boolean {
+  const owner = findNode(doc, ownerId);
+  if (!owner) return false;
+  const max = linkLimit(owner.kind, targetKind);
+  if (max === null) return true;
+  const used = owner.links.filter((linkedId) => findNode(doc, linkedId)?.kind === targetKind).length;
+  return used < max;
 }
 
 export function canCreateLink(doc: StructureDocument, a: NodeId, b: NodeId): boolean {
@@ -175,7 +353,45 @@ export function canCreateLink(doc: StructureDocument, a: NodeId, b: NodeId): boo
   const nodeB = findNode(doc, b);
   if (!nodeA || !nodeB) return false;
   if (!canLink(nodeA.kind, nodeB.kind)) return false;
-  return !areLinked(doc, a, b);
+  if (areLinked(doc, a, b)) return false;
+
+  const ownership = linkOwnerId(a, nodeA.kind, b, nodeB.kind);
+  if (!ownership) return false;
+  const targetKind = ownership.targetId === a ? nodeA.kind : nodeB.kind;
+  return withinLinkLimit(doc, ownership.ownerId, targetKind);
+}
+
+/**
+ * The link that a new one would replace, when the owner is already at its cap.
+ * Lets the UI offer a move instead of silently refusing.
+ */
+export function linkAtLimit(doc: StructureDocument, a: NodeId, b: NodeId): NodeId | null {
+  const nodeA = findNode(doc, a);
+  const nodeB = findNode(doc, b);
+  if (!nodeA || !nodeB || !canLink(nodeA.kind, nodeB.kind) || areLinked(doc, a, b)) return null;
+
+  const ownership = linkOwnerId(a, nodeA.kind, b, nodeB.kind);
+  if (!ownership) return null;
+  const owner = findNode(doc, ownership.ownerId);
+  const targetKind = ownership.targetId === a ? nodeA.kind : nodeB.kind;
+  if (!owner || linkLimit(owner.kind, targetKind) === null) return null;
+  if (withinLinkLimit(doc, ownership.ownerId, targetKind)) return null;
+  return owner.links.find((linkedId) => findNode(doc, linkedId)?.kind === targetKind) ?? null;
+}
+
+/**
+ * Adds a link, dropping the one it displaces when the owner is capped. This is
+ * what a merchant account being dragged onto a second balance platform does.
+ */
+export function relinkAtLimit(doc: StructureDocument, a: NodeId, b: NodeId): StructureDocument {
+  const displaced = linkAtLimit(doc, a, b);
+  if (displaced === null) return addLink(doc, a, b);
+  const nodeA = findNode(doc, a);
+  const nodeB = findNode(doc, b);
+  if (!nodeA || !nodeB) return doc;
+  const ownership = linkOwnerId(a, nodeA.kind, b, nodeB.kind);
+  if (!ownership) return doc;
+  return addLink(removeLink(doc, ownership.ownerId, displaced), a, b);
 }
 
 export function addLink(doc: StructureDocument, a: NodeId, b: NodeId): StructureDocument {
@@ -200,7 +416,7 @@ export function removeLink(doc: StructureDocument, a: NodeId, b: NodeId): Struct
 }
 
 export function toggleLink(doc: StructureDocument, a: NodeId, b: NodeId): StructureDocument {
-  return areLinked(doc, a, b) ? removeLink(doc, a, b) : addLink(doc, a, b);
+  return areLinked(doc, a, b) ? removeLink(doc, a, b) : relinkAtLimit(doc, a, b);
 }
 
 export type DropPosition = 'before' | 'after' | 'inside';

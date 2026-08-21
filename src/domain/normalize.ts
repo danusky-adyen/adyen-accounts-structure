@@ -6,8 +6,11 @@
  *
  *  - the root is a company node
  *  - every child kind is allowed under its parent, within the parent's limits
- *  - terminals only exist on kinds that support them
- *  - links point at existing, compatible nodes and are stored once per pair
+ *  - terminals, integrations, payment methods and logos only exist on kinds
+ *    that support them
+ *  - links point at existing, compatible nodes, are stored once per pair, and
+ *    respect the cardinality rules (one balance platform per merchant account)
+ *  - settings have a non-empty, unique key per node
  *  - ids are unique
  *  - names and notes are plain strings of bounded length
  */
@@ -17,6 +20,8 @@ import {
   createNode,
   type AccountNode,
   type NodeId,
+  type NodeIntegration,
+  type Setting,
   type StructureDocument,
 } from './document';
 import {
@@ -24,12 +29,22 @@ import {
   isNodeKind,
   isTerminalKind,
   linkKey,
+  linkLimit,
   linkOwnerId,
   specOf,
   type NodeKind,
   type TerminalKind,
 } from './kinds';
-import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from './operations';
+import { isPaymentMethodId } from './paymentMethods';
+import {
+  MAX_DOMAIN_LENGTH,
+  MAX_INTEGRATION_ID_LENGTH,
+  MAX_NAME_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_VERSION_LENGTH,
+  normalizeDomain,
+} from './operations';
+import { MAX_SETTINGS_PER_NODE, MAX_SETTING_KEY_LENGTH, MAX_SETTING_VALUE_LENGTH } from './settings';
 
 /** Shape of a node before validation: anything at all. */
 export interface RawNode {
@@ -38,6 +53,10 @@ export interface RawNode {
   note?: unknown;
   terminals?: unknown;
   links?: unknown;
+  settings?: unknown;
+  integrations?: unknown;
+  methods?: unknown;
+  logoDomain?: unknown;
   children?: unknown;
   id?: unknown;
 }
@@ -63,6 +82,80 @@ function asTerminals(value: unknown, kind: NodeKind): TerminalKind[] {
 function asLinkIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+/**
+ * Settings accept both the array form `[{key, value}]` and the object form
+ * `{key: value}`, because a hand-written or model-generated document is far
+ * more likely to use the latter.
+ */
+function asSettings(value: unknown): Setting[] {
+  const pairs: [unknown, unknown][] = Array.isArray(value)
+    ? (value as unknown[]).map((entry) => {
+        if (typeof entry !== 'object' || entry === null) return [null, null];
+        const record = entry as { key?: unknown; value?: unknown };
+        return [record.key, record.value];
+      })
+    : typeof value === 'object' && value !== null
+      ? Object.entries(value as Record<string, unknown>)
+      : [];
+
+  const settings: Setting[] = [];
+  const seen = new Set<string>();
+  for (const [rawKey, rawValue] of pairs) {
+    const key = asText(rawKey, MAX_SETTING_KEY_LENGTH).trim();
+    if (key === '' || seen.has(key)) continue;
+    seen.add(key);
+    const text =
+      typeof rawValue === 'number' || typeof rawValue === 'boolean'
+        ? String(rawValue)
+        : asText(rawValue, MAX_SETTING_VALUE_LENGTH);
+    settings.push({ key, value: text.trim() });
+    if (settings.length >= MAX_SETTINGS_PER_NODE) break;
+  }
+  return settings;
+}
+
+/**
+ * Integrations accept `['webDropin']`, `[{id, version}]` and `['webDropin v6']`
+ * so that both the share codec and a pasted document work.
+ */
+function asIntegrations(value: unknown, kind: NodeKind): NodeIntegration[] {
+  if (!specOf(kind).supportsIntegrations || !Array.isArray(value)) return [];
+
+  const result: NodeIntegration[] = [];
+  for (const entry of value as unknown[]) {
+    let id = '';
+    let version = '';
+    if (typeof entry === 'string') {
+      id = entry;
+    } else if (typeof entry === 'object' && entry !== null) {
+      const record = entry as { id?: unknown; version?: unknown };
+      id = typeof record.id === 'string' ? record.id : '';
+      version = typeof record.version === 'string' ? record.version : '';
+    }
+    const cleanId = asText(id, MAX_INTEGRATION_ID_LENGTH).trim();
+    if (cleanId === '') continue;
+    const cleanVersion = asText(version, MAX_VERSION_LENGTH).trim();
+    if (result.some((item) => item.id === cleanId && item.version === cleanVersion)) continue;
+    result.push({ id: cleanId, version: cleanVersion });
+    if (result.length >= 12) break;
+  }
+  return result;
+}
+
+function asMethods(value: unknown, kind: NodeKind): string[] {
+  if (!specOf(kind).supportsMethods || !Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const entry of value as unknown[]) {
+    if (isPaymentMethodId(entry)) seen.add(entry);
+  }
+  return [...seen];
+}
+
+function asLogoDomain(value: unknown, kind: NodeKind): string {
+  if (!specOf(kind).supportsLogo || typeof value !== 'string') return '';
+  return normalizeDomain(value.slice(0, MAX_DOMAIN_LENGTH * 2));
 }
 
 /**
@@ -99,6 +192,10 @@ function buildNode(raw: RawNode, kind: NodeKind, idMap: Map<string, NodeId>): Ac
     terminals: asTerminals(raw.terminals, kind),
     // Old ids are resolved in a second pass, once the whole map is known.
     links: asLinkIds(raw.links),
+    settings: asSettings(raw.settings),
+    integrations: asIntegrations(raw.integrations, kind),
+    methods: asMethods(raw.methods, kind),
+    logoDomain: asLogoDomain(raw.logoDomain, kind),
     children,
   };
 }
@@ -140,6 +237,8 @@ function applyLinks(root: AccountNode, idMap: Map<string, NodeId>): AccountNode 
 
   const owned = new Map<NodeId, NodeId[]>();
   const seen = new Set<string>();
+  /** Counts per owner and target kind, to apply `LINK_LIMITS`. */
+  const used = new Map<string, number>();
 
   const collectLinks = (node: AccountNode): void => {
     for (const rawTarget of node.links) {
@@ -150,10 +249,22 @@ function applyLinks(root: AccountNode, idMap: Map<string, NodeId>): AccountNode 
 
       const key = linkKey(node.id, targetId);
       if (seen.has(key)) continue;
-      seen.add(key);
 
       const ownership = linkOwnerId(node.id, node.kind, targetId, targetKind);
       if (!ownership) continue;
+      const ownerKind = kinds.get(ownership.ownerId);
+      const ownedKind = kinds.get(ownership.targetId);
+      if (ownerKind === undefined || ownedKind === undefined) continue;
+
+      // Extra links beyond the cap are dropped rather than silently kept: the
+      // first one in document order wins.
+      const max = linkLimit(ownerKind, ownedKind);
+      const counterKey = `${ownership.ownerId}|${ownedKind}`;
+      const count = used.get(counterKey) ?? 0;
+      if (max !== null && count >= max) continue;
+      used.set(counterKey, count + 1);
+
+      seen.add(key);
       const list = owned.get(ownership.ownerId) ?? [];
       list.push(ownership.targetId);
       owned.set(ownership.ownerId, list);

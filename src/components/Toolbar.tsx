@@ -8,22 +8,26 @@ export interface ToolbarProps {
   readonly view: ViewportController;
   readonly onShare: () => void;
   readonly onExportPng: () => void;
+  readonly onExportJpeg: () => void;
   readonly onExportSvg: () => void;
   readonly onExportPdf: () => void;
   readonly onCopyPng: () => void;
   readonly onReset: () => void;
   readonly onToggleHelp: () => void;
+  readonly onOpenImport: () => void;
 }
 
 export function Toolbar({
   view,
   onShare,
   onExportPng,
+  onExportJpeg,
   onExportSvg,
   onExportPdf,
   onCopyPng,
   onReset,
   onToggleHelp,
+  onOpenImport,
 }: ToolbarProps) {
   const doc = useStore((state) => state.doc);
   const theme = useStore((state) => state.theme);
@@ -74,6 +78,18 @@ export function Toolbar({
           </svg>
         </button>
         <span className="divider" />
+        <button
+          type="button"
+          className="iconButton"
+          onClick={onOpenImport}
+          title="Build a diagram from notes with a language model"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden>
+            <path d="M12 3.5l1.7 4.3 4.3 1.7-4.3 1.7L12 15.5l-1.7-4.3L6 9.5l4.3-1.7z" />
+            <path d="M18 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
+          </svg>
+          <span className="buttonLabel">Build</span>
+        </button>
         <button type="button" className="iconButton" onClick={onReset} title="Start over">
           <svg viewBox="0 0 24 24" aria-hidden>
             <path d="M3 12a9 9 0 1 0 3-6.7" />
@@ -94,6 +110,7 @@ export function Toolbar({
 
         <ExportMenu
           onExportPng={onExportPng}
+          onExportJpeg={onExportJpeg}
           onExportSvg={onExportSvg}
           onExportPdf={onExportPdf}
           onCopyPng={onCopyPng}
@@ -174,12 +191,13 @@ export function Toolbar({
 
 interface ExportMenuProps {
   readonly onExportPng: () => void;
+  readonly onExportJpeg: () => void;
   readonly onExportSvg: () => void;
   readonly onExportPdf: () => void;
   readonly onCopyPng: () => void;
 }
 
-function ExportMenu({ onExportPng, onExportSvg, onExportPdf, onCopyPng }: ExportMenuProps) {
+function ExportMenu({ onExportPng, onExportJpeg, onExportSvg, onExportPdf, onCopyPng }: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -232,6 +250,15 @@ function ExportMenu({ onExportPng, onExportSvg, onExportPdf, onCopyPng }: Export
             </svg>
             PNG image
             <span className={styles.menuHint}>2.5×</span>
+          </button>
+          <button type="button" className={styles.menuItem} role="menuitem" onClick={run(onExportJpeg)}>
+            <svg viewBox="0 0 24 24" aria-hidden>
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <circle cx="8.5" cy="9.5" r="1.6" />
+              <path d="M3 17l5.5-5 4 3.5L16 12l5 5" />
+            </svg>
+            JPEG image
+            <span className={styles.menuHint}>smaller</span>
           </button>
           <button type="button" className={styles.menuItem} role="menuitem" onClick={run(onExportSvg)}>
             <svg viewBox="0 0 24 24" aria-hidden>

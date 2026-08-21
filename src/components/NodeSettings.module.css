@@ -1,0 +1,189 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.count {
+  font-size: 11px;
+  color: var(--c-text-faint);
+  white-space: nowrap;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  background: var(--c-surface-sunken);
+  border: 1px solid transparent;
+}
+
+.row[data-source='own'] {
+  border-color: var(--c-accent-border);
+  background: var(--c-accent-soft);
+}
+
+.rowFields {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.keyInput,
+.valueInput {
+  min-width: 0;
+  padding: 5px 7px;
+  border-radius: 7px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.keyInput {
+  flex: 1.1;
+}
+
+.valueInput {
+  flex: 1;
+  font-weight: 500;
+}
+
+.keyInput:focus,
+.valueInput:focus {
+  border-color: var(--c-accent);
+}
+
+.keyText,
+.valueText {
+  min-width: 0;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keyText {
+  font-weight: 600;
+  color: var(--c-text-muted);
+}
+
+.valueText {
+  color: var(--c-text);
+  font-weight: 500;
+}
+
+.tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag,
+.tagButton {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  background: color-mix(in srgb, var(--c-text) 7%, transparent);
+  color: var(--c-text-faint);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag[data-kind='own'] {
+  background: var(--c-accent);
+  color: #fff;
+}
+
+.tagButton:hover {
+  background: color-mix(in srgb, var(--c-accent) 22%, transparent);
+  color: var(--c-accent-text);
+}
+
+.tagButton[data-kind='overridden'] {
+  background: var(--c-warning-soft);
+  color: var(--c-warning);
+}
+
+.addRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.addButton,
+.removeButton {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  color: var(--c-text-faint);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
+
+.addButton:hover:not(:disabled) {
+  border-color: var(--c-accent);
+  color: var(--c-accent-text);
+}
+
+.addButton:disabled {
+  opacity: 0.45;
+}
+
+.removeButton {
+  border-color: transparent;
+  background: transparent;
+}
+
+.removeButton:hover {
+  background: var(--c-danger-soft);
+  color: var(--c-danger);
+}
+
+.addButton svg,
+.removeButton svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.overrideButton {
+  flex: none;
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 650;
+  color: var(--c-text-muted);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
+
+.overrideButton:hover {
+  border-color: var(--c-accent);
+  color: var(--c-accent-text);
+}

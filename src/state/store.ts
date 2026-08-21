@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import type { NodeId, StructureDocument } from '../domain/document';
 import { createDefaultDocument, findNode } from '../domain/document';
-import { nextVariant, type NodeKind, type TerminalKind } from '../domain/kinds';
+import { nextVariant, prevVariant, type NodeKind, type TerminalKind } from '../domain/kinds';
 import * as ops from '../domain/operations';
 import type { ThemeName } from '../design/palette';
 import { clearStoredDocument, loadStoredDocument, loadTheme, saveDocument, saveTheme } from './persistence';
@@ -52,6 +52,8 @@ interface AppState {
 
   selectedId: NodeId | null;
   editingId: NodeId | null;
+  /** Text the name editor opens with, when typing started the edit. */
+  editingSeed: string | null;
   hoveredId: NodeId | null;
   hoveredLinkId: string | null;
   drag: DragState | null;
@@ -68,7 +70,7 @@ interface AppState {
   canRedo: () => boolean;
 
   select: (id: NodeId | null) => void;
-  setEditing: (id: NodeId | null) => void;
+  setEditing: (id: NodeId | null, seed?: string) => void;
   setHovered: (id: NodeId | null) => void;
   setHoveredLink: (id: string | null) => void;
   setDrag: (drag: DragState | null) => void;
@@ -79,9 +81,17 @@ interface AppState {
   rename: (id: NodeId, name: string) => void;
   setNote: (id: NodeId, note: string) => void;
   setKind: (id: NodeId, kind: NodeKind) => void;
-  cycleKind: (id: NodeId) => void;
+  cycleKind: (id: NodeId, direction?: 'next' | 'prev') => void;
   addTerminal: (id: NodeId, terminal: TerminalKind) => void;
   removeTerminalAt: (id: NodeId, index: number) => void;
+  setSetting: (id: NodeId, key: string, value: string) => void;
+  renameSetting: (id: NodeId, from: string, to: string) => void;
+  removeSetting: (id: NodeId, key: string) => void;
+  addIntegration: (id: NodeId, integrationId: string, version?: string) => void;
+  setIntegrationVersion: (id: NodeId, position: number, version: string) => void;
+  removeIntegrationAt: (id: NodeId, position: number) => void;
+  toggleMethod: (id: NodeId, method: string) => void;
+  setLogoDomain: (id: NodeId, domain: string) => void;
   toggleLink: (a: NodeId, b: NodeId) => void;
   move: (id: NodeId, targetId: NodeId, position: ops.DropPosition) => void;
 
@@ -131,6 +141,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   selectedId: null,
   editingId: null,
+  editingSeed: null,
   hoveredId: null,
   hoveredLinkId: null,
   drag: null,
@@ -185,8 +196,8 @@ export const useStore = create<AppState>((set, get) => ({
   canUndo: () => get().past.length > 0,
   canRedo: () => get().future.length > 0,
 
-  select: (id) => set({ selectedId: id, inspectorOpen: id !== null, editingId: null }),
-  setEditing: (id) => set({ editingId: id }),
+  select: (id) => set({ selectedId: id, inspectorOpen: id !== null, editingId: null, editingSeed: null }),
+  setEditing: (id, seed) => set({ editingId: id, editingSeed: seed ?? null }),
   setHovered: (id) => set({ hoveredId: id }),
   setHoveredLink: (id) => set({ hoveredLinkId: id }),
   setDrag: (drag) => set({ drag }),
@@ -215,17 +226,41 @@ export const useStore = create<AppState>((set, get) => ({
   setNote: (id, note) => get().commit(ops.setNote(get().doc, id, note), `note:${id}`),
   setKind: (id, kind) => get().commit(ops.setKind(get().doc, id, kind)),
 
-  cycleKind: (id) => {
+  cycleKind: (id, direction = 'next') => {
     const { doc } = get();
     const node = findNode(doc, id);
     if (!node) return;
-    const next = nextVariant(node.kind);
-    if (next) get().setKind(id, next);
+    const target = direction === 'next' ? nextVariant(node.kind) : prevVariant(node.kind);
+    if (target) get().setKind(id, target);
   },
 
   addTerminal: (id, terminal) => get().commit(ops.addTerminal(get().doc, id, terminal)),
   removeTerminalAt: (id, index) => get().commit(ops.removeTerminalAt(get().doc, id, index)),
-  toggleLink: (a, b) => get().commit(ops.toggleLink(get().doc, a, b)),
+
+  // Settings and versions are typed character by character, so they coalesce
+  // per key rather than filling the history with single letters.
+  setSetting: (id, key, value) => get().commit(ops.setSetting(get().doc, id, key, value), `setting:${id}:${key}`),
+  renameSetting: (id, from, to) => get().commit(ops.renameSetting(get().doc, id, from, to), `settingKey:${id}:${from}`),
+  removeSetting: (id, key) => get().commit(ops.removeSetting(get().doc, id, key)),
+
+  addIntegration: (id, integrationId, version) =>
+    get().commit(ops.addIntegration(get().doc, id, integrationId, version)),
+  setIntegrationVersion: (id, position, version) =>
+    get().commit(ops.setIntegrationVersion(get().doc, id, position, version), `version:${id}:${position}`),
+  removeIntegrationAt: (id, position) => get().commit(ops.removeIntegrationAt(get().doc, id, position)),
+  toggleMethod: (id, method) => get().commit(ops.toggleMethod(get().doc, id, method)),
+  setLogoDomain: (id, domain) => get().commit(ops.setLogoDomain(get().doc, id, domain), `logo:${id}`),
+
+  toggleLink: (a, b) => {
+    const { doc, notify } = get();
+    // A merchant account can only sit on one balance platform, so linking it to
+    // a second one moves it instead of failing silently.
+    const displaced = ops.linkAtLimit(doc, a, b);
+    get().commit(ops.toggleLink(doc, a, b));
+    if (displaced !== null) {
+      notify(`Moved to this balance platform, replacing ${findNode(doc, displaced)?.name ?? 'the previous one'}`);
+    }
+  },
   move: (id, targetId, position) => get().commit(ops.moveNode(get().doc, id, targetId, position)),
 
   replaceDocument: (doc) => {

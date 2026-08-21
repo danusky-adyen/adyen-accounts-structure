@@ -28,6 +28,8 @@ export interface Palette {
   accentBorder: string;
   danger: string;
   dangerSoft: string;
+  warning: string;
+  warningSoft: string;
   edge: string;
   edgeActive: string;
   linkEdge: string;
@@ -56,6 +58,8 @@ export const PALETTES: Record<ThemeName, Palette> = {
     accentBorder: '#9fe6c8',
     danger: '#d5333a',
     dangerSoft: '#fdecec',
+    warning: '#a8681a',
+    warningSoft: '#fdf3e2',
     edge: '#b4bec9',
     edgeActive: '#00b67a',
     linkEdge: '#94a2b3',
@@ -82,6 +86,8 @@ export const PALETTES: Record<ThemeName, Palette> = {
     accentBorder: 'rgba(31, 209, 143, 0.45)',
     danger: '#ff6b6b',
     dangerSoft: 'rgba(255, 107, 107, 0.14)',
+    warning: '#e8b465',
+    warningSoft: 'rgba(232, 180, 101, 0.16)',
     edge: '#3f4b5c',
     edgeActive: '#1fd18f',
     linkEdge: '#55637a',

@@ -22,8 +22,30 @@ import {
   type Point,
   type Rect,
 } from './geometry';
+import { integrationLabel } from '../domain/integrations';
 import { CARD, LINKS, TREE } from './metrics';
 import { wrapText, type TextMeasurer } from './measure';
+
+/** Setting keys defined anywhere in a node's subtree, excluding the node itself. */
+function keysSetBelow(node: AccountNode): Set<string> {
+  const keys = new Set<string>();
+  const visit = (current: AccountNode): void => {
+    for (const setting of current.settings) keys.add(setting.key);
+    current.children.forEach(visit);
+  };
+  node.children.forEach(visit);
+  return keys;
+}
+
+/** An integration chip, positioned relative to the card's top-left corner. */
+export interface ChipBox extends Rect {
+  readonly label: string;
+}
+
+/** A payment-method mark, positioned relative to the card's top-left corner. */
+export interface MethodBox extends Rect {
+  readonly method: string;
+}
 
 /** Where the parts of a card sit, relative to the card's top-left corner. */
 export interface CardSlots {
@@ -33,6 +55,21 @@ export interface CardSlots {
   readonly captionBaselineTop: number;
   readonly terminalsTop: number | null;
   readonly innerWidth: number;
+  /**
+   * Brand mark, present only when the node has a logo domain. It occupies the
+   * icon tile: the caption below already names the account type, so the card
+   * can lead with the customer's brand instead of a generic glyph.
+   */
+  readonly logo: Rect | null;
+  readonly chips: readonly ChipBox[];
+  readonly methods: readonly MethodBox[];
+  /** Methods that did not fit, shown as `+N`. */
+  readonly methodOverflow: number;
+  /** Position of the `+N` counter, when there is one. */
+  readonly methodOverflowBox: Rect | null;
+  /** Top of the settings count row, when the node has settings. */
+  readonly badgeTop: number | null;
+  readonly badgeLabel: string;
 }
 
 export interface LayoutNode extends Rect {
@@ -90,10 +127,108 @@ interface SizedNode {
   readonly subtreeWidth: number;
 }
 
+/** Extra facts a card shows that only the whole document can answer. */
+export interface CardContext {
+  /** True when a descendant overrides one of this node's settings. */
+  readonly overriddenBelow: boolean;
+}
+
+const NO_CONTEXT: CardContext = { overriddenBelow: false };
+
+function chipLabels(node: AccountNode): string[] {
+  return node.integrations.map((entry) => integrationLabel(entry.id, entry.version, true));
+}
+
+function settingsLabel(node: AccountNode, context: CardContext): string {
+  const count = node.settings.length;
+  if (count === 0) return '';
+  const noun = count === 1 ? 'setting' : 'settings';
+  // The asterisk is what tells a company card that an account below disagrees.
+  return context.overriddenBelow ? `${count} ${noun} *` : `${count} ${noun}`;
+}
+
+/**
+ * Packs chips into rows of `innerWidth`, capped at `chipMaxRows`. Chips beyond
+ * the cap are dropped rather than shrunk, because an unreadable chip is worse
+ * than a missing one and the inspector always lists them all.
+ */
+function packChips(
+  labels: readonly string[],
+  innerWidth: number,
+  top: number,
+  paddingX: number,
+  measure: TextMeasurer,
+): { chips: ChipBox[]; height: number } {
+  const chips: ChipBox[] = [];
+  let rowWidth = 0;
+  let row = 0;
+
+  for (const label of labels) {
+    const width = Math.ceil(measure(label, CARD.chipTextWeight, CARD.chipTextSize)) + CARD.chipPaddingX * 2;
+    const needed = rowWidth === 0 ? width : rowWidth + CARD.chipGap + width;
+    if (needed > innerWidth && rowWidth > 0) {
+      row += 1;
+      if (row >= CARD.chipMaxRows) break;
+      rowWidth = 0;
+    }
+    const x = rowWidth === 0 ? paddingX : paddingX + rowWidth + CARD.chipGap;
+    chips.push({
+      label,
+      x,
+      y: top + row * (CARD.chipHeight + 4),
+      width: Math.min(width, innerWidth),
+      height: CARD.chipHeight,
+    });
+    rowWidth = x - paddingX + Math.min(width, innerWidth);
+  }
+
+  const rows = chips.length === 0 ? 0 : row + 1;
+  return { chips, height: rows === 0 ? 0 : rows * CARD.chipHeight + (rows - 1) * 4 };
+}
+
+/** Method marks in rows, with the leftovers counted rather than drawn. */
+function packMethods(
+  methods: readonly string[],
+  innerWidth: number,
+  top: number,
+  paddingX: number,
+): { methods: MethodBox[]; overflow: number; overflowBox: Rect | null; height: number } {
+  const step = CARD.methodWidth + CARD.methodGap;
+  const perRow = Math.max(1, Math.floor((innerWidth + CARD.methodGap) / step));
+  const capacity = perRow * CARD.methodMaxRows;
+  const shown = methods.length > capacity ? methods.slice(0, capacity - 1) : methods;
+  const overflow = methods.length - shown.length;
+
+  const boxes: MethodBox[] = shown.map((method, index) => ({
+    method,
+    x: paddingX + (index % perRow) * step,
+    y: top + Math.floor(index / perRow) * (CARD.methodHeight + CARD.methodGap),
+    width: CARD.methodWidth,
+    height: CARD.methodHeight,
+  }));
+
+  let overflowBox: Rect | null = null;
+  if (overflow > 0) {
+    const index = shown.length;
+    overflowBox = {
+      x: paddingX + (index % perRow) * step,
+      y: top + Math.floor(index / perRow) * (CARD.methodHeight + CARD.methodGap),
+      width: CARD.methodOverflowWidth,
+      height: CARD.methodHeight,
+    };
+  }
+
+  const slots = shown.length + (overflow > 0 ? 1 : 0);
+  const rows = slots === 0 ? 0 : Math.ceil(slots / perRow);
+  const height = rows === 0 ? 0 : rows * CARD.methodHeight + (rows - 1) * CARD.methodGap;
+  return { methods: boxes, overflow, overflowBox, height };
+}
+
 export function measureCard(
   node: AccountNode,
   parentKind: NodeKind | null,
   measure: TextMeasurer,
+  context: CardContext = NO_CONTEXT,
 ): Omit<SizedNode, 'children' | 'subtreeWidth' | 'node'> {
   const spec = specOf(node.kind);
   const caption = captionFor(node.kind, parentKind);
@@ -110,18 +245,57 @@ export function measureCard(
     ? (terminalCount + 1) * CARD.terminalSize + terminalCount * CARD.terminalSpacing
     : 0;
 
-  const contentWidth = Math.max(wrapped.width + 1, captionWidth, terminalsWidth, CARD.iconSize);
+  const labels = spec.supportsIntegrations ? chipLabels(node) : [];
+  const widestChip = labels.reduce(
+    (widest, label) =>
+      Math.max(widest, Math.ceil(measure(label, CARD.chipTextWeight, CARD.chipTextSize)) + CARD.chipPaddingX * 2),
+    0,
+  );
+
+  const methods = spec.supportsMethods ? node.methods : [];
+  // Two marks side by side is the narrowest the row is allowed to force.
+  const methodsWidth = methods.length === 0 ? 0 : Math.min(methods.length, 2) * (CARD.methodWidth + CARD.methodGap);
+
+  const badgeLabel = settingsLabel(node, context);
+  const badgeWidth =
+    badgeLabel === ''
+      ? 0
+      : Math.ceil(measure(badgeLabel, CARD.badgeTextWeight, CARD.badgeTextSize)) +
+        CARD.badgeIconSize +
+        CARD.badgeIconGap;
+
+  const contentWidth = Math.max(
+    wrapped.width + 1,
+    captionWidth,
+    terminalsWidth,
+    widestChip,
+    methodsWidth,
+    badgeWidth,
+    CARD.iconSize,
+  );
   const width = clamp(Math.ceil(contentWidth + CARD.paddingX * 2), CARD.minWidth, CARD.maxWidth);
+  const innerWidth = width - CARD.paddingX * 2;
 
   const iconTop = CARD.paddingTop;
   const nameTop = iconTop + CARD.iconSize + CARD.iconGap;
   const captionTop = nameTop + wrapped.lines.length * CARD.nameLineHeight + CARD.captionGap;
-  const terminalsTop = showTerminals ? captionTop + CARD.captionLineHeight + CARD.terminalGap : null;
-  const height = Math.ceil(
-    (terminalsTop ?? captionTop + CARD.captionLineHeight) +
-      (showTerminals ? CARD.terminalRowHeight : 0) +
-      CARD.paddingBottom,
-  );
+
+  // Rows only exist when they have content, so a bare card stays compact.
+  let cursor = captionTop + CARD.captionLineHeight;
+
+  const chipRow = packChips(labels, innerWidth, cursor + CARD.chipRowGap, CARD.paddingX, measure);
+  if (chipRow.height > 0) cursor += CARD.chipRowGap + chipRow.height;
+
+  const methodRow = packMethods(methods, innerWidth, cursor + CARD.methodRowGap, CARD.paddingX);
+  if (methodRow.height > 0) cursor += CARD.methodRowGap + methodRow.height;
+
+  const terminalsTop = showTerminals ? cursor + CARD.terminalGap : null;
+  if (terminalsTop !== null) cursor = terminalsTop + CARD.terminalRowHeight;
+
+  const badgeTop = badgeLabel === '' ? null : cursor + CARD.badgeGap;
+  if (badgeTop !== null) cursor = badgeTop + CARD.badgeHeight;
+
+  const height = Math.ceil(cursor + CARD.paddingBottom);
 
   return {
     width,
@@ -134,14 +308,29 @@ export function measureCard(
       nameLineHeight: CARD.nameLineHeight,
       captionBaselineTop: captionTop,
       terminalsTop,
-      innerWidth: width - CARD.paddingX * 2,
+      innerWidth,
+      logo:
+        spec.supportsLogo && node.logoDomain !== ''
+          ? { x: (width - CARD.iconSize) / 2, y: iconTop, width: CARD.iconSize, height: CARD.iconSize }
+          : null,
+      chips: chipRow.chips,
+      methods: methodRow.methods,
+      methodOverflow: methodRow.overflow,
+      methodOverflowBox: methodRow.overflowBox,
+      badgeTop,
+      badgeLabel,
     },
   };
 }
 
-function sizeTree(node: AccountNode, parentKind: NodeKind | null, measure: TextMeasurer): SizedNode {
-  const children = node.children.map((child) => sizeTree(child, node.kind, measure));
-  const card = measureCard(node, parentKind, measure);
+function sizeTree(
+  node: AccountNode,
+  parentKind: NodeKind | null,
+  measure: TextMeasurer,
+  contextOf: (node: AccountNode) => CardContext,
+): SizedNode {
+  const children = node.children.map((child) => sizeTree(child, node.kind, measure, contextOf));
+  const card = measureCard(node, parentKind, measure, contextOf(node));
 
   const childrenWidth =
     children.reduce((total, child) => total + child.subtreeWidth, 0) +
@@ -160,7 +349,13 @@ export interface LayoutOptions {
 }
 
 export function layoutDocument(doc: StructureDocument, options: LayoutOptions): Layout {
-  const sized = sizeTree(doc.root, null, options.measure);
+  const sized = sizeTree(doc.root, null, options.measure, (node) => {
+    // Only nodes that actually set something can be contradicted below, which
+    // keeps this off the hot path for the vast majority of cards.
+    if (node.settings.length === 0) return NO_CONTEXT;
+    const below = keysSetBelow(node);
+    return { overriddenBelow: node.settings.some((setting) => below.has(setting.key)) };
+  });
 
   // Rows are as tall as their tallest card so every card in a row shares a top
   // edge, which keeps the connector elbows aligned.
@@ -248,6 +443,10 @@ function buildEdges(
   const edges: LayoutEdge[] = [];
   for (const child of nodes) {
     if (child.parentId === null) continue;
+    // A balance platform is not owned by the company account: it is reached
+    // through the links from the merchant accounts beside it, so it keeps its
+    // place in the row but draws no connector upwards.
+    if (specOf(child.kind).detached) continue;
     const parent = byId.get(child.parentId);
     if (!parent) continue;
 

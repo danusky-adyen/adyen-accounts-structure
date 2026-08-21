@@ -24,6 +24,37 @@ export const CARD = {
   terminalSize: 20,
   terminalSpacing: 5,
   terminalRowHeight: 22,
+
+  /** Kind glyph shown over a brand mark, so the account type stays readable. */
+  logoKindSize: 16,
+
+  /** Integration chips. */
+  chipHeight: 17,
+  chipRadius: 6,
+  chipPaddingX: 6,
+  chipGap: 4,
+  chipTextSize: 9.5,
+  chipTextWeight: 600,
+  chipRowGap: 9,
+  chipMaxRows: 3,
+
+  /** Payment-method brand marks. Ratio matches the vendored 40x26 artwork. */
+  methodWidth: 25,
+  methodHeight: 16,
+  methodGap: 4,
+  methodRowGap: 9,
+  methodMaxRows: 2,
+  methodRadius: 3,
+  /** Width of the `+N` counter when methods overflow. */
+  methodOverflowWidth: 20,
+
+  /** Settings count. */
+  badgeGap: 9,
+  badgeHeight: 15,
+  badgeTextSize: 9.5,
+  badgeTextWeight: 600,
+  badgeIconSize: 11,
+  badgeIconGap: 4,
 } as const;
 
 export const TREE = {

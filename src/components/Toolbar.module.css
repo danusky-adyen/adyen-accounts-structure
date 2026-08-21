@@ -4,7 +4,9 @@
   align-items: center;
   gap: 3px;
   padding: 5px;
-  z-index: 20;
+  /* Above the inspector: a toolbar dropdown opens over the panel, and a
+     z-index inside this bar is only compared against its siblings. */
+  z-index: 30;
 }
 
 .topLeft {

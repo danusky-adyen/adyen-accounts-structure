@@ -114,16 +114,38 @@ export interface NodeKindSpec {
   /** Which switch to show in the inspector, if the kind can be changed. */
   readonly variantGroup: VariantGroupId | null;
   readonly supportsTerminals: boolean;
+  /** Integration types (web, mobile, partner plugin, …) can be listed. */
+  readonly supportsIntegrations: boolean;
+  /** Payment methods can be listed. */
+  readonly supportsMethods: boolean;
+  /**
+   * Drawn without a connector to its parent. A balance platform is reached
+   * through links from merchant accounts, not through account ownership, so a
+   * line to the company account would state a relationship that does not exist.
+   */
+  readonly detached: boolean;
+  /** A logo can stand in for the icon, keyed by company domain. */
+  readonly supportsLogo: boolean;
   /** The root node cannot be deleted, moved or re-typed. */
   readonly isRoot: boolean;
   /** One-line explanation surfaced in the inspector. */
   readonly description: string;
 }
 
+type SpecDefaults =
+  | 'childKinds'
+  | 'childLimits'
+  | 'variantGroup'
+  | 'supportsTerminals'
+  | 'supportsIntegrations'
+  | 'supportsMethods'
+  | 'supportsLogo'
+  | 'detached'
+  | 'isRoot';
+
 function spec(
   kind: NodeKind,
-  values: Omit<NodeKindSpec, 'kind' | 'childKinds' | 'childLimits' | 'variantGroup' | 'supportsTerminals' | 'isRoot'> &
-    Partial<Pick<NodeKindSpec, 'childKinds' | 'childLimits' | 'variantGroup' | 'supportsTerminals' | 'isRoot'>>,
+  values: Omit<NodeKindSpec, 'kind' | SpecDefaults> & Partial<Pick<NodeKindSpec, SpecDefaults>>,
 ): NodeKindSpec {
   return {
     kind,
@@ -131,6 +153,10 @@ function spec(
     childLimits: {},
     variantGroup: null,
     supportsTerminals: false,
+    supportsIntegrations: false,
+    supportsMethods: false,
+    supportsLogo: false,
+    detached: false,
     isRoot: false,
     ...values,
   };
@@ -145,6 +171,7 @@ export const NODE_SPECS: Record<NodeKind, NodeKindSpec> = {
     tone: 'root',
     childKinds: ['pos', 'ecom', 'bp'],
     isRoot: true,
+    supportsLogo: true,
     description: 'The top-level company account that owns every merchant account below it.',
   }),
   pos: spec('pos', {
@@ -155,7 +182,11 @@ export const NODE_SPECS: Record<NodeKind, NodeKindSpec> = {
     tone: 'account',
     childKinds: ['store'],
     variantGroup: 'merchant',
-    description: 'In-person merchant account. Stores below it group terminals by location.',
+    supportsTerminals: true,
+    supportsIntegrations: true,
+    supportsMethods: true,
+    supportsLogo: true,
+    description: 'In-person merchant account. Add its integrations, or stores that group terminals by location.',
   }),
   ecom: spec('ecom', {
     defaultName: 'Ecom',
@@ -164,6 +195,9 @@ export const NODE_SPECS: Record<NodeKind, NodeKindSpec> = {
     tint: 'violet',
     tone: 'account',
     variantGroup: 'merchant',
+    supportsIntegrations: true,
+    supportsMethods: true,
+    supportsLogo: true,
     description: 'Online merchant account. Ecom traffic is not split into stores.',
   }),
   bp: spec('bp', {
@@ -175,7 +209,11 @@ export const NODE_SPECS: Record<NodeKind, NodeKindSpec> = {
     childKinds: ['liableAccHolder', 'accHolder'],
     childLimits: { liableAccHolder: 1 },
     variantGroup: 'merchant',
-    description: 'Holds the account holders, balance accounts and instruments of the platform.',
+    supportsIntegrations: true,
+    supportsLogo: true,
+    detached: true,
+    description:
+      'Holds the account holders, balance accounts and instruments. Merchant accounts link to it rather than own it.',
   }),
   store: spec('store', {
     defaultName: 'Store',
@@ -184,6 +222,7 @@ export const NODE_SPECS: Record<NodeKind, NodeKindSpec> = {
     tint: 'green',
     tone: 'account',
     supportsTerminals: true,
+    supportsMethods: true,
     description: 'A physical location under a POS merchant account. Add the terminals it runs.',
   }),
   accHolder: spec('accHolder', {
@@ -324,6 +363,16 @@ export function nextVariant(kind: NodeKind): NodeKind | null {
   return next ? next.kind : null;
 }
 
+/** The kind produced by stepping backwards through the variant group. */
+export function prevVariant(kind: NodeKind): NodeKind | null {
+  const group = variantGroupOf(kind);
+  if (!group) return null;
+  const index = group.options.findIndex((option) => option.kind === kind);
+  if (index === -1) return null;
+  const previous = group.options[(index - 1 + group.options.length) % group.options.length];
+  return previous ? previous.kind : null;
+}
+
 export function canContain(parent: NodeKind, child: NodeKind): boolean {
   return NODE_SPECS[parent].childKinds.includes(child);
 }
@@ -340,8 +389,28 @@ export const LINK_RULES = [
   ['pos', 'bp'],
   ['ecom', 'ecom'],
   ['ecom', 'bp'],
-  ['bp', 'bp'],
 ] as const satisfies readonly (readonly [NodeKind, NodeKind])[];
+
+/**
+ * How many links of a target kind one owner may hold.
+ *
+ * Merchant account to balance platform is many-to-one: several merchant
+ * accounts can feed the same platform, but a merchant account belongs to one
+ * platform. The cap therefore sits on the merchant (owner) side, and nothing
+ * limits how many merchant accounts a platform receives.
+ */
+export const LINK_LIMITS: readonly {
+  readonly owner: NodeKind;
+  readonly target: NodeKind;
+  readonly max: number;
+}[] = [
+  { owner: 'pos', target: 'bp', max: 1 },
+  { owner: 'ecom', target: 'bp', max: 1 },
+];
+
+export function linkLimit(owner: NodeKind, target: NodeKind): number | null {
+  return LINK_LIMITS.find((rule) => rule.owner === owner && rule.target === target)?.max ?? null;
+}
 
 export function canLink(a: NodeKind, b: NodeKind): boolean {
   return LINK_RULES.some(([owner, target]) => (owner === a && target === b) || (owner === b && target === a));

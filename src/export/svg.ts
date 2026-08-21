@@ -8,6 +8,7 @@
  * viewport.
  */
 
+import { monogram, peekCompanyLogo, peekPaymentLogos } from '../design/brand';
 import { getIcon, getTerminalIcon, type IconDef } from '../design/icons';
 import { PALETTES, TINTS, tintFill, type ThemeName } from '../design/palette';
 import { specOf } from '../domain/kinds';
@@ -82,6 +83,39 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
 
   const centerX = item.x + item.width / 2;
 
+  if (slots.logo !== null) {
+    // The brand tile covers the kind glyph drawn above, so the glyph is redrawn
+    // small in the corner exactly as the card does it.
+    const box = { x: item.x + slots.logo.x, y: item.y + slots.logo.y };
+    parts.push(
+      `<rect x="${round(box.x)}" y="${round(box.y)}" width="${round(slots.logo.width)}" height="${round(slots.logo.height)}" rx="12" fill="${palette.surface}" stroke="${palette.border}"/>`,
+    );
+
+    const logo = peekCompanyLogo(item.node.logoDomain);
+    if (logo === null) {
+      parts.push(
+        `<text x="${round(box.x + slots.logo.width / 2)}" y="${round(box.y + slots.logo.height / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="15" font-weight="800" fill="${tint.line}">${escapeXml(monogram(item.node.name))}</text>`,
+      );
+    } else {
+      parts.push(
+        `<image x="${round(box.x + 3)}" y="${round(box.y + 3)}" width="${round(slots.logo.width - 6)}" height="${round(slots.logo.height - 6)}" href="${escapeXml(logo)}" preserveAspectRatio="xMidYMid meet"/>`,
+      );
+    }
+
+    const glyph = CARD.logoKindSize;
+    parts.push(
+      `<rect x="${round(box.x + slots.logo.width - glyph + 5)}" y="${round(box.y + slots.logo.height - glyph + 5)}" width="${glyph}" height="${glyph}" rx="5" fill="${fill}" stroke="${palette.surface}"/>`,
+      iconMarkup(
+        getIcon(spec.icon),
+        glyph - 3,
+        box.x + slots.logo.width - glyph + 6.5,
+        box.y + slots.logo.height - glyph + 6.5,
+        tint.line,
+        fill,
+      ),
+    );
+  }
+
   item.nameLines.forEach((line, index) => {
     const y = item.y + slots.nameTop + slots.nameLineHeight / 2 + index * slots.nameLineHeight;
     parts.push(
@@ -96,6 +130,41 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
   if (item.node.note.trim() !== '') {
     parts.push(
       `<circle cx="${round(item.x + item.width - 15)}" cy="${round(item.y + 15)}" r="3" fill="${palette.textFaint}"/>`,
+    );
+  }
+
+  for (const chip of slots.chips) {
+    parts.push(
+      `<rect x="${round(item.x + chip.x)}" y="${round(item.y + chip.y)}" width="${round(chip.width)}" height="${round(chip.height)}" rx="${CARD.chipRadius}" fill="${palette.surfaceSunken}" stroke="${palette.border}"/>`,
+      `<text x="${round(item.x + chip.x + chip.width / 2)}" y="${round(item.y + chip.y + chip.height / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="${CARD.chipTextSize}" font-weight="${CARD.chipTextWeight}" fill="${palette.textMuted}">${escapeXml(chip.label)}</text>`,
+    );
+  }
+
+  // Vendored artwork, so a method mark survives an export with no network.
+  const logos = peekPaymentLogos();
+  for (const box of slots.methods) {
+    const logo = logos?.[box.method];
+    parts.push(
+      `<rect x="${round(item.x + box.x)}" y="${round(item.y + box.y)}" width="${round(box.width)}" height="${round(box.height)}" rx="${CARD.methodRadius}" fill="${palette.surfaceSunken}"/>`,
+    );
+    if (logo) {
+      parts.push(
+        `<svg x="${round(item.x + box.x)}" y="${round(item.y + box.y)}" width="${round(box.width)}" height="${round(box.height)}" viewBox="${logo.viewBox}" preserveAspectRatio="xMidYMid meet">${stripSvgWrapper(logo.svg)}</svg>`,
+      );
+    }
+  }
+
+  if (slots.methodOverflowBox !== null) {
+    const box = slots.methodOverflowBox;
+    parts.push(
+      `<rect x="${round(item.x + box.x)}" y="${round(item.y + box.y)}" width="${round(box.width)}" height="${round(box.height)}" rx="${CARD.methodRadius}" fill="${palette.surfaceSunken}" stroke="${palette.border}"/>`,
+      `<text x="${round(item.x + box.x + box.width / 2)}" y="${round(item.y + box.y + box.height / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="9.5" font-weight="700" fill="${palette.textFaint}">+${slots.methodOverflow}</text>`,
+    );
+  }
+
+  if (slots.badgeTop !== null) {
+    parts.push(
+      `<text x="${round(centerX)}" y="${round(item.y + slots.badgeTop + CARD.badgeHeight / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="${CARD.badgeTextSize}" font-weight="${CARD.badgeTextWeight}" fill="${palette.textFaint}">${escapeXml(slots.badgeLabel)}</text>`,
     );
   }
 
@@ -147,6 +216,18 @@ export function renderDiagramSvg(layout: Layout, options: SvgExportOptions): str
     cards,
     '</svg>',
   ].join('');
+}
+
+/**
+ * Unwraps a vendored logo so its shapes can be nested inside the diagram. The
+ * outer `<svg>` is replaced by the caller's own, which is what positions and
+ * scales the artwork.
+ */
+function stripSvgWrapper(svg: string): string {
+  const opening = svg.indexOf('>');
+  const closing = svg.lastIndexOf('</svg>');
+  if (opening === -1 || closing === -1 || closing < opening) return '';
+  return svg.slice(opening + 1, closing);
 }
 
 function mix(color: string, base: string, amount: number): string {

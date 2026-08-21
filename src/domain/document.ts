@@ -10,6 +10,22 @@ import { NODE_SPECS, type NodeKind, type TerminalKind, specOf } from './kinds';
 
 export type NodeId = string;
 
+/**
+ * A free-form configuration entry: an ADP, a terminal setting, or anything else
+ * worth recording. Both halves are free text because the authoritative list of
+ * account properties lives in Adyen's codebase, not here.
+ */
+export interface Setting {
+  readonly key: string;
+  readonly value: string;
+}
+
+export interface NodeIntegration {
+  /** Id from `INTEGRATIONS`, or free text for something not in the registry. */
+  readonly id: string;
+  readonly version: string;
+}
+
 export interface AccountNode {
   readonly id: NodeId;
   readonly kind: NodeKind;
@@ -19,6 +35,13 @@ export interface AccountNode {
   readonly terminals: readonly TerminalKind[];
   /** Cross-links owned by this node, pointing at nodes elsewhere in the tree. */
   readonly links: readonly NodeId[];
+  /** Configuration set at this level. Descendants inherit it. */
+  readonly settings: readonly Setting[];
+  readonly integrations: readonly NodeIntegration[];
+  /** Adyen txvariants, as listed in `PAYMENT_METHODS`. */
+  readonly methods: readonly string[];
+  /** Bare domain (`acme.com`) used to look up a logo. Empty when unset. */
+  readonly logoDomain: string;
   readonly children: readonly AccountNode[];
 }
 
@@ -46,6 +69,10 @@ export function createNode(kind: NodeKind, overrides: Partial<Omit<AccountNode, 
     note: overrides.note ?? '',
     terminals: overrides.terminals ?? [],
     links: overrides.links ?? [],
+    settings: overrides.settings ?? [],
+    integrations: overrides.integrations ?? [],
+    methods: overrides.methods ?? [],
+    logoDomain: overrides.logoDomain ?? '',
     children: overrides.children ?? [],
   };
 }

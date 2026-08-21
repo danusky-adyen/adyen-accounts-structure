@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
+import { monogram } from '../design/brand';
 import { ancestorsOf, canAddChildOfKind, findNode, indexDocument, type AccountNode } from '../domain/document';
 import { captionFor, specOf, variantGroupOf, type NodeKind } from '../domain/kinds';
 import { kindChangeImpact } from '../domain/operations';
+import { useCompanyLogo } from '../hooks/useBrandMarks';
 import { useStore } from '../state/store';
 import { Icon } from './Icon';
+import { NodeIntegrations } from './NodeIntegrations';
+import { NodeMethods } from './NodeMethods';
+import { NodeSettings } from './NodeSettings';
 import styles from './Inspector.module.css';
 
 export function Inspector() {
@@ -17,12 +22,17 @@ export function Inspector() {
   const addChild = useStore((state) => state.addChild);
   const remove = useStore((state) => state.remove);
   const toggleLink = useStore((state) => state.toggleLink);
+  const setLogoDomain = useStore((state) => state.setLogoDomain);
 
   const node = selectedId === null ? null : findNode(doc, selectedId);
   const [pendingKind, setPendingKind] = useState<NodeKind | null>(null);
+  // Kept locally while typing so a half-written domain is not thrown away by
+  // the normaliser on every keystroke.
+  const [domainDraft, setDomainDraft] = useState<string | null>(null);
 
   useEffect(() => {
     setPendingKind(null);
+    setDomainDraft(null);
   }, [selectedId]);
 
   const context = useMemo(() => {
@@ -172,6 +182,24 @@ export function Inspector() {
         </div>
       ) : null}
 
+      {spec.supportsLogo ? (
+        <BrandField
+          nodeId={selectedId}
+          name={node.name}
+          domain={node.logoDomain}
+          draft={domainDraft}
+          tint={spec.tint}
+          onDraft={setDomainDraft}
+          onCommit={(value) => setLogoDomain(selectedId, value)}
+        />
+      ) : null}
+
+      {spec.supportsIntegrations ? <NodeIntegrations node={node} /> : null}
+
+      {spec.supportsMethods ? <NodeMethods node={node} /> : null}
+
+      <NodeSettings doc={doc} nodeId={selectedId} />
+
       <div className={styles.field}>
         <span className="sectionLabel">Links</span>
         {context.linked.length === 0 ? (
@@ -229,10 +257,75 @@ export function Inspector() {
             Delete
             {context.descendants > 0 ? ` and ${context.descendants} below` : ''}
           </button>
-          <span className={styles.hint}>⌫</span>
         </div>
       ) : null}
     </aside>
+  );
+}
+
+interface BrandFieldProps {
+  readonly nodeId: string;
+  readonly name: string;
+  readonly domain: string;
+  readonly draft: string | null;
+  readonly tint: string;
+  readonly onDraft: (value: string | null) => void;
+  readonly onCommit: (value: string) => void;
+}
+
+/**
+ * A domain instead of a file upload. The logo is fetched from that domain at
+ * render time, so a share link carries about fifteen characters rather than an
+ * embedded image, and nothing has to be hosted.
+ */
+function BrandField({ nodeId, name, domain, draft, tint, onDraft, onCommit }: BrandFieldProps) {
+  const logo = useCompanyLogo(domain);
+  const value = draft ?? domain;
+
+  const commit = (): void => {
+    onCommit(value);
+    onDraft(null);
+  };
+
+  return (
+    <div className={styles.field}>
+      <label className="sectionLabel" htmlFor={`inspector-domain-${nodeId}`}>
+        Logo
+      </label>
+      <div className={styles.brandRow}>
+        <span className={styles.brandPreview} style={{ background: `var(--tint-${tint}-fill)` }}>
+          {logo === null ? (
+            <span className={styles.brandMonogram} style={{ color: `var(--tint-${tint}-line)` }}>
+              {monogram(name)}
+            </span>
+          ) : (
+            <img src={logo} alt="" />
+          )}
+        </span>
+        <input
+          id={`inspector-domain-${nodeId}`}
+          className={styles.input}
+          value={value}
+          placeholder="acme.com"
+          spellCheck={false}
+          autoComplete="off"
+          maxLength={80}
+          onChange={(event) => onDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.key === 'Enter') commit();
+          }}
+        />
+      </div>
+      <span className={styles.hint}>
+        {domain === ''
+          ? 'Add a domain to show the brand instead of initials.'
+          : logo === null
+            ? `No logo found for ${domain}; initials are shown instead.`
+            : `Fetched from ${domain}.`}
+      </span>
+    </div>
   );
 }
 

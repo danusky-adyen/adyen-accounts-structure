@@ -10,12 +10,23 @@
  * structure goes from 880 to 358 characters, the starting diagram from 176 to
  * 23; `tests/share.test.ts` keeps that gap from regressing.
  *
- * Layout of a v2 payload:
+ * v3 appends the fields added later. Because they are appended and trailing
+ * defaults are cut, a v2 payload is a valid v3 payload with the new fields
+ * missing, so one decoder reads both.
  *
- *   [2, node, links?]
- *   node  = [kindCode, name?, children?, note?, terminalCounts?]   trailing
- *                                                                 defaults cut
+ * Layout of a v3 payload:
+ *
+ *   [3, node, links?]
+ *   node  = [kindCode, name?, children?, note?, terminalCounts?,
+ *            settings?, integrations?, methods?, logoDomain?]  trailing
+ *                                                             defaults cut
  *   links = [sourceIndex, targetIndex, ...]
+ *
+ * Settings, integration ids and payment methods stay as strings rather than
+ * registry indices: the payment-method list is generated from Adyen's CDN and
+ * the integration list will grow, so an index would rebind to a different value
+ * the moment either changes, silently corrupting old links. LZString's
+ * dictionary already collapses the repetition.
  */
 
 import LZString from 'lz-string';
@@ -24,7 +35,10 @@ import { forEachNode } from '../domain/document';
 import { normalizeDocument, type RawNode } from '../domain/normalize';
 import { TERMINAL_KINDS, specOf, type NodeKind, type TerminalKind } from '../domain/kinds';
 
-export const SHARE_FORMAT_VERSION = 2;
+export const SHARE_FORMAT_VERSION = 3;
+
+/** Payload versions this build can read. */
+const READABLE_VERSIONS = new Set([2, SHARE_FORMAT_VERSION]);
 
 /**
  * Frozen wire codes. Never renumber these: existing links depend on them. New
@@ -73,12 +87,22 @@ function encodeNode(node: AccountNode, indices: Map<NodeId, number>, counter: { 
   const children = node.children.map((child) => encodeNode(child, indices, counter));
   const terminals = encodeTerminalCounts(node.terminals);
 
+  const settings = node.settings.map((setting) => [setting.key, setting.value]);
+  // A version-less integration is written as a bare id, which is the common case.
+  const integrations = node.integrations.map((entry) =>
+    entry.version === '' ? entry.id : [entry.id, entry.version],
+  );
+
   const fields: unknown[] = [
     KIND_CODES[node.kind],
     node.name === specOf(node.kind).defaultName ? 0 : node.name,
     children.length > 0 ? children : 0,
     node.note === '' ? 0 : node.note,
     terminals.length > 0 ? terminals : 0,
+    settings.length > 0 ? settings : 0,
+    integrations.length > 0 ? integrations : 0,
+    node.methods.length > 0 ? [...node.methods] : 0,
+    node.logoDomain === '' ? 0 : node.logoDomain,
   ];
 
   while (fields.length > 1 && fields[fields.length - 1] === 0) fields.pop();
@@ -107,6 +131,36 @@ export function encodeDocument(doc: StructureDocument): string {
 interface DecodedNode extends RawNode {
   /** Pre-order position, used to resolve links. */
   index: number;
+}
+
+/** `[[key, value], ...]` into the object form `normalizeDocument` validates. */
+function decodeSettings(value: unknown): { key: string; value: string }[] {
+  if (!Array.isArray(value)) return [];
+  const settings: { key: string; value: string }[] = [];
+  for (const entry of value as unknown[]) {
+    if (!Array.isArray(entry)) continue;
+    const pair = entry as unknown[];
+    if (typeof pair[0] !== 'string') continue;
+    settings.push({ key: pair[0], value: typeof pair[1] === 'string' ? pair[1] : '' });
+  }
+  return settings;
+}
+
+/** A bare id, or `[id, version]`. */
+function decodeIntegrations(value: unknown): { id: string; version: string }[] {
+  if (!Array.isArray(value)) return [];
+  const integrations: { id: string; version: string }[] = [];
+  for (const entry of value as unknown[]) {
+    if (typeof entry === 'string') {
+      integrations.push({ id: entry, version: '' });
+      continue;
+    }
+    if (!Array.isArray(entry)) continue;
+    const pair = entry as unknown[];
+    if (typeof pair[0] !== 'string') continue;
+    integrations.push({ id: pair[0], version: typeof pair[1] === 'string' ? pair[1] : '' });
+  }
+  return integrations;
 }
 
 function decodeNode(value: unknown, counter: { next: number }, flat: DecodedNode[]): RawNode | null {
@@ -142,6 +196,10 @@ function decodeNode(value: unknown, counter: { next: number }, flat: DecodedNode
     name: typeof rawName === 'string' ? rawName : undefined,
     note: typeof rawNote === 'string' ? rawNote : '',
     terminals,
+    settings: decodeSettings(fields[5]),
+    integrations: decodeIntegrations(fields[6]),
+    methods: Array.isArray(fields[7]) ? (fields[7] as unknown[]) : [],
+    logoDomain: typeof fields[8] === 'string' ? fields[8] : '',
     children: [],
   };
   flat.push(node);
@@ -158,7 +216,7 @@ function decodeNode(value: unknown, counter: { next: number }, flat: DecodedNode
   return node;
 }
 
-/** Decodes a v2 payload. Returns null when the string is not a v2 payload. */
+/** Decodes a v2 or v3 payload. Returns null when the string is neither. */
 export function decodeDocument(encoded: string): StructureDocument | null {
   let parsed: unknown;
   try {
@@ -171,7 +229,7 @@ export function decodeDocument(encoded: string): StructureDocument | null {
 
   if (!Array.isArray(parsed)) return null;
   const payload = parsed as unknown[];
-  if (payload[0] !== SHARE_FORMAT_VERSION) return null;
+  if (typeof payload[0] !== 'number' || !READABLE_VERSIONS.has(payload[0])) return null;
 
   const flat: DecodedNode[] = [];
   const root = decodeNode(payload[1], { next: 0 }, flat);

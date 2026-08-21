@@ -3,6 +3,7 @@ import { specOf } from '../domain/kinds';
 import type { Layout } from '../layout';
 import { dropCandidates, resolveDropTarget } from '../interaction/dropTarget';
 import { useStore, type Viewport } from '../state/store';
+import { usePaymentLogos } from '../hooks/useBrandMarks';
 import type { ViewportController } from '../hooks/useViewport';
 import { EdgeLayer } from './EdgeLayer';
 import { NodeCard } from './NodeCard';
@@ -56,6 +57,7 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
   const doc = useStore((state) => state.doc);
   const selectedId = useStore((state) => state.selectedId);
   const editingId = useStore((state) => state.editingId);
+  const editingSeed = useStore((state) => state.editingSeed);
   const hoveredLinkId = useStore((state) => state.hoveredLinkId);
   const drag = useStore((state) => state.drag);
 
@@ -66,7 +68,6 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
   const rename = useStore((state) => state.rename);
   const addChild = useStore((state) => state.addChild);
   const remove = useStore((state) => state.remove);
-  const cycleKind = useStore((state) => state.cycleKind);
   const removeTerminalAt = useStore((state) => state.removeTerminalAt);
   const toggleLink = useStore((state) => state.toggleLink);
   const move = useStore((state) => state.move);
@@ -80,6 +81,10 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
     () => (drag ? dropCandidates(doc, layout, drag.nodeId) : null),
     [doc, layout, drag],
   );
+
+  // The vendored logo module is only worth fetching once a card shows a method.
+  const showsMethods = useMemo(() => layout.nodes.some((item) => item.slots.methods.length > 0), [layout.nodes]);
+  const paymentLogos = usePaymentLogos(showsMethods);
 
   const linkCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -259,7 +264,9 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
                 dragging={drag?.nodeId === item.id}
                 dimmed={candidates !== null && !candidates.all.has(item.id) && drag?.nodeId !== item.id}
                 dropAction={dropAction}
+                editingSeed={editingSeed}
                 linkCount={linkCounts.get(item.id) ?? 0}
+                paymentLogos={paymentLogos}
                 tabbable={selectedId === null ? specOf(item.kind).isRoot : selectedId === item.id}
                 onPointerDown={handleCardPointerDown}
                 onStartEdit={setEditing}
@@ -268,7 +275,6 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
                 onAddChild={(id) => addChild(id)}
                 onAddLegalEntity={handleAddLegalEntity}
                 onDelete={remove}
-                onCycleKind={cycleKind}
                 onOpenTerminalPicker={onRequestTerminalPicker}
                 onRemoveTerminal={removeTerminalAt}
               />

@@ -25,6 +25,7 @@ export default [
         navigator: 'readonly',
         localStorage: 'readonly',
         location: 'readonly',
+        fetch: 'readonly',
         console: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
@@ -76,6 +77,18 @@ export default [
       eqeqeq: ['error', 'always'],
       'prefer-const': 'error',
       'no-else-return': 'error',
+    },
+  },
+  {
+    // Build scripts run in Node, not the browser.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        fetch: 'readonly',
+        process: 'readonly',
+        console: 'readonly',
+        URL: 'readonly',
+      },
     },
   },
   {

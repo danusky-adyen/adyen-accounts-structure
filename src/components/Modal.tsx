@@ -1,14 +1,17 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './Modal.module.css';
 
 export interface ModalProps {
   readonly title: string;
   readonly description?: string;
+  /** Wide is for the pickers and the import flow, which need the room. */
+  readonly size?: 'default' | 'wide';
   readonly children?: ReactNode;
   readonly onClose: () => void;
 }
 
-export function Modal({ title, description, children, onClose }: ModalProps) {
+export function Modal({ title, description, size = 'default', children, onClose }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -17,7 +20,10 @@ export function Modal({ title, description, children, onClose }: ModalProps) {
     return () => previous?.focus();
   }, []);
 
-  return (
+  // Portalled to the body because callers live inside the inspector, whose
+  // transform makes it the containing block for `position: fixed` and whose
+  // `overflow-y: auto` would clip the dialog.
+  return createPortal(
     <div
       className={styles.backdrop}
       onPointerDown={(event) => {
@@ -25,7 +31,7 @@ export function Modal({ title, description, children, onClose }: ModalProps) {
       }}
     >
       <div
-        className={styles.dialog}
+        className={`${styles.dialog} ${size === 'wide' ? styles.dialogWide : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -39,11 +45,17 @@ export function Modal({ title, description, children, onClose }: ModalProps) {
       >
         <div className={styles.header}>
           <h2 className={styles.title}>{title}</h2>
+          <button type="button" className={styles.closeButton} onClick={onClose} aria-label={`Close ${title}`}>
+            <svg viewBox="0 0 24 24" aria-hidden>
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
         {description ? <p className={styles.description}>{description}</p> : null}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

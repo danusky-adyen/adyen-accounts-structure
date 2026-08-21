@@ -9,22 +9,37 @@ import {
 import { canLink, linkOwnerId, nextVariant, specOf } from '../src/domain/kinds';
 import {
   MAX_NAME_LENGTH,
+  MAX_VERSION_LENGTH,
   addChild,
+  addIntegration,
   addLink,
   addTerminal,
   areLinked,
   canCreateLink,
   canMoveNode,
   kindChangeImpact,
+  linkAtLimit,
   linkCandidates,
   moveNode,
+  normalizeDomain,
+  relinkAtLimit,
+  removeIntegrationAt,
   removeNode,
+  removeSetting,
   removeTerminalAt,
   renameNode,
+  renameSetting,
+  setIntegrationVersion,
   setKind,
+  setLogoDomain,
+  setMethods,
   setNote,
+  setSetting,
   toggleLink,
+  toggleMethod,
 } from '../src/domain/operations';
+import { PAYMENT_METHODS } from '../src/domain/paymentMethods';
+import { MAX_SETTINGS_PER_NODE, MAX_SETTING_VALUE_LENGTH } from '../src/domain/settings';
 import { byName, doc, ids, kinds, named, node } from './helpers';
 
 describe('default document', () => {
@@ -278,13 +293,21 @@ describe('moveNode', () => {
 });
 
 describe('terminals', () => {
-  it('only attaches to kinds that support them', () => {
+  it('attaches to in-person merchant accounts as well as stores', () => {
     const document = doc(node('company', node('pos', node('store'))));
-    const [, merchant, store] = ids(document) as [string, string, string];
+    const [company, merchant, store] = ids(document) as [string, string, string];
 
-    expect(findNode(addTerminal(document, merchant, 'counter'), merchant)?.terminals).toEqual([]);
-    const withTerminal = addTerminal(document, store, 'counter');
-    expect(findNode(withTerminal, store)?.terminals).toEqual(['counter']);
+    expect(findNode(addTerminal(document, merchant, 'counter'), merchant)?.terminals).toEqual(['counter']);
+    expect(findNode(addTerminal(document, store, 'counter'), store)?.terminals).toEqual(['counter']);
+    // A company has no terminals of its own; they belong to an account below it.
+    expect(findNode(addTerminal(document, company, 'counter'), company)?.terminals).toEqual([]);
+  });
+
+  it('refuses kinds that have no terminals', () => {
+    const document = doc(node('company', node('ecom')));
+    const ecomId = ids(document)[1] as string;
+
+    expect(addTerminal(document, ecomId, 'counter')).toBe(document);
   });
 
   it('removes a terminal by position', () => {
@@ -321,5 +344,273 @@ describe('indexDocument', () => {
 describe('createNode', () => {
   it('applies the kind default name', () => {
     expect(createNode('grantRef').name).toBe('Grant Reference');
+  });
+});
+
+describe('settings', () => {
+  it('adds a setting and replaces its value where it already sits', () => {
+    let document = doc(node('company', node('pos')));
+    const merchantId = ids(document)[1] as string;
+
+    document = setSetting(document, merchantId, 'captureDelay', 'immediate');
+    document = setSetting(document, merchantId, 'shopperStatement', 'ACME NL');
+    document = setSetting(document, merchantId, 'captureDelay', 'manual');
+
+    expect(findNode(document, merchantId)?.settings).toEqual([
+      { key: 'captureDelay', value: 'manual' },
+      { key: 'shopperStatement', value: 'ACME NL' },
+    ]);
+  });
+
+  it('ignores a key that is empty once trimmed', () => {
+    const document = doc(node('company'));
+    expect(setSetting(document, document.root.id, '', 'immediate')).toBe(document);
+    expect(setSetting(document, document.root.id, '   ', 'immediate')).toBe(document);
+  });
+
+  it('caps how many settings one node carries', () => {
+    let document = doc(node('company'));
+    for (let index = 0; index < MAX_SETTINGS_PER_NODE + 5; index += 1) {
+      document = setSetting(document, document.root.id, `key${index}`, 'on');
+    }
+    expect(document.root.settings).toHaveLength(MAX_SETTINGS_PER_NODE);
+  });
+
+  it('collapses newlines and tabs out of a value and caps its length', () => {
+    let document = doc(node('company'));
+
+    document = setSetting(document, document.root.id, 'note', ' one\n\ttwo\r\nthree ');
+    expect(document.root.settings[0]?.value).toBe('one two three');
+
+    document = setSetting(document, document.root.id, 'note', 'v'.repeat(MAX_SETTING_VALUE_LENGTH + 50));
+    expect(document.root.settings[0]?.value).toHaveLength(MAX_SETTING_VALUE_LENGTH);
+  });
+
+  it('renames a key without moving it', () => {
+    let document = doc(node('company'));
+    document = setSetting(document, document.root.id, 'first', '1');
+    document = setSetting(document, document.root.id, 'second', '2');
+
+    const renamed = renameSetting(document, document.root.id, 'first', 'captureDelay');
+    expect(renamed.root.settings).toEqual([
+      { key: 'captureDelay', value: '1' },
+      { key: 'second', value: '2' },
+    ]);
+  });
+
+  it('removes the row when the new key is empty', () => {
+    let document = doc(node('company'));
+    document = setSetting(document, document.root.id, 'first', '1');
+    document = setSetting(document, document.root.id, 'second', '2');
+
+    expect(renameSetting(document, document.root.id, 'first', '  ').root.settings).toEqual([
+      { key: 'second', value: '2' },
+    ]);
+  });
+
+  it('refuses a rename onto a key the node already has', () => {
+    let document = doc(node('company'));
+    document = setSetting(document, document.root.id, 'first', '1');
+    document = setSetting(document, document.root.id, 'second', '2');
+
+    expect(renameSetting(document, document.root.id, 'first', 'second')).toBe(document);
+  });
+
+  it('removes a setting by key', () => {
+    let document = doc(node('company'));
+    document = setSetting(document, document.root.id, 'first', '1');
+    document = setSetting(document, document.root.id, 'second', '2');
+
+    expect(removeSetting(document, document.root.id, ' first ').root.settings).toEqual([
+      { key: 'second', value: '2' },
+    ]);
+  });
+
+  it('keeps the same document instance when nothing changes', () => {
+    let document = doc(node('company'));
+    document = setSetting(document, document.root.id, 'captureDelay', 'immediate');
+
+    expect(setSetting(document, document.root.id, 'captureDelay', 'immediate')).toBe(document);
+    expect(renameSetting(document, document.root.id, 'captureDelay', 'captureDelay')).toBe(document);
+    expect(renameSetting(document, document.root.id, 'missing', 'other')).toBe(document);
+    expect(removeSetting(document, document.root.id, 'missing')).toBe(document);
+  });
+});
+
+describe('integrations', () => {
+  it('lands only on kinds that run an integration', () => {
+    const document = doc(node('company', node('pos', node('store')), node('ecom'), node('bp')));
+    const [company, merchant, store, online, platform] = ids(document) as [
+      string,
+      string,
+      string,
+      string,
+      string,
+    ];
+
+    for (const id of [merchant, online, platform]) {
+      expect(specOf(findNode(document, id)?.kind ?? 'company').supportsIntegrations).toBe(true);
+      expect(findNode(addIntegration(document, id, 'webDropin'), id)?.integrations).toEqual([
+        { id: 'webDropin', version: '' },
+      ]);
+    }
+    for (const id of [company, store]) {
+      expect(addIntegration(document, id, 'webDropin')).toBe(document);
+    }
+  });
+
+  it('ignores an id that is empty once trimmed', () => {
+    const document = doc(node('company', node('pos')));
+    const merchantId = ids(document)[1] as string;
+    expect(addIntegration(document, merchantId, '   ')).toBe(document);
+  });
+
+  it('lists an id once per version', () => {
+    let document = doc(node('company', node('pos')));
+    const merchantId = ids(document)[1] as string;
+
+    document = addIntegration(document, merchantId, 'webDropin', 'v6');
+    expect(addIntegration(document, merchantId, 'webDropin', 'v6')).toBe(document);
+
+    document = addIntegration(document, merchantId, 'webDropin', 'v5.x');
+    expect(findNode(document, merchantId)?.integrations).toEqual([
+      { id: 'webDropin', version: 'v6' },
+      { id: 'webDropin', version: 'v5.x' },
+    ]);
+  });
+
+  it('caps and trims the version', () => {
+    let document = doc(node('company', node('pos')));
+    const merchantId = ids(document)[1] as string;
+
+    document = addIntegration(document, merchantId, 'apiOnly', 'v'.repeat(MAX_VERSION_LENGTH + 10));
+    expect(findNode(document, merchantId)?.integrations[0]?.version).toHaveLength(MAX_VERSION_LENGTH);
+
+    document = setIntegrationVersion(document, merchantId, 0, '  v71  ');
+    expect(findNode(document, merchantId)?.integrations[0]?.version).toBe('v71');
+  });
+
+  it('ignores positions outside the list', () => {
+    let document = doc(node('company', node('pos')));
+    const merchantId = ids(document)[1] as string;
+    document = addIntegration(document, merchantId, 'apiOnly');
+
+    expect(setIntegrationVersion(document, merchantId, 3, 'v71')).toBe(document);
+    expect(setIntegrationVersion(document, merchantId, -1, 'v71')).toBe(document);
+    expect(removeIntegrationAt(document, merchantId, 3)).toBe(document);
+    expect(removeIntegrationAt(document, merchantId, -1)).toBe(document);
+    expect(findNode(removeIntegrationAt(document, merchantId, 0), merchantId)?.integrations).toEqual([]);
+  });
+});
+
+describe('payment methods', () => {
+  it('rejects a method that is not in the registry', () => {
+    const document = doc(node('company', node('pos')));
+    const merchantId = ids(document)[1] as string;
+    expect(toggleMethod(document, merchantId, 'not-a-method')).toBe(document);
+  });
+
+  it('toggles a method on and off again', () => {
+    const document = doc(node('company', node('pos')));
+    const merchantId = ids(document)[1] as string;
+    const method = PAYMENT_METHODS[0]?.id as string;
+
+    const enabled = toggleMethod(document, merchantId, method);
+    expect(findNode(enabled, merchantId)?.methods).toEqual([method]);
+    expect(findNode(toggleMethod(enabled, merchantId, method), merchantId)?.methods).toEqual([]);
+  });
+
+  it('filters unknown ids out of a bulk set', () => {
+    const document = doc(node('company', node('pos')));
+    const merchantId = ids(document)[1] as string;
+
+    const next = setMethods(document, merchantId, ['visa', 'not-a-method', 'mc']);
+    expect(findNode(next, merchantId)?.methods).toEqual(['visa', 'mc']);
+  });
+
+  it('leaves kinds that carry no methods alone', () => {
+    const document = doc(node('company', node('bp')));
+    const platformId = ids(document)[1] as string;
+
+    expect(specOf('bp').supportsMethods).toBe(false);
+    expect(toggleMethod(document, platformId, 'visa')).toBe(document);
+    expect(setMethods(document, platformId, ['visa'])).toBe(document);
+  });
+});
+
+describe('logo domain', () => {
+  it('reduces a pasted address to a bare domain', () => {
+    expect(normalizeDomain('https://www.Acme.com/path?x=1')).toBe('acme.com');
+  });
+
+  it('rejects anything that is not a domain', () => {
+    expect(normalizeDomain('nodot')).toBe('');
+    expect(normalizeDomain('')).toBe('');
+    expect(normalizeDomain('   ')).toBe('');
+    expect(normalizeDomain('localhost')).toBe('');
+  });
+
+  it('is stored only on kinds that can show a logo', () => {
+    const document = doc(node('company', node('pos', node('store'))));
+    const [company, merchant, store] = ids(document) as [string, string, string];
+
+    expect(setLogoDomain(document, company, 'https://acme.com').root.logoDomain).toBe('acme.com');
+    expect(findNode(setLogoDomain(document, merchant, 'acme.com'), merchant)?.logoDomain).toBe('acme.com');
+    expect(specOf('store').supportsLogo).toBe(false);
+    expect(setLogoDomain(document, store, 'acme.com')).toBe(document);
+  });
+});
+
+describe('link cardinality', () => {
+  it('gives a merchant account at most one balance platform', () => {
+    let document = doc(node('company', node('pos'), named('bp', 'Platform A'), named('bp', 'Platform B')));
+    const merchantId = ids(document)[1] as string;
+    const platformA = byName(document, 'Platform A');
+    const platformB = byName(document, 'Platform B');
+
+    document = addLink(document, merchantId, platformA.id);
+    expect(areLinked(document, merchantId, platformA.id)).toBe(true);
+
+    expect(canCreateLink(document, merchantId, platformB.id)).toBe(false);
+    expect(linkAtLimit(document, merchantId, platformB.id)).toBe(platformA.id);
+    expect(addLink(document, merchantId, platformB.id)).toBe(document);
+  });
+
+  it('swaps the platform rather than adding a second one', () => {
+    let document = doc(node('company', node('pos'), named('bp', 'Platform A'), named('bp', 'Platform B')));
+    const merchantId = ids(document)[1] as string;
+    const platformA = byName(document, 'Platform A');
+    const platformB = byName(document, 'Platform B');
+
+    document = relinkAtLimit(document, merchantId, platformA.id);
+    document = relinkAtLimit(document, merchantId, platformB.id);
+
+    expect(findNode(document, merchantId)?.links).toEqual([platformB.id]);
+    expect(areLinked(document, merchantId, platformA.id)).toBe(false);
+  });
+
+  it('lets several merchant accounts feed the same platform', () => {
+    let document = doc(node('company', named('pos', 'Retail'), named('ecom', 'Webshop'), named('bp', 'Platform')));
+    const retail = byName(document, 'Retail');
+    const webshop = byName(document, 'Webshop');
+    const platform = byName(document, 'Platform');
+
+    document = addLink(document, retail.id, platform.id);
+    expect(canCreateLink(document, webshop.id, platform.id)).toBe(true);
+    expect(linkAtLimit(document, webshop.id, platform.id)).toBeNull();
+
+    document = addLink(document, webshop.id, platform.id);
+    expect(areLinked(document, retail.id, platform.id)).toBe(true);
+    expect(areLinked(document, webshop.id, platform.id)).toBe(true);
+  });
+
+  it('does not link one balance platform to another', () => {
+    const document = doc(node('company', named('bp', 'Platform A'), named('bp', 'Platform B')));
+    const platformA = byName(document, 'Platform A');
+    const platformB = byName(document, 'Platform B');
+
+    expect(canLink('bp', 'bp')).toBe(false);
+    expect(canCreateLink(document, platformA.id, platformB.id)).toBe(false);
+    expect(addLink(document, platformA.id, platformB.id)).toBe(document);
   });
 });

@@ -22,12 +22,41 @@
   animation: dialogIn 0.16s ease-out;
 }
 
+.dialogWide {
+  width: min(660px, calc(100vw - 32px));
+}
+
 .header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 4px;
+}
+
+.closeButton {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin: -4px -4px -4px 0;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--c-text-faint);
+}
+
+.closeButton:hover {
+  background: color-mix(in srgb, var(--c-text) 8%, transparent);
+  color: var(--c-text);
+}
+
+.closeButton svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .title {
