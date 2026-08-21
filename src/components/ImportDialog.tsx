@@ -65,7 +65,8 @@ export function ImportDialog({ onClose }: ImportDialogProps) {
               <h3 className={styles.stepTitle}>Take this prompt to a model</h3>
               <p className={styles.stepHint}>
                 It already describes every account type, the rules about what fits inside what, and the payment
-                methods this tool knows.
+                methods this tool knows. It also tells the model to draw only what your notes mention, so nothing
+                is invented to fill the diagram out.
               </p>
             </div>
             <button type="button" className={styles.copyButton} onClick={() => void copyPrompt()}>

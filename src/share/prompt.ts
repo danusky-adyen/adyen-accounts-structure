@@ -11,6 +11,14 @@ import { INTEGRATIONS } from '../domain/integrations';
 import { NODE_KINDS, NODE_SPECS, TERMINAL_KINDS, specOf } from '../domain/kinds';
 import { PAYMENT_METHODS } from '../domain/paymentMethods';
 
+/** Marks example notes as quoted material, so they cannot read as instructions. */
+function quote(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n');
+}
+
 function childRules(): string {
   return NODE_KINDS.filter((kind) => NODE_SPECS[kind].childKinds.length > 0)
     .map((kind) => {
@@ -40,7 +48,16 @@ function capabilities(): string {
   return rows.join('\n');
 }
 
-const EXAMPLE = {
+const RICH_NOTES = `Acme Group (acme.com), MCC 5411, ecommerce enabled.
+Acme Online is their webshop, Drop-in v6 plus a Shopify plugin, cards, iDEAL and
+Klarna. Ecom is switched off on that account for now.
+Acme Stores runs Terminal API cloud with counter and mobile terminals, and the
+New York flagship has a counter terminal.
+Payouts to their sellers run through Acme Balance Platform, which funds both the
+webshop and the stores, with one account holder "Acme Payouts" holding a EUR
+balance.`;
+
+const RICH_EXAMPLE = {
   root: {
     id: 'acme',
     kind: 'company',
@@ -83,6 +100,32 @@ const EXAMPLE = {
   },
 };
 
+const SPARSE_NOTES = `Bakery chain "Rye & Co", 3 shops in Antwerp, card payments
+on the counter. No online sales yet.`;
+
+/**
+ * The counterweight to the example above: notes that mention little must produce
+ * little. Without it, models copy the shape of the rich example and invent a
+ * balance platform, account holders and payment methods nobody asked for.
+ */
+const SPARSE_EXAMPLE = {
+  root: {
+    kind: 'company',
+    name: 'Rye & Co',
+    children: [
+      {
+        kind: 'pos',
+        name: 'Rye & Co Shops',
+        children: [
+          { kind: 'store', name: 'Antwerp 1', terminals: ['counter'] },
+          { kind: 'store', name: 'Antwerp 2', terminals: ['counter'] },
+          { kind: 'store', name: 'Antwerp 3', terminals: ['counter'] },
+        ],
+      },
+    ],
+  },
+};
+
 /** The full prompt, ready to paste into any chat model. */
 export function buildImportPrompt(): string {
   return `You are turning notes about a merchant's Adyen setup into a JSON diagram.
@@ -108,6 +151,28 @@ Every node is:
 
 Leave out anything you do not know. The document is { "root": <node> } and the
 root is always kind "company".
+
+## Only what the notes say
+
+Draw the structure the notes describe and nothing else. Every node, field and
+value has to be traceable to something in the notes.
+
+- Do not add a balance platform. Include kind "bp" only when the notes actually
+  point to one: a balance platform, platform payouts to sellers or sub-merchants,
+  wallets, balances, or card issuing. Everything that lives under it
+  (accHolder, liableAccHolder, balanceAcc, grantAcc, payInstCard, payInstBiz,
+  legalEntity, businessLine, transferInst) follows the same rule.
+- Do not add stores, terminals, integrations, payment methods or settings that
+  the notes do not mention. An empty list is better than a plausible guess.
+- A company with one ecom account under it is a complete answer when that is all
+  the notes describe. Small structures are expected; do not pad one to look like
+  the longer example below.
+- Where the notes state a quantity ("40 shops"), create what they state, and
+  where they only imply a node (in-person payments imply a pos account), add
+  just that node.
+
+If you are unsure whether something belongs, leave it out. The person reading
+the diagram can add it in two clicks; removing what was never true is harder.
 
 ## Kinds
 
@@ -160,9 +225,20 @@ Use these ids: ${INTEGRATIONS.map((integration) => integration.id).join(', ')}.
 
 Use these ids: ${PAYMENT_METHODS.map((method) => method.id).join(', ')}.
 
-## Example
+## Examples
 
-${JSON.stringify(EXAMPLE, null, 2)}
+Notes that mention a lot:
+
+${quote(RICH_NOTES)}
+
+${JSON.stringify(RICH_EXAMPLE, null, 2)}
+
+Notes that mention little. Nothing is added to fill the diagram out, and there is
+no balance platform because the notes never point to one:
+
+${quote(SPARSE_NOTES)}
+
+${JSON.stringify(SPARSE_EXAMPLE, null, 2)}
 
 ## The notes to convert
 
