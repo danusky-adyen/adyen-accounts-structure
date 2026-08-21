@@ -66,7 +66,7 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
     spec.tone === 'management'
       ? palette.surfaceSunken
       : item.insidePlatform
-        ? palette.highlightSoft
+        ? palette.platformSurface
         : palette.surface;
 
   const parts: string[] = [

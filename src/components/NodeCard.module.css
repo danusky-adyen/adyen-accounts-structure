@@ -30,7 +30,7 @@
 }
 
 .card[data-platform='true'] {
-  background: var(--c-highlight-soft);
+  background: var(--c-platform-surface);
 }
 
 .card[data-tone='management'] {

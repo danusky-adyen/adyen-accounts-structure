@@ -43,6 +43,8 @@ export interface Palette {
   warningSoft: string;
   highlight: string;
   highlightSoft: string;
+  /** Card fill for the accounts a balance platform owns. */
+  platformSurface: string;
   edge: string;
   edgeActive: string;
   linkEdge: string;
@@ -82,6 +84,7 @@ export const PALETTES: Record<ThemeName, Palette> = {
     warningSoft: '#fff4e5', // background-warning-weak
     highlight: '#0f75dc', // background-highlight-strong
     highlightSoft: '#f0f6fd', // background-highlight-weak
+    platformSurface: '#f0f6fd', // background-highlight-weak
     edge: '#c8ccd0', // separator-secondary
     edgeActive: '#008845', // background-success-strong
     linkEdge: '#8c959d', // label-tertiary
@@ -120,6 +123,10 @@ export const PALETTES: Record<ThemeName, Palette> = {
     warningSoft: '#462a00', // background-warning-weak
     highlight: '#84b9ed', // background-highlight-strong
     highlightSoft: '#00305f', // background-highlight-weak
+    // Dark `background-highlight-weak` is tuned for a full-bleed banner and
+    // reads as a selection on a card, so it is blended half-and-half into the
+    // card surface: enough to group the subtree, quiet enough to sit beside it.
+    platformSurface: '#152d45', // background-highlight-weak over background-secondary
     edge: '#525252', // separator-secondary
     edgeActive: '#00d16a', // background-success-strong
     linkEdge: '#7d7d7d', // label-tertiary
