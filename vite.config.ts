@@ -5,7 +5,9 @@ export default defineConfig({
   plugins: [react()],
   build: {
     target: 'es2022',
-    sourcemap: true,
+    // No source maps in the deployed build: the repository is private, and a
+    // map would publish the full commented source to anyone loading the page.
+    sourcemap: false,
   },
   test: {
     environment: 'node',

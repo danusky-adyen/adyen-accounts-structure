@@ -127,7 +127,7 @@ standing on a parent you can see where its value stops applying.
 
 ## Design system
 
-The interface follows [Bento](https://bento.adyen.com), Adyen's design system:
+The interface follows Bento, Adyen's design system:
 its colour, spacing, radius, type, motion, elevation and z-index tokens, and its
 component recipes for buttons, cards, tags, inputs, modals and toasts.
 
