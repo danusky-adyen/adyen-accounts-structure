@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
-import { specOf } from '../domain/kinds';
+import { specOf, type NodeKind } from '../domain/kinds';
 import type { Layout } from '../layout';
 import { dropCandidates, resolveDropTarget } from '../interaction/dropTarget';
 import { useStore, type Viewport } from '../state/store';
@@ -67,6 +67,7 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
   const setDrag = useStore((state) => state.setDrag);
   const rename = useStore((state) => state.rename);
   const addChild = useStore((state) => state.addChild);
+  const cycleKind = useStore((state) => state.cycleKind);
   const remove = useStore((state) => state.remove);
   const removeTerminalAt = useStore((state) => state.removeTerminalAt);
   const toggleLink = useStore((state) => state.toggleLink);
@@ -191,7 +192,17 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
     [move, notify, select, setDrag, setEditing, toggleLink],
   );
 
-  const handleAddLegalEntity = useCallback((id: string) => addChild(id, 'legalEntity'), [addChild]);
+  // A click asks for one specific card, so it selects what it created and the
+  // inspector follows. ⇧↓ deliberately does not.
+  const handleAddChild = useCallback(
+    (id: string, kind?: NodeKind) => {
+      const created = addChild(id, kind);
+      if (created) select(created);
+    },
+    [addChild, select],
+  );
+
+  const handleAddLegalEntity = useCallback((id: string) => handleAddChild(id, 'legalEntity'), [handleAddChild]);
 
   const handleCommitName = useCallback(
     (id: string, name: string) => {
@@ -272,7 +283,8 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
                 onStartEdit={setEditing}
                 onCommitName={handleCommitName}
                 onCancelEdit={() => setEditing(null)}
-                onAddChild={(id) => addChild(id)}
+                onAddChild={handleAddChild}
+                onCycleKind={cycleKind}
                 onAddLegalEntity={handleAddLegalEntity}
                 onDelete={remove}
                 onOpenTerminalPicker={onRequestTerminalPicker}

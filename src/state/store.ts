@@ -203,12 +203,17 @@ export const useStore = create<AppState>((set, get) => ({
   setDrag: (drag) => set({ drag }),
   setInspectorOpen: (open) => set({ inspectorOpen: open }),
 
+  /**
+   * Adds a child and leaves the selection where it is. Whether adding should
+   * move the user is a UI decision, so the caller makes it: clicking `+` or an
+   * *Add below* button jumps to what it created, while ⇧↓ stays put so a run of
+   * presses adds siblings instead of walking down the tree.
+   */
   addChild: (parentId, kind) => {
     const { doc, commit } = get();
     const result = ops.addChild(doc, parentId, kind);
     if (result.createdId === null) return null;
     commit(result.doc);
-    set({ selectedId: result.createdId, inspectorOpen: true });
     return result.createdId;
   },
 

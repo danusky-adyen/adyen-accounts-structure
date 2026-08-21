@@ -116,8 +116,9 @@ export function useKeyboard({ layout, view, onToggleHelp, onCloseOverlays }: Key
       // tree, sideways walks through the types a card can be.
       if (event.shiftKey && event.key === 'ArrowDown') {
         event.preventDefault();
-        const created = store.addChild(selectedId);
-        if (created) selectAndReveal(created, view);
+        // Selection stays on the parent, so pressing again adds another sibling
+        // rather than descending. ArrowDown walks into them when you are ready.
+        store.addChild(selectedId);
         return;
       }
 

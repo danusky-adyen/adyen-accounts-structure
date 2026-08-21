@@ -77,6 +77,31 @@
   border-radius: var(--b-radius-m);
 }
 
+/* Where the tile switches the card's type, it has to read as a control. The
+   ring appears on hover so a static diagram stays free of affordance clutter. */
+.iconBox[data-switchable='true'] {
+  cursor: pointer;
+  box-shadow: 0 0 0 0 transparent;
+  transition:
+    box-shadow var(--b-duration-fast) var(--b-ease-linear),
+    transform var(--b-duration-fast) var(--b-ease-standard);
+}
+
+.card:hover .iconBox[data-switchable='true'] {
+  box-shadow: 0 0 0 var(--b-border-width-s) var(--c-border-hover);
+}
+
+/* Scoped under `.card:hover` as well, so it outranks the rule above rather than
+   losing to it on specificity. */
+.card:hover .iconBox[data-switchable='true']:hover,
+.iconBox[data-switchable='true']:hover {
+  box-shadow: 0 0 0 var(--b-border-width-m) var(--c-accent-border);
+}
+
+.iconBox[data-switchable='true']:active {
+  transform: scale(0.94);
+}
+
 .name {
   position: absolute;
   left: 0;

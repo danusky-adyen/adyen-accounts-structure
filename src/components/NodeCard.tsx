@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState, type PointerEvent as ReactPointerEve
 import { monogram, paymentLogoDataUrl, type PaymentLogoMap } from '../design/brand';
 import { canAddAnyChild, canAddChildOfKind } from '../domain/document';
 import { integrationLabel } from '../domain/integrations';
-import { specOf } from '../domain/kinds';
+import { nextVariant, specOf, variantLabel } from '../domain/kinds';
 import { methodLabel } from '../domain/paymentMethods';
 import { useCompanyLogo } from '../hooks/useBrandMarks';
 import type { LayoutNode } from '../layout';
@@ -28,6 +28,8 @@ export interface NodeCardProps {
   readonly onCommitName: (id: string, name: string) => void;
   readonly onCancelEdit: () => void;
   readonly onAddChild: (id: string) => void;
+  /** Tapping the kind glyph steps to the next type the card can be. */
+  readonly onCycleKind: (id: string) => void;
   readonly onAddLegalEntity: (id: string) => void;
   readonly onDelete: (id: string) => void;
   readonly onOpenTerminalPicker: (id: string) => void;
@@ -50,6 +52,7 @@ export const NodeCard = memo(function NodeCard({
   onCommitName,
   onCancelEdit,
   onAddChild,
+  onCycleKind,
   onAddLegalEntity,
   onDelete,
   onOpenTerminalPicker,
@@ -105,36 +108,7 @@ export const NodeCard = memo(function NodeCard({
         </span>
       ) : null}
 
-      <span
-        className={styles.iconBox}
-        style={{
-          left: slots.icon.x,
-          top: slots.icon.y,
-          width: slots.icon.width,
-          height: slots.icon.height,
-          background: slots.logo === null ? `var(--tint-${spec.tint}-fill)` : 'var(--c-surface)',
-        }}
-        aria-hidden
-      >
-        {slots.logo === null ? (
-          <Icon name={spec.icon} tint={spec.tint} size={CARD.iconSize - 6} />
-        ) : (
-          <>
-            {logoUrl === null ? (
-              <span className={styles.monogram} style={{ color: `var(--tint-${spec.tint}-line)` }}>
-                {monogram(node.name)}
-              </span>
-            ) : (
-              <img className={styles.logo} src={logoUrl} alt="" draggable={false} />
-            )}
-            {/* The brand replaces the kind glyph, so the glyph shrinks into the
-                corner rather than disappearing. */}
-            <span className={styles.logoKind} style={{ background: `var(--tint-${spec.tint}-fill)` }}>
-              <Icon name={spec.icon} tint={spec.tint} size={CARD.logoKindSize - 3} />
-            </span>
-          </>
-        )}
-      </span>
+      <KindTile item={item} logoUrl={logoUrl} onCycleKind={onCycleKind} />
 
       {editing ? (
         <NameEditor
@@ -355,6 +329,85 @@ export const NodeCard = memo(function NodeCard({
     </div>
   );
 });
+
+interface KindTileProps {
+  readonly item: LayoutNode;
+  /** Null while the brand mark is loading, or when this kind has no logo. */
+  readonly logoUrl: string | null;
+  readonly onCycleKind: (id: string) => void;
+}
+
+/**
+ * The glyph, brand mark or monogram in the card's top-left corner. Where a card
+ * has alternative types it is also the control that switches between them, as
+ * it was in the original tool: the fastest way to turn a POS account into an
+ * Ecom one is to tap what already tells you which it is. Cards with no
+ * alternatives render the same tile as plain decoration.
+ */
+function KindTile({ item, logoUrl, onCycleKind }: KindTileProps) {
+  const spec = specOf(item.kind);
+  const { slots, node } = item;
+  const next = nextVariant(item.kind);
+  const nextLabel = next === null ? null : variantLabel(next);
+
+  const box = {
+    left: slots.icon.x,
+    top: slots.icon.y,
+    width: slots.icon.width,
+    height: slots.icon.height,
+    background: slots.logo === null ? `var(--tint-${spec.tint}-fill)` : 'var(--c-surface)',
+  } as const;
+
+  const content =
+    slots.logo === null ? (
+      <Icon name={spec.icon} tint={spec.tint} size={CARD.iconSize - 6} />
+    ) : (
+      <>
+        {logoUrl === null ? (
+          <span className={styles.monogram} style={{ color: `var(--tint-${spec.tint}-line)` }}>
+            {monogram(node.name)}
+          </span>
+        ) : (
+          <img className={styles.logo} src={logoUrl} alt="" draggable={false} />
+        )}
+        {/* The brand replaces the kind glyph, so the glyph shrinks into the
+            corner rather than disappearing. */}
+        <span className={styles.logoKind} style={{ background: `var(--tint-${spec.tint}-fill)` }}>
+          <Icon name={spec.icon} tint={spec.tint} size={CARD.logoKindSize - 3} />
+        </span>
+      </>
+    );
+
+  if (next === null || nextLabel === null) {
+    return (
+      <span className={styles.iconBox} style={box} aria-hidden>
+        {content}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={styles.iconBox}
+      style={box}
+      data-switchable="true"
+      tabIndex={-1}
+      title={`Switch to ${nextLabel}`}
+      aria-label={`Switch ${node.name} to ${nextLabel}`}
+      // The card itself handles selection on pointerdown, which should still
+      // happen; only the double-click-to-rename is suppressed, so tapping twice
+      // steps two types on instead of opening the name field.
+      onDoubleClick={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        onCycleKind(item.id);
+      }}
+    >
+      {content}
+    </button>
+  );
+}
 
 interface NameEditorProps {
   readonly initialValue: string;

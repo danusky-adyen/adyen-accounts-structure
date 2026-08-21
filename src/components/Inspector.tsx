@@ -170,7 +170,10 @@ export function Inspector() {
                 type="button"
                 className={styles.chip}
                 disabled={!canAddChildOfKind(node, kind)}
-                onClick={() => addChild(selectedId, kind)}
+                onClick={() => {
+                  const created = addChild(selectedId, kind);
+                  if (created) select(created);
+                }}
               >
                 <svg viewBox="0 0 24 24" aria-hidden>
                   <path d="M12 5v14M5 12h14" />

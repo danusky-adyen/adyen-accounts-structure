@@ -6,7 +6,7 @@ import {
   findNode,
   indexDocument,
 } from '../src/domain/document';
-import { canLink, linkOwnerId, nextVariant, specOf } from '../src/domain/kinds';
+import { NODE_KINDS, canLink, linkOwnerId, nextVariant, specOf, variantLabel } from '../src/domain/kinds';
 import {
   MAX_NAME_LENGTH,
   MAX_VERSION_LENGTH,
@@ -180,6 +180,20 @@ describe('setKind', () => {
     expect(nextVariant('ecom')).toBe('bp');
     expect(nextVariant('bp')).toBe('pos');
     expect(nextVariant('store')).toBeNull();
+  });
+
+  // A card's icon is labelled with the type it switches to, so every kind that
+  // can be reached by clicking needs a name inside its group.
+  it('names every kind that has alternatives', () => {
+    expect(variantLabel('pos')).toBe('POS');
+    expect(variantLabel('bp')).toBe('Balance platform');
+    expect(variantLabel('store')).toBeNull();
+
+    for (const kind of NODE_KINDS) {
+      const next = nextVariant(kind);
+      if (next === null) continue;
+      expect(variantLabel(next), kind).not.toBeNull();
+    }
   });
 });
 

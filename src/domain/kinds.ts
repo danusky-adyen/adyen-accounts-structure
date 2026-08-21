@@ -353,6 +353,12 @@ export function variantGroupOf(kind: NodeKind): VariantGroup | null {
   return id === null ? null : VARIANT_GROUPS[id];
 }
 
+/** How a kind is named inside its variant group, e.g. `liableAccHolder` is *Liable*. */
+export function variantLabel(kind: NodeKind): string | null {
+  const group = variantGroupOf(kind);
+  return group?.options.find((option) => option.kind === kind)?.label ?? null;
+}
+
 /** The kind produced when the icon is clicked: the next option in the group. */
 export function nextVariant(kind: NodeKind): NodeKind | null {
   const group = variantGroupOf(kind);

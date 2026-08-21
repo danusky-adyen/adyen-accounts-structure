@@ -114,8 +114,24 @@ describe('history', () => {
 });
 
 describe('editing actions', () => {
-  it('selects what it creates', () => {
-    const created = useStore.getState().addChild(useStore.getState().doc.root.id);
+  /**
+   * Adding leaves the selection alone so that ⇧↓ can be pressed repeatedly to
+   * add siblings. Moving to the new card is the caller's decision, which is why
+   * the id is returned.
+   */
+  it('adds without moving the selection', () => {
+    const rootId = useStore.getState().doc.root.id;
+    useStore.getState().select(rootId);
+
+    const created = useStore.getState().addChild(rootId);
+    expect(created).not.toBeNull();
+    expect(useStore.getState().selectedId).toBe(rootId);
+
+    const second = useStore.getState().addChild(rootId);
+    expect(second).not.toBe(created);
+    expect(useStore.getState().selectedId).toBe(rootId);
+
+    useStore.getState().select(created);
     expect(useStore.getState().selectedId).toBe(created);
     expect(useStore.getState().inspectorOpen).toBe(true);
   });
