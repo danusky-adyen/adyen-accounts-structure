@@ -1,0 +1,181 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color: var(--c-text);
+  background: var(--c-canvas);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+  /* Dragging a card would otherwise select the labels it passes over. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+:focus-visible {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--c-accent) 26%, transparent);
+}
+
+/* --- Shared primitives ------------------------------------------------- */
+
+.panel {
+  background: var(--c-panel);
+  border: 1px solid var(--c-panel-border);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px var(--c-shadow),
+    0 12px 32px -12px var(--c-shadow-strong);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 8px;
+  border-radius: 10px;
+  color: var(--c-text-muted);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.iconButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--c-text) 7%, transparent);
+  color: var(--c-text);
+}
+
+.iconButton:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.iconButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.iconButton[data-active='true'] {
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+}
+
+.iconButton svg {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.buttonLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  padding-right: 2px;
+  white-space: nowrap;
+}
+/* Floating toolbars share the top edge; drop labels before they can collide. */
+@media (max-width: 1120px) {
+  .buttonLabel {
+    display: none;
+  }
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--c-border);
+  margin: 0 2px;
+  flex: none;
+}
+
+.sectionLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--c-text-faint);
+}
+
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 11px;
+  background: var(--c-surface-sunken);
+  border: 1px solid var(--c-border);
+}
+
+.segmentedOption {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-muted);
+  text-align: center;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.segmentedOption:hover:not([aria-checked='true']) {
+  color: var(--c-text);
+}
+
+.segmentedOption[aria-checked='true'] {
+  background: var(--c-surface);
+  color: var(--c-text);
+  box-shadow: 0 1px 3px var(--c-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

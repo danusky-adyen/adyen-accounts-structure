@@ -1,0 +1,305 @@
+.card {
+  position: absolute;
+  border-radius: 18px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  box-shadow:
+    0 1px 2px var(--c-shadow),
+    0 8px 20px -14px var(--c-shadow-strong);
+  transition:
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease,
+    transform 0.12s ease;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.card:hover {
+  border-color: var(--c-border-strong);
+  box-shadow:
+    0 1px 2px var(--c-shadow),
+    0 16px 34px -16px var(--c-shadow-strong);
+}
+
+.card[data-platform='true'] {
+  background: color-mix(in srgb, var(--c-accent) 4%, var(--c-surface));
+}
+
+.card[data-tone='management'] {
+  background: var(--c-surface-sunken);
+}
+
+.card[data-tone='root'] {
+  border-color: var(--c-border-strong);
+}
+
+.card[data-selected='true'] {
+  border-color: var(--c-accent);
+  box-shadow:
+    0 0 0 3px var(--c-accent-soft),
+    0 16px 34px -16px var(--c-shadow-strong);
+}
+
+.card[data-dragging='true'] {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.card[data-dimmed='true'] {
+  opacity: 0.32;
+}
+
+.card[data-droptarget='link'] {
+  border-color: var(--c-accent);
+  border-style: dashed;
+  background: var(--c-accent-soft);
+  opacity: 1;
+}
+
+.card[data-droptarget='inside'] {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+  opacity: 1;
+  transform: scale(1.03);
+}
+
+.iconBox {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+}
+
+.name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: 0 14px;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  font-weight: 650;
+  color: var(--c-text);
+  overflow: hidden;
+}
+
+.nameLine {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nameInput {
+  position: absolute;
+  text-align: center;
+  font-weight: 650;
+  border: 1px solid var(--c-accent);
+  border-radius: 8px;
+  background: var(--c-surface);
+  padding: 0 4px;
+  outline: none;
+  width: auto;
+}
+
+.caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: 0 12px;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  color: var(--c-text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminals {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.terminal {
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--c-surface-sunken);
+  border: 1px solid var(--c-border);
+  color: var(--c-text-muted);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.terminal:hover {
+  border-color: var(--c-danger);
+  background: var(--c-danger-soft);
+}
+
+.addTerminal {
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  border: 1px dashed var(--c-border-strong);
+  color: var(--c-text-faint);
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.card:hover .addTerminal,
+.card[data-selected='true'] .addTerminal {
+  opacity: 1;
+}
+
+.addTerminal:hover {
+  border-color: var(--c-accent);
+  border-style: solid;
+  color: var(--c-accent-text);
+}
+
+.floatButton {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  box-shadow: 0 3px 10px -3px var(--c-shadow-strong);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    background 0.15s ease;
+  z-index: 2;
+}
+
+.card:hover .floatButton,
+.card[data-selected='true'] .floatButton {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.floatButton svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.addButton {
+  bottom: -13px;
+  left: 50%;
+  margin-left: -13px;
+  color: var(--c-accent-text);
+  border-color: var(--c-accent-border);
+}
+
+.addButton:hover {
+  background: var(--c-accent);
+  color: #fff;
+  transform: scale(1.12);
+}
+
+.secondaryButton {
+  bottom: -13px;
+  left: 22%;
+  margin-left: -13px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--c-accent-text);
+  border-color: var(--c-accent-border);
+}
+
+.secondaryButton:hover {
+  background: var(--c-accent);
+  color: #fff;
+  transform: scale(1.12);
+}
+
+.terminalButton {
+  bottom: -13px;
+  left: 78%;
+  margin-left: -13px;
+  color: var(--c-text-muted);
+}
+
+.terminalButton svg {
+  stroke-width: 1.9;
+}
+
+.terminalButton:hover {
+  background: var(--c-accent);
+  color: #fff;
+  transform: scale(1.12);
+}
+
+.deleteButton {
+  top: -13px;
+  right: -9px;
+  color: var(--c-danger);
+  border-color: color-mix(in srgb, var(--c-danger) 40%, transparent);
+}
+
+.deleteButton:hover {
+  background: var(--c-danger);
+  color: #fff;
+  transform: scale(1.12);
+}
+
+.noteBadge {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 14px;
+  height: 14px;
+  color: var(--c-text-faint);
+}
+
+.noteBadge svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.linkBadge {
+  position: absolute;
+  top: 9px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--c-accent-text);
+}
+
+.linkBadge svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}

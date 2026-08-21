@@ -1,0 +1,91 @@
+.layer {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.edge {
+  fill: none;
+  stroke: var(--c-edge);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  transition:
+    stroke 0.18s ease,
+    stroke-width 0.18s ease;
+}
+
+.edgeActive {
+  stroke: var(--c-edge-active);
+  stroke-width: 2.25;
+}
+
+.link {
+  fill: none;
+  stroke: var(--c-link-edge);
+  stroke-width: 1.75;
+  stroke-dasharray: 5 5;
+  stroke-linecap: round;
+  transition:
+    stroke 0.18s ease,
+    stroke-width 0.18s ease;
+}
+
+.linkActive {
+  stroke: var(--c-accent);
+  stroke-width: 2.5;
+  stroke-dasharray: 6 4;
+}
+
+.linkHitArea {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 18;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.handle {
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.handleVisible {
+  opacity: 1;
+}
+
+.handleDisc {
+  fill: var(--c-surface);
+  stroke: var(--c-danger);
+  stroke-width: 1.25;
+}
+
+.handleGlyph {
+  stroke: var(--c-danger);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.handle:hover .handleDisc {
+  fill: var(--c-danger);
+}
+
+.handle:hover .handleGlyph {
+  stroke: var(--c-surface);
+}
+
+.dragPreview {
+  fill: none;
+  stroke: var(--c-accent);
+  stroke-width: 2;
+  stroke-dasharray: 4 5;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.insertion {
+  fill: var(--c-accent);
+}

@@ -1,0 +1,97 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--c-canvas) 55%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fadeIn 0.14s ease-out;
+}
+
+.dialog {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  padding: 22px;
+  border-radius: 20px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  box-shadow: 0 32px 70px -24px var(--c-shadow-strong);
+  animation: dialogIn 0.16s ease-out;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.description {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.button {
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--c-border);
+  color: var(--c-text);
+  background: var(--c-surface);
+}
+
+.button:hover {
+  background: var(--c-surface-sunken);
+}
+
+.buttonPrimary {
+  border-color: transparent;
+  background: var(--c-accent);
+  color: #fff;
+}
+
+.buttonPrimary:hover {
+  background: color-mix(in srgb, var(--c-accent) 88%, #000);
+}
+
+.buttonDanger {
+  border-color: transparent;
+  background: var(--c-danger);
+  color: #fff;
+}
+
+.buttonDanger:hover {
+  background: color-mix(in srgb, var(--c-danger) 88%, #000);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
