@@ -10,7 +10,15 @@ import { createDefaultDocument, findNode } from '../domain/document';
 import { nextVariant, prevVariant, type NodeKind, type TerminalKind } from '../domain/kinds';
 import * as ops from '../domain/operations';
 import type { ThemeName } from '../design/palette';
-import { clearStoredDocument, loadStoredDocument, loadTheme, saveDocument, saveTheme } from './persistence';
+import {
+  clearStoredDocument,
+  isDocumentStorageKey,
+  loadStoredDocument,
+  loadTheme,
+  readSerializedDocument,
+  saveDocument,
+  saveTheme,
+} from './persistence';
 import { readSharedDocument } from '../share/url';
 
 const HISTORY_LIMIT = 120;
@@ -43,6 +51,19 @@ export interface Toast {
   readonly tone: 'info' | 'success' | 'error';
 }
 
+/**
+ * `stale` means another tab has written a different diagram over the stored one.
+ * Nothing is lost in this tab, but the browser's copy is no longer what is on
+ * screen here, and saving again is what makes this version the stored one.
+ */
+export type SaveStatus = 'saved' | 'saving' | 'stale' | 'unavailable';
+
+/** A kind change that would drop nodes or links, waiting to be confirmed. */
+export interface PendingKind {
+  readonly nodeId: NodeId;
+  readonly kind: NodeKind;
+}
+
 interface AppState {
   doc: StructureDocument;
   past: StructureDocument[];
@@ -62,6 +83,8 @@ interface AppState {
   theme: ThemeName;
   toast: Toast | null;
   inspectorOpen: boolean;
+  saveStatus: SaveStatus;
+  pendingKind: PendingKind | null;
 
   commit: (next: StructureDocument, tag?: string) => void;
   undo: () => void;
@@ -81,6 +104,9 @@ interface AppState {
   rename: (id: NodeId, name: string) => void;
   setNote: (id: NodeId, note: string) => void;
   setKind: (id: NodeId, kind: NodeKind) => void;
+  /** Applies the kind, or asks first when it would drop nodes or links. */
+  requestKind: (id: NodeId, kind: NodeKind) => void;
+  clearPendingKind: () => void;
   cycleKind: (id: NodeId, direction?: 'next' | 'prev') => void;
   addTerminal: (id: NodeId, terminal: TerminalKind) => void;
   removeTerminalAt: (id: NodeId, index: number) => void;
@@ -100,6 +126,8 @@ interface AppState {
 
   setViewport: (viewport: Viewport) => void;
   setTheme: (theme: ThemeName) => void;
+  /** Writes the current diagram to storage now, whatever is in there. */
+  saveNow: () => void;
   notify: (message: string, tone?: Toast['tone']) => void;
   dismissToast: (id: number) => void;
 }
@@ -131,6 +159,12 @@ function initialDocument(): { doc: StructureDocument; notice: string | null } {
 
 const start = initialDocument();
 let toastCounter = 0;
+/**
+ * Installed by `startPersistence` so `saveNow` can write immediately without
+ * the store owning the debounce. Null until the app mounts, and in tests that
+ * never start persistence.
+ */
+let forceSave: (() => void) | null = null;
 
 export const useStore = create<AppState>((set, get) => ({
   doc: start.doc,
@@ -150,6 +184,8 @@ export const useStore = create<AppState>((set, get) => ({
   theme: loadTheme() ?? 'light',
   toast: null,
   inspectorOpen: false,
+  saveStatus: 'saved',
+  pendingKind: null,
 
   commit: (next, tag) => {
     const { doc, past, historyTag, historyAt } = get();
@@ -176,6 +212,7 @@ export const useStore = create<AppState>((set, get) => ({
       historyTag: null,
       selectedId: selectedId && findNode(previous, selectedId) ? selectedId : null,
       editingId: null,
+      pendingKind: null,
     });
   },
 
@@ -190,13 +227,15 @@ export const useStore = create<AppState>((set, get) => ({
       historyTag: null,
       selectedId: selectedId && findNode(next, selectedId) ? selectedId : null,
       editingId: null,
+      pendingKind: null,
     });
   },
 
   canUndo: () => get().past.length > 0,
   canRedo: () => get().future.length > 0,
 
-  select: (id) => set({ selectedId: id, inspectorOpen: id !== null, editingId: null, editingSeed: null }),
+  select: (id) =>
+    set({ selectedId: id, inspectorOpen: id !== null, editingId: null, editingSeed: null, pendingKind: null }),
   setEditing: (id, seed) => set({ editingId: id, editingSeed: seed ?? null }),
   setHovered: (id) => set({ hoveredId: id }),
   setHoveredLink: (id) => set({ hoveredLinkId: id }),
@@ -229,14 +268,43 @@ export const useStore = create<AppState>((set, get) => ({
 
   rename: (id, name) => get().commit(ops.renameNode(get().doc, id, name), `rename:${id}`),
   setNote: (id, note) => get().commit(ops.setNote(get().doc, id, note), `note:${id}`),
-  setKind: (id, kind) => get().commit(ops.setKind(get().doc, id, kind)),
+  setKind: (id, kind) => {
+    get().commit(ops.setKind(get().doc, id, kind));
+    set({ pendingKind: null });
+  },
+
+  /**
+   * Switching a kind can drop what hangs below it, so every route into it goes
+   * through here: the change is only applied straight away when nothing is
+   * lost. Otherwise the node is selected, its details open, and the switch
+   * waits for the confirmation shown there.
+   */
+  requestKind: (id, kind) => {
+    const { doc } = get();
+    const node = findNode(doc, id);
+    if (!node || node.kind === kind) return;
+    const impact = ops.kindChangeImpact(doc, id, kind);
+    if (impact.droppedDescendants === 0 && impact.droppedLinks === 0) {
+      get().setKind(id, kind);
+      return;
+    }
+    set({
+      pendingKind: { nodeId: id, kind },
+      selectedId: id,
+      inspectorOpen: true,
+      editingId: null,
+      editingSeed: null,
+    });
+  },
+
+  clearPendingKind: () => set({ pendingKind: null }),
 
   cycleKind: (id, direction = 'next') => {
     const { doc } = get();
     const node = findNode(doc, id);
     if (!node) return;
     const target = direction === 'next' ? nextVariant(node.kind) : prevVariant(node.kind);
-    if (target) get().setKind(id, target);
+    if (target) get().requestKind(id, target);
   },
 
   addTerminal: (id, terminal) => get().commit(ops.addTerminal(get().doc, id, terminal)),
@@ -278,6 +346,7 @@ export const useStore = create<AppState>((set, get) => ({
       editingId: null,
       inspectorOpen: false,
       historyTag: null,
+      pendingKind: null,
     });
   },
 
@@ -291,6 +360,10 @@ export const useStore = create<AppState>((set, get) => ({
   setTheme: (theme) => {
     saveTheme(theme);
     set({ theme });
+  },
+
+  saveNow: () => {
+    forceSave?.();
   },
 
   notify: (message, tone = 'info') => {
@@ -316,30 +389,67 @@ export const useStore = create<AppState>((set, get) => ({
  * a closed tab is the one that gets lost. The document present at startup is
  * written straight away, so a diagram opened from a share link is what a reload
  * shows rather than whatever was stored before it.
+ *
+ * There is one stored diagram per browser, so a second tab writing to it makes
+ * this tab's copy no longer the stored one. The text this tab last wrote is
+ * kept, and anything else appearing in storage flips the status to `stale` so
+ * the indicator can say so instead of the two tabs quietly fighting.
  */
 export function startPersistence(): () => void {
   let timer: number | undefined;
   let pending: StructureDocument | null = null;
   let lastSaved: StructureDocument | null = null;
+  let lastWritten: string | null = null;
 
-  const flush = (): void => {
+  const setStatus = (status: SaveStatus): void => {
+    if (useStore.getState().saveStatus !== status) useStore.setState({ saveStatus: status });
+  };
+
+  const write = (doc: StructureDocument): void => {
+    const json = saveDocument(doc);
+    lastSaved = doc;
+    pending = null;
+    if (json === null) {
+      // Storage is blocked or full: say so rather than claiming a save.
+      setStatus('unavailable');
+      return;
+    }
+    lastWritten = json;
+    setStatus('saved');
+  };
+
+  const clearTimer = (): void => {
     if (timer !== undefined) {
       clearTimeout(timer);
       timer = undefined;
     }
-    if (pending === null) return;
-    saveDocument(pending);
-    lastSaved = pending;
-    pending = null;
   };
 
-  pending = useStore.getState().doc;
-  flush();
+  const flush = (): void => {
+    clearTimer();
+    if (pending === null) return;
+    write(pending);
+  };
+
+  /** Makes this tab's diagram the stored one, pending edits or not. */
+  const saveNow = (): void => {
+    clearTimer();
+    write(useStore.getState().doc);
+  };
+
+  /** Storage holding something this tab did not write means another tab did. */
+  const checkForForeignWrite = (): void => {
+    if (lastWritten === null) return;
+    if (readSerializedDocument() !== lastWritten) setStatus('stale');
+  };
+
+  write(useStore.getState().doc);
 
   const unsubscribe = useStore.subscribe((state) => {
     if (state.doc === lastSaved) return;
     pending = state.doc;
-    if (timer !== undefined) clearTimeout(timer);
+    setStatus('saving');
+    clearTimer();
     timer = window.setTimeout(flush, 250);
   });
 
@@ -348,14 +458,31 @@ export function startPersistence(): () => void {
   // background and killed later.
   const onVisibilityChange = (): void => {
     if (document.visibilityState === 'hidden') flush();
+    else checkForForeignWrite();
   };
+  const onStorage = (event: StorageEvent): void => {
+    if (!isDocumentStorageKey(event.key)) return;
+    // `storage` only fires in the other tabs, so this is never our own write,
+    // unless a second tab happens to have saved the very same text.
+    if (event.newValue !== null && event.newValue === lastWritten) return;
+    setStatus('stale');
+  };
+
   window.addEventListener('pagehide', flush);
+  window.addEventListener('storage', onStorage);
+  // A tab that never lost visibility, side by side with another window, only
+  // learns about a write it slept through when it is used again.
+  window.addEventListener('focus', checkForForeignWrite);
   document.addEventListener('visibilitychange', onVisibilityChange);
+  forceSave = saveNow;
 
   return () => {
     flush();
     window.removeEventListener('pagehide', flush);
+    window.removeEventListener('storage', onStorage);
+    window.removeEventListener('focus', checkForForeignWrite);
     document.removeEventListener('visibilitychange', onVisibilityChange);
+    if (forceSave === saveNow) forceSave = null;
     unsubscribe();
   };
 }

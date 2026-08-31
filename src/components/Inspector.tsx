@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { monogram } from '../design/brand';
 import { ancestorsOf, canAddChildOfKind, findNode, indexDocument, type AccountNode } from '../domain/document';
-import { captionFor, specOf, variantGroupOf, type NodeKind } from '../domain/kinds';
+import { captionFor, specOf, variantGroupOf } from '../domain/kinds';
 import { kindChangeImpact } from '../domain/operations';
 import { useCompanyLogo } from '../hooks/useBrandMarks';
 import { useStore } from '../state/store';
@@ -19,19 +19,24 @@ export function Inspector() {
   const rename = useStore((state) => state.rename);
   const setNote = useStore((state) => state.setNote);
   const setKind = useStore((state) => state.setKind);
+  const requestKind = useStore((state) => state.requestKind);
+  const clearPendingKind = useStore((state) => state.clearPendingKind);
+  const pending = useStore((state) => state.pendingKind);
   const addChild = useStore((state) => state.addChild);
   const remove = useStore((state) => state.remove);
   const toggleLink = useStore((state) => state.toggleLink);
   const setLogoDomain = useStore((state) => state.setLogoDomain);
 
   const node = selectedId === null ? null : findNode(doc, selectedId);
-  const [pendingKind, setPendingKind] = useState<NodeKind | null>(null);
+  // The pending switch lives in the store because it can be started from the
+  // card's icon as well as from the control below, and both wait for the same
+  // confirmation.
+  const pendingKind = pending !== null && pending.nodeId === selectedId ? pending.kind : null;
   // Kept locally while typing so a half-written domain is not thrown away by
   // the normaliser on every keystroke.
   const [domainDraft, setDomainDraft] = useState<string | null>(null);
 
   useEffect(() => {
-    setPendingKind(null);
     setDomainDraft(null);
   }, [selectedId]);
 
@@ -64,15 +69,6 @@ export function Inspector() {
   const spec = specOf(node.kind);
   const group = variantGroupOf(node.kind);
   const impact = pendingKind === null ? null : kindChangeImpact(doc, selectedId, pendingKind);
-
-  const applyKind = (kind: NodeKind): void => {
-    const nextImpact = kindChangeImpact(doc, selectedId, kind);
-    if (nextImpact.droppedDescendants > 0 || nextImpact.droppedLinks > 0) {
-      setPendingKind(kind);
-      return;
-    }
-    setKind(selectedId, kind);
-  };
 
   return (
     <aside className={`panel ${styles.panel} ${open ? styles.panelOpen : ''}`} aria-label="Node details">
@@ -120,7 +116,7 @@ export function Inspector() {
                 role="radio"
                 className="segmentedOption"
                 aria-checked={option.kind === node.kind}
-                onClick={() => applyKind(option.kind)}
+                onClick={() => requestKind(selectedId, option.kind)}
               >
                 {option.label}
               </button>
@@ -146,14 +142,11 @@ export function Inspector() {
             <button
               type="button"
               className={`${styles.smallButton} ${styles.smallButtonDanger}`}
-              onClick={() => {
-                setKind(selectedId, pendingKind);
-                setPendingKind(null);
-              }}
+              onClick={() => setKind(selectedId, pendingKind)}
             >
               Switch anyway
             </button>
-            <button type="button" className={styles.smallButton} onClick={() => setPendingKind(null)}>
+            <button type="button" className={styles.smallButton} onClick={clearPendingKind}>
               Keep as is
             </button>
           </div>

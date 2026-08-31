@@ -89,6 +89,15 @@ localStorage, debounced by 250 ms and flushed when the page is hidden or closed,
 so a reload or a visit a week later opens exactly what you left, and each change
 replaces the stored copy. *Start over* is the only thing that clears it.
 
+There is one stored diagram per browser, which a second tab can overwrite, so
+the state of that copy is on screen rather than left to guesswork. The line under
+the diagram name reads *Saved in this browser*, *Saving…* while a change is
+settling, or *Another tab saved over this* once storage holds something this tab
+did not write — noticed from the `storage` event, and re-checked whenever the tab
+is focused, in case it slept through one. Clicking the line writes this tab's
+version over whatever is there. A browser that refuses to store anything says so
+too, instead of quietly losing the work.
+
 ## Share links
 
 Links use `#d=` and a positional format: nodes are written pre-order as arrays

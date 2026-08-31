@@ -34,7 +34,7 @@ class MemoryStorage {
   }
 }
 
-type Listener = () => void;
+type Listener = (event?: unknown) => void;
 
 interface Harness {
   readonly storage: MemoryStorage;
@@ -83,8 +83,17 @@ function install(storage = new MemoryStorage()): Harness {
   return harness;
 }
 
-function fire(listeners: Map<string, Set<Listener>>, type: string): void {
-  for (const listener of listeners.get(type) ?? []) listener();
+function fire(listeners: Map<string, Set<Listener>>, type: string, event?: unknown): void {
+  for (const listener of listeners.get(type) ?? []) listener(event);
+}
+
+/** The key the document ended up under, without hard-coding it here. */
+function documentKey(storage: MemoryStorage): string {
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (key && storage.getItem(key)?.includes('"root"')) return key;
+  }
+  throw new Error('no stored document');
 }
 
 /** A fresh module graph, which is what a page load gives you. */
@@ -175,6 +184,80 @@ describe('keeping the diagram between visits', () => {
 
     expect(secondStore.getState().doc.root.name).toBe('Yesterday Ltd');
     expect(secondStore.getState().doc.root.children.map((child) => child.name)).toEqual(['POS', 'Webshop']);
+  });
+
+  it('reports the write as it happens', async () => {
+    install();
+    const { startPersistence, useStore } = await load();
+    const stop = startPersistence();
+
+    expect(useStore.getState().saveStatus).toBe('saved');
+
+    useStore.getState().rename(useStore.getState().doc.root.id, 'Mid-sentence');
+    expect(useStore.getState().saveStatus).toBe('saving');
+
+    vi.advanceTimersByTime(250);
+    expect(useStore.getState().saveStatus).toBe('saved');
+
+    stop();
+  });
+
+  /**
+   * There is one stored diagram per browser, so a second tab saving means this
+   * tab's copy is no longer the stored one. Saying so beats the two tabs
+   * quietly overwriting each other.
+   */
+  it('notices another tab saving over the stored diagram', async () => {
+    const harness = install();
+    const { startPersistence, useStore } = await load();
+    const stop = startPersistence();
+    const key = documentKey(harness.storage);
+
+    fire(harness.windowListeners, 'storage', { key, newValue: '{"version":3,"root":{"kind":"company"}}' });
+    expect(useStore.getState().saveStatus).toBe('stale');
+
+    useStore.getState().saveNow();
+    expect(useStore.getState().saveStatus).toBe('saved');
+
+    const { loadStoredDocument } = await import('../src/state/persistence');
+    expect(loadStoredDocument()?.doc.root.name).toBe('My Company');
+    stop();
+  });
+
+  it('ignores a storage event about something else', async () => {
+    const harness = install();
+    const { startPersistence, useStore } = await load();
+    const stop = startPersistence();
+
+    fire(harness.windowListeners, 'storage', { key: 'some-other-app', newValue: 'x' });
+    expect(useStore.getState().saveStatus).toBe('saved');
+
+    stop();
+  });
+
+  /** A tab that slept through the event only finds out when it is used again. */
+  it('rechecks the stored copy when the tab comes back', async () => {
+    const harness = install();
+    const { startPersistence, useStore } = await load();
+    const stop = startPersistence();
+
+    harness.storage.setItem(documentKey(harness.storage), '{"version":3,"root":{"kind":"company"}}');
+    fire(harness.windowListeners, 'focus');
+    expect(useStore.getState().saveStatus).toBe('stale');
+
+    stop();
+  });
+
+  it('says so when the browser refuses to store anything', async () => {
+    const harness = install();
+    harness.storage.setItem = () => {
+      throw new Error('quota');
+    };
+    const { startPersistence, useStore } = await load();
+    const stop = startPersistence();
+
+    expect(useStore.getState().saveStatus).toBe('unavailable');
+    stop();
   });
 
   it('starts over when the diagram is reset', async () => {

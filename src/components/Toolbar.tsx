@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { countNodes } from '../domain/document';
 import { useStore } from '../state/store';
 import type { ViewportController } from '../hooks/useViewport';
+import { SaveIndicator } from './SaveIndicator';
 import styles from './Toolbar.module.css';
 
 export interface ToolbarProps {
@@ -47,6 +48,7 @@ export function Toolbar({
           <span className={styles.wordmarkMeta}>
             {nodeCount} {nodeCount === 1 ? 'node' : 'nodes'}
           </span>
+          <SaveIndicator />
         </div>
       </div>
 

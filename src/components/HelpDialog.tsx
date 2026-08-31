@@ -3,7 +3,7 @@ import styles from './HelpDialog.module.css';
 
 const SHORTCUTS: readonly (readonly [string, string])[] = [
   ['Click a card', 'Open its details'],
-  ['Click its icon', 'Switch the card to the next type'],
+  ['Click its icon', 'Switch the card to the next type, asking first if that drops what is below'],
   ['Just start typing', 'Rename the selected card'],
   ['Double-click a card', 'Rename it'],
   ['Drag the middle of a card', 'Link it, or move it into another node'],

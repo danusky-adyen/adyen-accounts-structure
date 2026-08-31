@@ -14,6 +14,7 @@ function reset(): void {
     editingId: null,
     inspectorOpen: false,
     toast: null,
+    pendingKind: null,
   });
 }
 
@@ -136,12 +137,46 @@ describe('editing actions', () => {
     expect(useStore.getState().inspectorOpen).toBe(true);
   });
 
-  it('cycles a kind through its variant group', () => {
+  it('cycles a kind through its variant group when nothing is lost', () => {
     const merchantId = ids(useStore.getState().doc)[1] as string;
+    useStore.getState().remove(byName(useStore.getState().doc, 'Store').id);
+
     useStore.getState().cycleKind(merchantId);
     expect(findNode(useStore.getState().doc, merchantId)?.kind).toBe('ecom');
     useStore.getState().cycleKind(merchantId);
     expect(findNode(useStore.getState().doc, merchantId)?.kind).toBe('bp');
+    expect(useStore.getState().pendingKind).toBeNull();
+  });
+
+  /**
+   * A switch that prunes has to be confirmed wherever it starts, so the card's
+   * icon and the control in the details panel both end up asking.
+   */
+  it('asks before a switch that would drop what is underneath', () => {
+    const merchantId = ids(useStore.getState().doc)[1] as string;
+
+    useStore.getState().cycleKind(merchantId);
+
+    expect(findNode(useStore.getState().doc, merchantId)?.kind).toBe('pos');
+    expect(useStore.getState().pendingKind).toEqual({ nodeId: merchantId, kind: 'ecom' });
+    expect(useStore.getState().selectedId).toBe(merchantId);
+    expect(useStore.getState().inspectorOpen).toBe(true);
+    expect(byName(useStore.getState().doc, 'Store')).toBeTruthy();
+
+    useStore.getState().setKind(merchantId, 'ecom');
+
+    expect(findNode(useStore.getState().doc, merchantId)?.kind).toBe('ecom');
+    expect(useStore.getState().pendingKind).toBeNull();
+    expect(countNodes(useStore.getState().doc)).toBe(2);
+  });
+
+  it('drops a pending switch when the selection moves on', () => {
+    const merchantId = ids(useStore.getState().doc)[1] as string;
+    useStore.getState().requestKind(merchantId, 'ecom');
+    expect(useStore.getState().pendingKind).not.toBeNull();
+
+    useStore.getState().select(useStore.getState().doc.root.id);
+    expect(useStore.getState().pendingKind).toBeNull();
   });
 
   it('deselects a node it deletes', () => {

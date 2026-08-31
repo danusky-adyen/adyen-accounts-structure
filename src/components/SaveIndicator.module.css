@@ -1,0 +1,57 @@
+.indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--b-spacer-020);
+  margin-top: var(--b-spacer-010);
+  color: var(--c-text-muted);
+  font-size: var(--b-text-caption-size);
+  line-height: var(--b-text-caption-line-height);
+  font-weight: var(--b-text-caption-weight);
+  transition: color var(--b-duration-fast) var(--b-ease-linear);
+}
+
+.indicator:hover {
+  color: var(--c-text);
+}
+
+.indicator[data-status='stale'],
+.indicator[data-status='unavailable'] {
+  color: var(--c-warning);
+  font-weight: var(--b-text-caption-stronger-weight);
+}
+
+.mark {
+  display: flex;
+  flex: none;
+}
+
+.mark svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.indicator[data-status='stale'] .mark svg,
+.indicator[data-status='unavailable'] .mark svg {
+  stroke-width: 1.5;
+}
+
+.spinner {
+  animation: spin 900ms var(--b-ease-linear) infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

@@ -48,14 +48,36 @@ export function loadStoredDocument(): LoadResult | null {
   return null;
 }
 
-export function saveDocument(doc: StructureDocument): void {
+export function serializeDocument(doc: StructureDocument): string {
+  return JSON.stringify(doc);
+}
+
+/**
+ * Returns the text that was written, so a caller can tell later whether the
+ * stored copy is still its own, or null when nothing could be written.
+ */
+export function saveDocument(doc: StructureDocument): string | null {
   const store = storage();
-  if (!store) return;
+  if (!store) return null;
+  const json = serializeDocument(doc);
   try {
-    store.setItem(DOCUMENT_KEY, JSON.stringify(doc));
+    store.setItem(DOCUMENT_KEY, json);
+    return json;
   } catch {
     // Quota exceeded: the diagram stays usable, it just will not persist.
+    return null;
   }
+}
+
+/** The stored document exactly as it sits in storage, for comparison. */
+export function readSerializedDocument(): string | null {
+  return storage()?.getItem(DOCUMENT_KEY) ?? null;
+}
+
+/** True for the key a `storage` event carries when the document changed. */
+export function isDocumentStorageKey(key: string | null): boolean {
+  // A null key means the whole store was cleared, which includes the document.
+  return key === null || key === DOCUMENT_KEY;
 }
 
 export function clearStoredDocument(): void {
