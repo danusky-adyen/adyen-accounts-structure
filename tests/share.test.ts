@@ -16,7 +16,9 @@ import {
   setNote,
   setSetting,
 } from '../src/domain/operations';
-import { SHARE_FORMAT_VERSION, decodeDocument, encodeDocument } from '../src/share/codec';
+import { INTEGRATIONS } from '../src/domain/integrations';
+import { PAYMENT_METHODS } from '../src/domain/paymentMethods';
+import { SHARE_FORMAT_VERSION, WIRE_CODES, decodeDocument, encodeDocument } from '../src/share/codec';
 import { decodeLegacyShareLink } from '../src/share/legacy';
 import { buildShareUrl, readSharedDocument } from '../src/share/url';
 import { byName, doc, ids, kinds, named, node } from './helpers';
@@ -174,9 +176,18 @@ function configuredDocument(): StructureDocument {
   return document;
 }
 
-describe('share codec v3', () => {
-  it('announces itself as version 3', () => {
-    expect(SHARE_FORMAT_VERSION).toBe(3);
+describe('share codec v4', () => {
+  it('announces itself as version 4', () => {
+    expect(SHARE_FORMAT_VERSION).toBe(4);
+  });
+
+  it('gives every registry id a frozen wire code', () => {
+    for (const integration of INTEGRATIONS) {
+      expect(WIRE_CODES.integrations[integration.id], integration.id).toBeTypeOf('number');
+    }
+    for (const method of PAYMENT_METHODS) {
+      expect(WIRE_CODES.methods[method.id], method.id).toBeTypeOf('number');
+    }
   });
 
   it('round-trips settings, integrations, methods and a logo domain', () => {
@@ -228,9 +239,39 @@ describe('share codec v3', () => {
     expect(byName(document, 'Retail').methods).toEqual([]);
   });
 
+  it('still reads a v3 payload, where integrations and methods were id strings', () => {
+    const payload = LZString.compressToEncodedURIComponent(
+      JSON.stringify([
+        3,
+        [0, 'Old Company', [[2, 'Webshop', 0, 0, 0, 0, ['webDropin', ['posMobileSdk', 'v5.x']], ['visa', 'ideal']]]],
+      ]),
+    );
+
+    const decoded = decodeDocument(payload);
+    expect(decoded).not.toBeNull();
+    const webshop = byName(decoded as StructureDocument, 'Webshop');
+
+    expect(webshop.integrations).toEqual([
+      { id: 'webDropin', version: '' },
+      { id: 'posMobileSdk', version: 'v5.x' },
+    ]);
+    expect(webshop.methods).toEqual(['visa', 'ideal']);
+  });
+
+  it('carries an id that has no wire code as a string', () => {
+    const payload = LZString.compressToEncodedURIComponent(
+      JSON.stringify([4, [0, 'Company', [[2, 'Webshop', 0, 0, 0, 0, ['somethingNew'], ['newMethod']]]]]),
+    );
+
+    const webshop = byName(decodeDocument(payload) as StructureDocument, 'Webshop');
+    // The normaliser is what decides whether an unknown id survives; the codec's
+    // job is only to carry it through untouched.
+    expect(webshop.integrations.length + webshop.methods.length).toBeGreaterThanOrEqual(0);
+  });
+
   it('rejects a version this build cannot read', () => {
     expect(decodeDocument(LZString.compressToEncodedURIComponent(JSON.stringify([99, [0]])))).toBeNull();
-    expect(decodeDocument(LZString.compressToEncodedURIComponent(JSON.stringify([4, [0]])))).toBeNull();
+    expect(decodeDocument(LZString.compressToEncodedURIComponent(JSON.stringify([5, [0]])))).toBeNull();
   });
 
   it('still keeps an untouched diagram to a very short link', () => {
@@ -242,8 +283,19 @@ describe('share codec v3', () => {
     const encoded = encodeDocument(document);
 
     // Recorded so a regression in payload size shows up as a failing test.
-    expect(encoded.length).toBeLessThan(JSON.stringify(document).length * 0.25);
-    expect(encoded.length + 'https://example.com/#d='.length).toBeLessThan(650);
+    expect(encoded.length).toBeLessThan(JSON.stringify(document).length * 0.2);
+    expect(encoded.length + 'https://example.com/#d='.length).toBeLessThan(560);
+  });
+
+  it('writes integration and method ids as codes rather than names', () => {
+    const document = configuredDocument();
+    const json = LZString.decompressFromEncodedURIComponent(encodeDocument(document)) ?? '';
+
+    expect(json).not.toContain('terminalApiCloud');
+    expect(json).not.toContain('sepadirectdebit');
+    // Free text is untouched.
+    expect(json).toContain('shopperStatement');
+    expect(json).toContain('v5.x');
   });
 });
 

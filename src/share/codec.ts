@@ -14,19 +14,23 @@
  * defaults are cut, a v2 payload is a valid v3 payload with the new fields
  * missing, so one decoder reads both.
  *
- * Layout of a v3 payload:
+ * Layout of a v4 payload:
  *
- *   [3, node, links?]
+ *   [4, node, links?]
  *   node  = [kindCode, name?, children?, note?, terminalCounts?,
  *            settings?, integrations?, methods?, logoDomain?]  trailing
  *                                                             defaults cut
  *   links = [sourceIndex, targetIndex, ...]
  *
- * Settings, integration ids and payment methods stay as strings rather than
- * registry indices: the payment-method list is generated from Adyen's CDN and
- * the integration list will grow, so an index would rebind to a different value
- * the moment either changes, silently corrupting old links. LZString's
- * dictionary already collapses the repetition.
+ * v4 replaces the integration and payment-method id strings with the frozen
+ * codes below. An index into the registries themselves would be unusable: the
+ * payment-method list is generated from a script and the integration list keeps
+ * growing, so a reordering would silently rebind every old link. These tables
+ * are written out by hand instead, never renumbered, and an id with no code
+ * still travels as a string, so a link stays readable across registry edits.
+ * The 13-node sample above goes from 880 to 683 characters.
+ *
+ * Settings keys and values stay as free text: they are whatever the user typed.
  */
 
 import LZString from 'lz-string';
@@ -35,10 +39,10 @@ import { forEachNode } from '../domain/document';
 import { normalizeDocument, type RawNode } from '../domain/normalize';
 import { TERMINAL_KINDS, specOf, type NodeKind, type TerminalKind } from '../domain/kinds';
 
-export const SHARE_FORMAT_VERSION = 3;
+export const SHARE_FORMAT_VERSION = 4;
 
 /** Payload versions this build can read. */
-const READABLE_VERSIONS = new Set([2, SHARE_FORMAT_VERSION]);
+const READABLE_VERSIONS = new Set([2, 3, SHARE_FORMAT_VERSION]);
 
 /**
  * Frozen wire codes. Never renumber these: existing links depend on them. New
@@ -68,6 +72,98 @@ const KIND_BY_CODE = new Map<number, NodeKind>(
 
 const TERMINAL_CODES = new Map<TerminalKind, number>(TERMINAL_KINDS.map((kind, index) => [kind, index]));
 
+/**
+ * Frozen wire codes for integration ids. Append new ids at the end; never
+ * change or reuse a number. `tests/share.test.ts` fails when the registry gains
+ * an id that has no code here.
+ */
+const INTEGRATION_CODES: Readonly<Record<string, number>> = {
+  webDropin: 0,
+  webComponents: 1,
+  apiOnly: 2,
+  payByLink: 3,
+  hostedCheckout: 4,
+  iosSdk: 5,
+  androidSdk: 6,
+  reactNative: 7,
+  flutter: 8,
+  terminalApiCloud: 9,
+  terminalApiLocal: 10,
+  posMobileSdk: 11,
+  tapToPay: 12,
+  standalone: 13,
+  shopify: 14,
+  adobeCommerce: 15,
+  sapCommerce: 16,
+  salesforce: 17,
+  dynamics365: 18,
+  oracle: 19,
+  bigCommerce: 20,
+  wooCommerce: 21,
+  shopware: 22,
+  lightspeed: 23,
+  mirakl: 24,
+  otherPartner: 25,
+  platforms: 26,
+  marketplace: 27,
+  issuing: 28,
+  capital: 29,
+};
+
+/** Frozen wire codes for payment-method ids. Same rules as above. */
+const METHOD_CODES: Readonly<Record<string, number>> = {
+  visa: 0,
+  mc: 1,
+  amex: 2,
+  maestro: 3,
+  discover: 4,
+  jcb: 5,
+  cup: 6,
+  girocard: 7,
+  bcmc: 8,
+  applepay: 9,
+  googlepay: 10,
+  paypal: 11,
+  cashapp: 12,
+  alipay: 13,
+  wechatpay: 14,
+  ideal: 15,
+  directEbanking: 16,
+  eps: 17,
+  trustly: 18,
+  blik: 19,
+  pix: 20,
+  sepadirectdebit: 21,
+  klarna: 22,
+  afterpaytouch: 23,
+  affirm: 24,
+  twint: 25,
+  swish: 26,
+  mobilepay: 27,
+  vipps: 28,
+  mbway: 29,
+};
+
+export const WIRE_CODES = { integrations: INTEGRATION_CODES, methods: METHOD_CODES } as const;
+
+function invert(codes: Readonly<Record<string, number>>): ReadonlyMap<number, string> {
+  return new Map(Object.entries(codes).map(([id, code]) => [code, id]));
+}
+
+const INTEGRATION_BY_CODE = invert(INTEGRATION_CODES);
+const METHOD_BY_CODE = invert(METHOD_CODES);
+
+/** A known id shrinks to its code; anything else travels verbatim. */
+function toWire(id: string, codes: Readonly<Record<string, number>>): string | number {
+  return codes[id] ?? id;
+}
+
+function fromWire(value: unknown, byCode: ReadonlyMap<number, string>): string | null {
+  if (typeof value === 'string') return value;
+  if (typeof value !== 'number') return null;
+  return byCode.get(value) ?? null;
+}
+
 type EncodedNode = [number, ...unknown[]];
 
 function encodeTerminalCounts(terminals: readonly TerminalKind[]): number[] {
@@ -88,10 +184,12 @@ function encodeNode(node: AccountNode, indices: Map<NodeId, number>, counter: { 
   const terminals = encodeTerminalCounts(node.terminals);
 
   const settings = node.settings.map((setting) => [setting.key, setting.value]);
-  // A version-less integration is written as a bare id, which is the common case.
-  const integrations = node.integrations.map((entry) =>
-    entry.version === '' ? entry.id : [entry.id, entry.version],
-  );
+  // A version-less integration is written as a bare code, which is the common case.
+  const integrations = node.integrations.map((entry) => {
+    const id = toWire(entry.id, INTEGRATION_CODES);
+    return entry.version === '' ? id : [id, entry.version];
+  });
+  const methods = node.methods.map((method) => toWire(method, METHOD_CODES));
 
   const fields: unknown[] = [
     KIND_CODES[node.kind],
@@ -101,7 +199,7 @@ function encodeNode(node: AccountNode, indices: Map<NodeId, number>, counter: { 
     terminals.length > 0 ? terminals : 0,
     settings.length > 0 ? settings : 0,
     integrations.length > 0 ? integrations : 0,
-    node.methods.length > 0 ? [...node.methods] : 0,
+    methods.length > 0 ? methods : 0,
     node.logoDomain === '' ? 0 : node.logoDomain,
   ];
 
@@ -146,21 +244,32 @@ function decodeSettings(value: unknown): { key: string; value: string }[] {
   return settings;
 }
 
-/** A bare id, or `[id, version]`. */
+/** A bare id or code, or `[id, version]`. */
 function decodeIntegrations(value: unknown): { id: string; version: string }[] {
   if (!Array.isArray(value)) return [];
   const integrations: { id: string; version: string }[] = [];
   for (const entry of value as unknown[]) {
-    if (typeof entry === 'string') {
-      integrations.push({ id: entry, version: '' });
+    if (!Array.isArray(entry)) {
+      const id = fromWire(entry, INTEGRATION_BY_CODE);
+      if (id !== null) integrations.push({ id, version: '' });
       continue;
     }
-    if (!Array.isArray(entry)) continue;
     const pair = entry as unknown[];
-    if (typeof pair[0] !== 'string') continue;
-    integrations.push({ id: pair[0], version: typeof pair[1] === 'string' ? pair[1] : '' });
+    const id = fromWire(pair[0], INTEGRATION_BY_CODE);
+    if (id === null) continue;
+    integrations.push({ id, version: typeof pair[1] === 'string' ? pair[1] : '' });
   }
   return integrations;
+}
+
+function decodeMethods(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const methods: string[] = [];
+  for (const entry of value as unknown[]) {
+    const id = fromWire(entry, METHOD_BY_CODE);
+    if (id !== null) methods.push(id);
+  }
+  return methods;
 }
 
 function decodeNode(value: unknown, counter: { next: number }, flat: DecodedNode[]): RawNode | null {
@@ -198,7 +307,7 @@ function decodeNode(value: unknown, counter: { next: number }, flat: DecodedNode
     terminals,
     settings: decodeSettings(fields[5]),
     integrations: decodeIntegrations(fields[6]),
-    methods: Array.isArray(fields[7]) ? (fields[7] as unknown[]) : [],
+    methods: decodeMethods(fields[7]),
     logoDomain: typeof fields[8] === 'string' ? fields[8] : '',
     children: [],
   };
