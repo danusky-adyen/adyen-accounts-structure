@@ -6,7 +6,19 @@ import {
   findNode,
   indexDocument,
 } from '../src/domain/document';
-import { NODE_KINDS, canLink, linkOwnerId, nextVariant, specOf, variantLabel } from '../src/domain/kinds';
+import {
+  NODE_KINDS,
+  TERMINAL_CATEGORIES,
+  TERMINAL_GROUPS,
+  TERMINAL_KINDS,
+  TERMINAL_LABELS,
+  canLink,
+  linkOwnerId,
+  nextVariant,
+  specOf,
+  terminalCategoryOf,
+  variantLabel,
+} from '../src/domain/kinds';
 import {
   MAX_NAME_LENGTH,
   MAX_VERSION_LENGTH,
@@ -339,6 +351,27 @@ describe('terminals', () => {
     const accountId = ids(document)[3] as string;
     document = addTerminal(document, accountId, 'counter');
     expect(findNode(document, accountId)?.terminals).toEqual([]);
+  });
+
+  it('gives every terminal a label and a family to draw with', () => {
+    for (const terminal of TERMINAL_KINDS) {
+      expect(TERMINAL_LABELS[terminal], terminal).toBeTruthy();
+      expect(TERMINAL_CATEGORIES, terminal).toContain(terminalCategoryOf(terminal));
+    }
+  });
+
+  /**
+   * The picker offers models only; the bare families stay decodable because old
+   * links and imported notes carry them.
+   */
+  it('lists every model exactly once, under its own family', () => {
+    const listed = TERMINAL_GROUPS.flatMap((group) => group.models);
+    const models = TERMINAL_KINDS.filter((kind) => !(TERMINAL_CATEGORIES as readonly string[]).includes(kind));
+
+    expect([...listed].sort()).toEqual([...models].sort());
+    for (const group of TERMINAL_GROUPS) {
+      for (const model of group.models) expect(terminalCategoryOf(model), model).toBe(group.category);
+    }
   });
 });
 

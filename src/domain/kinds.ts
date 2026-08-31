@@ -30,7 +30,32 @@ export const NODE_KINDS = [
 
 export type NodeKind = (typeof NODE_KINDS)[number];
 
-export const TERMINAL_KINDS = ['counter', 'mobile', 'reader', 'unattended'] as const;
+/**
+ * The four families a terminal can belong to, and the individual models within
+ * them. A family on its own stays pickable: a structure is often drawn before
+ * anyone knows which model a store will get. Models append, never reorder: the
+ * share codec numbers them by position.
+ */
+export const TERMINAL_CATEGORIES = ['counter', 'mobile', 'reader', 'unattended'] as const;
+export type TerminalCategory = (typeof TERMINAL_CATEGORIES)[number];
+
+export const TERMINAL_KINDS = [
+  ...TERMINAL_CATEGORIES,
+  'p630',
+  'm450',
+  'sfo1',
+  'ams1',
+  's1f2',
+  's1e2l',
+  's1f4',
+  's1f4Pro',
+  's1u2',
+  'nyc1',
+  'tapToPayAppAndroid',
+  'tapToPaySdkAndroid',
+  'tapToPayAppIos',
+  'tapToPaySdkIos',
+] as const;
 export type TerminalKind = (typeof TERMINAL_KINDS)[number];
 
 export const TERMINAL_LABELS: Record<TerminalKind, string> = {
@@ -38,7 +63,74 @@ export const TERMINAL_LABELS: Record<TerminalKind, string> = {
   mobile: 'Mobile',
   reader: 'Tap to Pay',
   unattended: 'Unattended',
+  p630: 'P630',
+  m450: 'M450',
+  sfo1: 'SFO1',
+  ams1: 'AMS1',
+  s1f2: 'S1F2',
+  s1e2l: 'S1E2L',
+  s1f4: 'S1F4',
+  s1f4Pro: 'S1F4 Pro',
+  s1u2: 'S1U2',
+  nyc1: 'NYC1',
+  tapToPayAppAndroid: 'Tap to Pay – Payments App, Android',
+  tapToPaySdkAndroid: 'Tap to Pay – SDK, Android',
+  tapToPayAppIos: 'Tap to Pay – Payments App, iOS',
+  tapToPaySdkIos: 'Tap to Pay – SDK, iOS',
 };
+
+/** Every terminal draws its family's glyph, so a card stays readable at a glance. */
+export const TERMINAL_CATEGORY_OF: Record<TerminalKind, TerminalCategory> = {
+  counter: 'counter',
+  p630: 'counter',
+  m450: 'counter',
+  sfo1: 'counter',
+  mobile: 'mobile',
+  ams1: 'mobile',
+  s1f2: 'mobile',
+  s1e2l: 'mobile',
+  s1f4: 'mobile',
+  s1f4Pro: 'mobile',
+  unattended: 'unattended',
+  s1u2: 'unattended',
+  reader: 'reader',
+  nyc1: 'reader',
+  tapToPayAppAndroid: 'reader',
+  tapToPaySdkAndroid: 'reader',
+  tapToPayAppIos: 'reader',
+  tapToPaySdkIos: 'reader',
+};
+
+export interface TerminalGroup {
+  readonly category: TerminalCategory;
+  readonly label: string;
+  readonly models: readonly TerminalKind[];
+}
+
+/**
+ * What the picker offers: models only, under their family's heading. The bare
+ * families stay in `TERMINAL_KINDS` because older links and imported notes
+ * carry them, and they still draw and read correctly, but naming a model is
+ * the point of the list.
+ */
+export const TERMINAL_GROUPS: readonly TerminalGroup[] = [
+  { category: 'counter', label: 'Countertop and customer-facing display', models: ['p630', 'm450', 'sfo1'] },
+  { category: 'mobile', label: 'Mobile terminals', models: ['ams1', 's1f2', 's1e2l', 's1f4', 's1f4Pro'] },
+  { category: 'unattended', label: 'Unattended', models: ['s1u2'] },
+  {
+    category: 'reader',
+    label: 'Tap to Pay and NYC1 card reader',
+    models: ['nyc1', 'tapToPayAppAndroid', 'tapToPaySdkAndroid', 'tapToPayAppIos', 'tapToPaySdkIos'],
+  },
+];
+
+export function terminalCategoryOf(kind: TerminalKind): TerminalCategory {
+  return TERMINAL_CATEGORY_OF[kind];
+}
+
+export function terminalLabel(kind: TerminalKind): string {
+  return TERMINAL_LABELS[kind];
+}
 
 /**
  * `management` nodes describe the legal/organisational side of the platform and

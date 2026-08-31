@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyTheme } from '../design/theme';
 import type { TerminalKind } from '../domain/kinds';
-import { copyPngToClipboard, exportJpeg, exportPdf, exportPng, exportSvg } from '../export';
+import { copyPngToClipboard, exportJpeg, exportJson, exportPdf, exportPng, exportSvg } from '../export';
 import { useKeepInView } from '../hooks/useKeepInView';
 import { useKeyboard } from '../hooks/useKeyboard';
 import { useLayout } from '../hooks/useLayout';
@@ -87,9 +87,14 @@ export function App() {
   }, [doc, notify]);
 
   const runExport = useCallback(
-    async (action: 'png' | 'jpeg' | 'svg' | 'pdf' | 'copy') => {
+    async (action: 'png' | 'jpeg' | 'svg' | 'pdf' | 'json' | 'copy') => {
       const context = { layout, theme, title: doc.root.name };
       try {
+        if (action === 'json') {
+          exportJson(doc, doc.root.name);
+          notify('JSON downloaded', 'success');
+          return;
+        }
         if (action === 'svg') {
           await exportSvg(context);
           notify('SVG downloaded', 'success');
@@ -116,7 +121,7 @@ export function App() {
         notify('That export did not work in this browser', 'error');
       }
     },
-    [doc.root.name, layout, notify, theme],
+    [doc, layout, notify, theme],
   );
 
   return (
@@ -135,6 +140,7 @@ export function App() {
         onExportJpeg={() => void runExport('jpeg')}
         onExportSvg={() => void runExport('svg')}
         onExportPdf={() => void runExport('pdf')}
+        onExportJson={() => void runExport('json')}
         onCopyPng={() => void runExport('copy')}
         onReset={() => setResetOpen(true)}
         onToggleHelp={() => setHelpOpen((open) => !open)}

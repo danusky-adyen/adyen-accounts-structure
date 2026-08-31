@@ -12,7 +12,7 @@ import { monogram, peekCompanyLogo, peekPaymentLogos } from '../design/brand';
 import { getIcon, getTerminalIcon, type IconDef } from '../design/icons';
 import { PALETTES, TINTS, tintFill, type ThemeName } from '../design/palette';
 import { BORDER_WIDTH, RADIUS, TYPE } from '../design/tokens';
-import { specOf } from '../domain/kinds';
+import { specOf, terminalCategoryOf, terminalLabel } from '../domain/kinds';
 import type { Layout, LayoutNode } from '../layout';
 import { FONT_STACK } from '../layout/measure';
 import { CARD } from '../layout/metrics';
@@ -175,9 +175,13 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
     let cursor = item.x + (item.width - totalWidth) / 2;
     const top = item.y + slots.terminalsTop + (CARD.terminalRowHeight - CARD.terminalSize) / 2;
     for (const terminal of terminals) {
+      // The glyph is the family's, so the model only survives export as a title,
+      // which is what a viewer shows on hover.
       parts.push(
+        `<g><title>${escapeXml(terminalLabel(terminal))}</title>`,
         `<rect x="${round(cursor)}" y="${round(top)}" width="${CARD.terminalSize}" height="${CARD.terminalSize}" rx="${RADIUS.s}" fill="${palette.surfaceSunken}" stroke="${palette.border}"/>`,
-        iconMarkup(getTerminalIcon(terminal), CARD.terminalSize - 6, cursor + 3, top + 3, tint.line, fill),
+        iconMarkup(getTerminalIcon(terminalCategoryOf(terminal)), CARD.terminalSize - 6, cursor + 3, top + 3, tint.line, fill),
+        '</g>',
       );
       cursor += CARD.terminalSize + CARD.terminalSpacing;
     }

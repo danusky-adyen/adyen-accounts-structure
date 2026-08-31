@@ -20,6 +20,7 @@ import { INTEGRATIONS } from '../src/domain/integrations';
 import { PAYMENT_METHODS } from '../src/domain/paymentMethods';
 import { SHARE_FORMAT_VERSION, WIRE_CODES, decodeDocument, encodeDocument } from '../src/share/codec';
 import { decodeLegacyShareLink } from '../src/share/legacy';
+import { importFromText } from '../src/share/import';
 import { buildShareUrl, readSharedDocument } from '../src/share/url';
 import { byName, doc, ids, kinds, named, node } from './helpers';
 
@@ -176,9 +177,9 @@ function configuredDocument(): StructureDocument {
   return document;
 }
 
-describe('share codec v4', () => {
-  it('announces itself as version 4', () => {
-    expect(SHARE_FORMAT_VERSION).toBe(4);
+describe('share codec v5', () => {
+  it('announces itself as version 5', () => {
+    expect(SHARE_FORMAT_VERSION).toBe(5);
   });
 
   it('gives every registry id a frozen wire code', () => {
@@ -269,9 +270,36 @@ describe('share codec v4', () => {
     expect(webshop.integrations.length + webshop.methods.length).toBeGreaterThanOrEqual(0);
   });
 
+  it('still reads the dense terminal array v4 wrote', () => {
+    const payload = LZString.compressToEncodedURIComponent(
+      JSON.stringify([4, [0, 'Old Company', [[1, 'Shop', 0, 0, [2, 0, 0, 1]]]]]),
+    );
+
+    const shop = byName(decodeDocument(payload) as StructureDocument, 'Shop');
+    expect(shop.terminals).toEqual(['counter', 'counter', 'unattended']);
+  });
+
+  it('keeps a terminal model out of a run of zeros', () => {
+    let document = createDefaultDocument();
+    const store = byName(document, 'Store');
+    document = addTerminal(document, store.id, 's1u2');
+    document = addTerminal(document, store.id, 's1u2');
+    document = addTerminal(document, store.id, 'tapToPaySdkIos');
+
+    const encoded = encodeDocument(document);
+    const json = LZString.decompressFromEncodedURIComponent(encoded) ?? '';
+
+    expect(byName(decodeDocument(encoded) as StructureDocument, 'Store').terminals).toEqual([
+      's1u2',
+      's1u2',
+      'tapToPaySdkIos',
+    ]);
+    expect(json).toContain('[[12,2],[17,1]]');
+  });
+
   it('rejects a version this build cannot read', () => {
     expect(decodeDocument(LZString.compressToEncodedURIComponent(JSON.stringify([99, [0]])))).toBeNull();
-    expect(decodeDocument(LZString.compressToEncodedURIComponent(JSON.stringify([5, [0]])))).toBeNull();
+    expect(decodeDocument(LZString.compressToEncodedURIComponent(JSON.stringify([6, [0]])))).toBeNull();
   });
 
   it('still keeps an untouched diagram to a very short link', () => {
@@ -395,5 +423,45 @@ describe('share urls', () => {
     expect(readSharedDocument('#')).toBeNull();
     expect(readSharedDocument('#section-two')).toBeNull();
     expect(readSharedDocument('#d=broken')).toBeNull();
+  });
+});
+
+/**
+ * The JSON export is only worth having if it comes back in, so the file the
+ * exporter writes is the file *Build* has to accept.
+ */
+describe('exported JSON', () => {
+  it('comes back as the same diagram', () => {
+    let original = configuredDocument();
+    const kalverstraat = byName(original, 'Kalverstraat');
+    original = addTerminal(original, kalverstraat.id, 'p630');
+    original = addTerminal(original, kalverstraat.id, 'tapToPayAppIos');
+
+    const outcome = importFromText(`${JSON.stringify(original, null, 2)}\n`);
+    expect('error' in outcome).toBe(false);
+    const result = outcome as { doc: StructureDocument; source: string; nodeCount: number };
+
+    expect(result.source).toBe('json');
+    expect(result.nodeCount).toBe(countNodes(original));
+    expect(shapeOf(result.doc)).toEqual(shapeOf(original));
+    expect(byName(result.doc, 'Kalverstraat').terminals).toEqual(['counter', 'counter', 'mobile', 'p630', 'tapToPayAppIos']);
+    expect(byName(result.doc, 'Retail NL').integrations).toEqual([
+      { id: 'terminalApiCloud', version: '' },
+      { id: 'posMobileSdk', version: 'v5.x' },
+    ]);
+    expect(byName(result.doc, 'Retail NL').settings).toEqual([
+      { key: 'shopperStatement', value: 'ACME NL' },
+      { key: 'captureDelay', value: 'manual' },
+    ]);
+    expect(result.doc.root.logoDomain).toBe('acme.com');
+  });
+
+  it('keeps the links, which travel as ids', () => {
+    const original = configuredDocument();
+    const outcome = importFromText(JSON.stringify(original)) as { doc: StructureDocument };
+
+    expect(
+      areLinked(outcome.doc, byName(outcome.doc, 'Retail NL').id, byName(outcome.doc, 'Webshop').id),
+    ).toBe(true);
   });
 });

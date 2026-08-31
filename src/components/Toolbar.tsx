@@ -12,6 +12,7 @@ export interface ToolbarProps {
   readonly onExportJpeg: () => void;
   readonly onExportSvg: () => void;
   readonly onExportPdf: () => void;
+  readonly onExportJson: () => void;
   readonly onCopyPng: () => void;
   readonly onReset: () => void;
   readonly onToggleHelp: () => void;
@@ -25,6 +26,7 @@ export function Toolbar({
   onExportJpeg,
   onExportSvg,
   onExportPdf,
+  onExportJson,
   onCopyPng,
   onReset,
   onToggleHelp,
@@ -115,6 +117,7 @@ export function Toolbar({
           onExportJpeg={onExportJpeg}
           onExportSvg={onExportSvg}
           onExportPdf={onExportPdf}
+          onExportJson={onExportJson}
           onCopyPng={onCopyPng}
         />
 
@@ -196,10 +199,11 @@ interface ExportMenuProps {
   readonly onExportJpeg: () => void;
   readonly onExportSvg: () => void;
   readonly onExportPdf: () => void;
+  readonly onExportJson: () => void;
   readonly onCopyPng: () => void;
 }
 
-function ExportMenu({ onExportPng, onExportJpeg, onExportSvg, onExportPdf, onCopyPng }: ExportMenuProps) {
+function ExportMenu({ onExportPng, onExportJpeg, onExportSvg, onExportPdf, onExportJson, onCopyPng }: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -275,6 +279,14 @@ function ExportMenu({ onExportPng, onExportJpeg, onExportSvg, onExportPdf, onCop
               <path d="M14 3v5h5" />
             </svg>
             PDF document
+          </button>
+          <button type="button" className={styles.menuItem} role="menuitem" onClick={run(onExportJson)}>
+            <svg viewBox="0 0 24 24" aria-hidden>
+              <path d="M9 4H7a2 2 0 0 0-2 2v3.5L3 12l2 2.5V18a2 2 0 0 0 2 2h2" />
+              <path d="M15 4h2a2 2 0 0 1 2 2v3.5l2 2.5-2 2.5V18a2 2 0 0 1-2 2h-2" />
+            </svg>
+            JSON data
+            <span className={styles.menuHint}>re-importable</span>
           </button>
           <div className={styles.menuSeparator} />
           <button type="button" className={styles.menuItem} role="menuitem" onClick={run(onCopyPng)}>

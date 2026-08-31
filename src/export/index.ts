@@ -5,6 +5,7 @@
 
 import { loadCompanyLogo, loadPaymentLogos } from '../design/brand';
 import type { ThemeName } from '../design/palette';
+import type { StructureDocument } from '../domain/document';
 import type { Layout } from '../layout';
 import { buildImagePdf, deflate, rgbaToRgb, supportsFlate, type PdfImage } from './pdf';
 import { renderDiagramSvg } from './svg';
@@ -58,6 +59,16 @@ async function withBrandMarks(context: ExportContext): Promise<void> {
     needsPaymentLogos ? loadPaymentLogos() : Promise.resolve(),
     ...[...domains].map((domain) => loadCompanyLogo(domain)),
   ]);
+}
+
+/**
+ * The document itself, indented so it can be read and edited. It is the shape
+ * *Build* accepts, so an exported file can be changed by hand or by a model and
+ * pasted straight back in.
+ */
+export function exportJson(doc: StructureDocument, title: string): void {
+  const json = `${JSON.stringify(doc, null, 2)}\n`;
+  download(new Blob([json], { type: 'application/json;charset=utf-8' }), fileName(title, 'json'));
 }
 
 export async function exportSvg(context: ExportContext): Promise<void> {

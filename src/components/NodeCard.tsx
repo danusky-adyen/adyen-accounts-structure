@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState, type PointerEvent as ReactPointerEve
 import { monogram, paymentLogoDataUrl, type PaymentLogoMap } from '../design/brand';
 import { canAddAnyChild, canAddChildOfKind } from '../domain/document';
 import { integrationLabel } from '../domain/integrations';
-import { nextVariant, specOf, variantLabel } from '../domain/kinds';
+import { nextVariant, specOf, terminalCategoryOf, terminalLabel, variantLabel } from '../domain/kinds';
 import { methodLabel } from '../domain/paymentMethods';
 import { useCompanyLogo } from '../hooks/useBrandMarks';
 import type { LayoutNode } from '../layout';
@@ -207,14 +207,15 @@ export const NodeCard = memo(function NodeCard({
               className={styles.terminal}
               style={{ width: CARD.terminalSize, height: CARD.terminalSize }}
               tabIndex={-1}
-              title={`Remove ${terminal} terminal`}
+              title={`${terminalLabel(terminal)} — click to remove`}
+              aria-label={`Remove the ${terminalLabel(terminal)} terminal`}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
                 onRemoveTerminal(item.id, index);
               }}
             >
-              <TerminalIcon name={terminal} size={CARD.terminalSize - 6} tint={spec.tint} />
+              <TerminalIcon name={terminalCategoryOf(terminal)} size={CARD.terminalSize - 6} tint={spec.tint} />
             </button>
           ))}
           <button

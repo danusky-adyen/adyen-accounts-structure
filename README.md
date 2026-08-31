@@ -3,7 +3,7 @@
 Interactive builder for Adyen account-structure diagrams. Draft a company's
 accounts, stores, terminals, balance platforms and the links between them, add
 the account settings, integrations and payment methods that belong to each
-level, then share the result as a URL or export it as SVG, PNG, JPEG or PDF.
+level, then share the result as a URL or export it as SVG, PNG, JPEG, PDF or JSON.
 
 Everything runs in the browser: no server, no account, no data leaving the tab.
 
@@ -47,6 +47,13 @@ merchant account points at exactly one. The balance platform is also the one
 `detached` kind: it sits in the merchant row but draws no parent connector,
 because it hangs off merchant accounts rather than the company account.
 
+Terminals are the same idea in miniature: four families (countertop, mobile,
+unattended, Tap to Pay) and the models within them, from P630 to the Tap to Pay
+SDKs. The picker offers models only, grouped under their family's heading, and a
+card draws the family's glyph with the model in the tooltip, so a row of
+terminals stays readable at diagram zoom. The bare families remain in the
+registry because older links and imported notes carry them.
+
 Three registries sit beside it: `settings.ts` resolves inherited account
 settings, `integrations.ts` lists Adyen's integration options in five groups
 with their usual versions, and `paymentMethods.ts` is generated alongside the
@@ -79,6 +86,10 @@ Every mark on a card has to be inlined before serialising: an SVG loaded *as an
 image* cannot fetch anything, so `withBrandMarks()` resolves the payment logos
 and any company logo to data URLs first, and the payment artwork is nested as
 real SVG rather than an `<image>`, so it stays vector all the way into the PDF.
+
+*Export → JSON data* writes the document itself, indented. It is the shape
+*Build* accepts, so a file can be edited by hand or handed to a model and pasted
+straight back in; `tests/share.test.ts` holds the two ends together.
 
 **`state/`** is a zustand store: undo/redo over whole documents (120 entries,
 with 700 ms coalescing so typing a name is one entry), write-through to
@@ -114,8 +125,11 @@ Compared to the old `#cfg=` JSON payload:
 | 16-node sample | 880 chars | 358 chars |
 | 13-node structure with 6 logos and ~40 payment methods | — | 607 chars (683 in v3) |
 
-Fields are appended, never inserted, so a v2 or v3 link decodes as a v4 document
-with the newer fields empty. Integration and payment-method ids travel as frozen
+Fields are appended, never inserted, so a v2, v3 or v4 link decodes as a v5
+document with the newer fields empty. Terminals are `[code, count]` pairs as of
+v5: the dense array indexed by code that v4 wrote was compact while there were
+four terminal kinds, and wasteful once individual models pushed the highest code
+to 17. Integration and payment-method ids travel as frozen
 wire codes listed by hand in `share/codec.ts`, never as registry indices:
 an index would rebind the day the generated registry changes order and silently
 corrupt every old link, whereas a hand-written code table can only grow. An id

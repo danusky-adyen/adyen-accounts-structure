@@ -8,8 +8,12 @@
  */
 
 import { INTEGRATIONS } from '../domain/integrations';
-import { NODE_KINDS, NODE_SPECS, TERMINAL_KINDS, specOf } from '../domain/kinds';
+import { NODE_KINDS, NODE_SPECS, TERMINAL_CATEGORIES, TERMINAL_KINDS, specOf } from '../domain/kinds';
 import { PAYMENT_METHODS } from '../domain/paymentMethods';
+
+const TERMINAL_MODELS = TERMINAL_KINDS.filter(
+  (kind) => !(TERMINAL_CATEGORIES as readonly string[]).includes(kind),
+);
 
 /** Marks example notes as quoted material, so they cannot read as instructions. */
 function quote(text: string): string {
@@ -213,8 +217,10 @@ when it genuinely differs there.
 
 ## Terminals
 
-Allowed values: ${TERMINAL_KINDS.join(', ')}. Repeat a value to show several of
-the same kind.
+Families: ${TERMINAL_CATEGORIES.join(', ')}. Models, which the notes have to name
+before you may use one: ${TERMINAL_MODELS.join(', ')}. Use the family when the
+notes only say what kind of hardware a store runs. Repeat a value to show
+several of the same terminal.
 
 ## Integrations
 

@@ -14,10 +14,10 @@
  * defaults are cut, a v2 payload is a valid v3 payload with the new fields
  * missing, so one decoder reads both.
  *
- * Layout of a v4 payload:
+ * Layout of a v5 payload:
  *
- *   [4, node, links?]
- *   node  = [kindCode, name?, children?, note?, terminalCounts?,
+ *   [5, node, links?]
+ *   node  = [kindCode, name?, children?, note?, terminals?,
  *            settings?, integrations?, methods?, logoDomain?]  trailing
  *                                                             defaults cut
  *   links = [sourceIndex, targetIndex, ...]
@@ -30,6 +30,10 @@
  * still travels as a string, so a link stays readable across registry edits.
  * The 13-node sample above goes from 880 to 683 characters.
  *
+ * v5 writes terminals as `[code, count]` pairs. The dense array v2–v4 used was
+ * indexed by code, which was fine for four terminal kinds and wasteful once
+ * individual models pushed the highest code to 17.
+ *
  * Settings keys and values stay as free text: they are whatever the user typed.
  */
 
@@ -39,10 +43,10 @@ import { forEachNode } from '../domain/document';
 import { normalizeDocument, type RawNode } from '../domain/normalize';
 import { TERMINAL_KINDS, specOf, type NodeKind, type TerminalKind } from '../domain/kinds';
 
-export const SHARE_FORMAT_VERSION = 4;
+export const SHARE_FORMAT_VERSION = 5;
 
 /** Payload versions this build can read. */
-const READABLE_VERSIONS = new Set([2, 3, SHARE_FORMAT_VERSION]);
+const READABLE_VERSIONS = new Set([2, 3, 4, SHARE_FORMAT_VERSION]);
 
 /**
  * Frozen wire codes. Never renumber these: existing links depend on them. New
@@ -166,14 +170,18 @@ function fromWire(value: unknown, byCode: ReadonlyMap<number, string>): string |
 
 type EncodedNode = [number, ...unknown[]];
 
-function encodeTerminalCounts(terminals: readonly TerminalKind[]): number[] {
-  const counts = TERMINAL_KINDS.map(() => 0);
+/**
+ * `[[code, count], ...]`, one pair per terminal kind present. v4 wrote a dense
+ * array indexed by code, which was compact while there were four kinds and
+ * wasteful now that a model sits at code 17: a single S1U2 cost a run of zeros.
+ */
+function encodeTerminals(terminals: readonly TerminalKind[]): number[][] {
+  const counts = new Map<number, number>();
   for (const terminal of terminals) {
     const code = TERMINAL_CODES.get(terminal);
-    if (code !== undefined) counts[code] = (counts[code] ?? 0) + 1;
+    if (code !== undefined) counts.set(code, (counts.get(code) ?? 0) + 1);
   }
-  while (counts.length > 0 && counts[counts.length - 1] === 0) counts.pop();
-  return counts;
+  return [...counts].sort(([a], [b]) => a - b).map(([code, count]) => [code, count]);
 }
 
 function encodeNode(node: AccountNode, indices: Map<NodeId, number>, counter: { next: number }): EncodedNode {
@@ -181,7 +189,7 @@ function encodeNode(node: AccountNode, indices: Map<NodeId, number>, counter: { 
   counter.next += 1;
 
   const children = node.children.map((child) => encodeNode(child, indices, counter));
-  const terminals = encodeTerminalCounts(node.terminals);
+  const terminals = encodeTerminals(node.terminals);
 
   const settings = node.settings.map((setting) => [setting.key, setting.value]);
   // A version-less integration is written as a bare code, which is the common case.
@@ -244,6 +252,27 @@ function decodeSettings(value: unknown): { key: string; value: string }[] {
   return settings;
 }
 
+/**
+ * v5 pairs, `[[code, count], ...]`, or the dense v2–v4 array indexed by code.
+ * The two are told apart by their elements, so old links keep their terminals.
+ */
+function decodeTerminals(value: unknown): TerminalKind[] {
+  if (!Array.isArray(value)) return [];
+  const terminals: TerminalKind[] = [];
+  const push = (code: unknown, count: unknown): void => {
+    if (typeof code !== 'number' || typeof count !== 'number') return;
+    const terminal = TERMINAL_KINDS[code];
+    if (!terminal) return;
+    for (let i = 0; i < Math.min(count, 32); i += 1) terminals.push(terminal);
+  };
+
+  (value as unknown[]).forEach((entry, index) => {
+    if (Array.isArray(entry)) push(entry[0], entry[1]);
+    else push(index, entry);
+  });
+  return terminals;
+}
+
 /** A bare id or code, or `[id, version]`. */
 function decodeIntegrations(value: unknown): { id: string; version: string }[] {
   if (!Array.isArray(value)) return [];
@@ -289,14 +318,7 @@ function decodeNode(value: unknown, counter: { next: number }, flat: DecodedNode
   const rawNote = fields[3];
   const rawTerminals = fields[4];
 
-  const terminals: TerminalKind[] = [];
-  if (Array.isArray(rawTerminals)) {
-    (rawTerminals as unknown[]).forEach((count, code) => {
-      const terminal = TERMINAL_KINDS[code];
-      if (!terminal || typeof count !== 'number') return;
-      for (let i = 0; i < Math.min(count, 32); i += 1) terminals.push(terminal);
-    });
-  }
+  const terminals = decodeTerminals(rawTerminals);
 
   const node: DecodedNode = {
     index,
