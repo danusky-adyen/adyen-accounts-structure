@@ -81,8 +81,13 @@ and any company logo to data URLs first, and the payment artwork is nested as
 real SVG rather than an `<image>`, so it stays vector all the way into the PDF.
 
 **`state/`** is a zustand store: undo/redo over whole documents (120 entries,
-with 700 ms coalescing so typing a name is one entry), debounced write-through
-to localStorage, theme, toasts, drag state and viewport.
+with 700 ms coalescing so typing a name is one entry), write-through to
+localStorage, theme, toasts, drag state and viewport.
+
+Nothing is ever saved by hand. The document on screen is written to
+localStorage, debounced by 250 ms and flushed when the page is hidden or closed,
+so a reload or a visit a week later opens exactly what you left, and each change
+replaces the stored copy. *Start over* is the only thing that clears it.
 
 ## Share links
 
@@ -94,16 +99,22 @@ LZ-compressed.
 
 Compared to the old `#cfg=` JSON payload:
 
-| Document | v1 | v3 |
+| Document | v1 | current |
 | --- | --- | --- |
 | Default 3 nodes | 176 chars | 23 chars |
 | 16-node sample | 880 chars | 358 chars |
+| 13-node structure with 6 logos and ~40 payment methods | — | 607 chars (683 in v3) |
 
-The new fields are appended, never inserted, so v2 links decode as v3 documents
-with those fields empty. Integration and method ids are written as strings rather
-than registry indices on purpose: indices would silently rebind the day the
-generated registry changes order, and LZ compression makes the repeated strings
-nearly free.
+Fields are appended, never inserted, so a v2 or v3 link decodes as a v4 document
+with the newer fields empty. Integration and payment-method ids travel as frozen
+wire codes listed by hand in `share/codec.ts`, never as registry indices:
+an index would rebind the day the generated registry changes order and silently
+corrupt every old link, whereas a hand-written code table can only grow. An id
+with no code still travels as a string, so the format survives registry edits
+either way.
+
+A share link is a snapshot, not a document you keep editing in place: opening one
+loads it and clears the hash, so a reload shows what you have since done with it.
 
 Old links still open: `share/legacy.ts` decodes both `#cfg=` shapes and the
 `adyen_v70` innerHTML that the previous version stored in localStorage. Kind
@@ -231,9 +242,11 @@ attribute value ending its own quoting (a quoted font name once broke every
 PNG/PDF/clipboard export), and a `mapNode` identity check (a no-op edit used to
 create a new document).
 
-Settings inheritance, link cardinality and v2-to-v3 share decoding are covered
-too, since all three are easy to break from a distance, and the design layer is
-checked against the Bento ramps as described above.
+Settings inheritance, link cardinality and decoding of older share payloads are
+covered too, since all three are easy to break from a distance; the design layer
+is checked against the Bento ramps as described above; and `persistence.test.ts`
+stands in for reloading the page and coming back the next day, including the
+flush that a tab closed mid-edit depends on.
 
 ## Deployment
 

@@ -307,20 +307,55 @@ export const useStore = create<AppState>((set, get) => ({
   },
 }));
 
-/** Debounced write-through to localStorage. */
+/**
+ * Write-through to localStorage, so what is on screen is what comes back on the
+ * next visit, whether that is in a minute or next week.
+ *
+ * Writes are debounced because a rename fires per keystroke, and flushed when
+ * the page is hidden or closed: without that, the last edit before a reload or
+ * a closed tab is the one that gets lost. The document present at startup is
+ * written straight away, so a diagram opened from a share link is what a reload
+ * shows rather than whatever was stored before it.
+ */
 export function startPersistence(): () => void {
   let timer: number | undefined;
-  let lastSaved = useStore.getState().doc;
+  let pending: StructureDocument | null = null;
+  let lastSaved: StructureDocument | null = null;
+
+  const flush = (): void => {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      timer = undefined;
+    }
+    if (pending === null) return;
+    saveDocument(pending);
+    lastSaved = pending;
+    pending = null;
+  };
+
+  pending = useStore.getState().doc;
+  flush();
 
   const unsubscribe = useStore.subscribe((state) => {
     if (state.doc === lastSaved) return;
-    lastSaved = state.doc;
+    pending = state.doc;
     if (timer !== undefined) clearTimeout(timer);
-    timer = window.setTimeout(() => saveDocument(lastSaved), 250);
+    timer = window.setTimeout(flush, 250);
   });
 
+  // `pagehide` covers navigation and tab close, including iOS Safari where
+  // `beforeunload` never fires; `visibilitychange` covers a tab left in the
+  // background and killed later.
+  const onVisibilityChange = (): void => {
+    if (document.visibilityState === 'hidden') flush();
+  };
+  window.addEventListener('pagehide', flush);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
   return () => {
-    if (timer !== undefined) clearTimeout(timer);
+    flush();
+    window.removeEventListener('pagehide', flush);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
     unsubscribe();
   };
 }
