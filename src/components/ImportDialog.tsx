@@ -7,6 +7,8 @@ import styles from './ImportDialog.module.css';
 
 export interface ImportDialogProps {
   readonly onClose: () => void;
+  /** A built diagram replaces everything, so it is worth a fit. */
+  readonly onBuilt: () => void;
 }
 
 /**
@@ -15,7 +17,7 @@ export interface ImportDialogProps {
  * back. Everything is parsed through the same normaliser as a share link, so a
  * model that invents a field or an impossible parent cannot corrupt the diagram.
  */
-export function ImportDialog({ onClose }: ImportDialogProps) {
+export function ImportDialog({ onClose, onBuilt }: ImportDialogProps) {
   const replaceDocument = useStore((state) => state.replaceDocument);
   const notify = useStore((state) => state.notify);
 
@@ -48,6 +50,7 @@ export function ImportDialog({ onClose }: ImportDialogProps) {
       'success',
     );
     onClose();
+    onBuilt();
   };
 
   return (

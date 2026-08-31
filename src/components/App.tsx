@@ -160,7 +160,12 @@ export function App() {
         />
       ) : null}
 
-      {importOpen ? <ImportDialog onClose={() => setImportOpen(false)} /> : null}
+      {importOpen ? (
+        <ImportDialog
+          onClose={() => setImportOpen(false)}
+          onBuilt={() => requestAnimationFrame(view.fit)}
+        />
+      ) : null}
 
       {helpOpen ? <HelpDialog onClose={() => setHelpOpen(false)} /> : null}
 
