@@ -19,6 +19,11 @@ export interface ViewportController {
   readonly panBy: (dx: number, dy: number) => void;
   /** Pans the smallest amount that brings a node fully into view. */
   readonly reveal: (nodeId: string) => void;
+  /**
+   * Whether a node is fully inside the visible part of the canvas. Unknown ids
+   * count as visible: there is nothing to bring into view.
+   */
+  readonly isVisible: (nodeId: string) => boolean;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -142,6 +147,32 @@ export function useViewport(containerRef: RefObject<HTMLElement | null>, layout:
     [containerRef, layout, setViewport],
   );
 
+  const isVisible = useCallback(
+    (nodeId: string): boolean => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      const item = layout.byId.get(nodeId);
+      if (!rect || !item) return true;
+
+      const current = useStore.getState().viewport;
+      const padding = 24;
+      // The inspector floats over the canvas, so a card behind it is as good as
+      // off-screen.
+      const rightEdge =
+        rect.width -
+        (useStore.getState().inspectorOpen && rect.width > 900 ? INSPECTOR_WIDTH : padding);
+
+      const left = item.x * current.scale + current.x;
+      const top = item.y * current.scale + current.y;
+      return (
+        left >= padding &&
+        top >= padding &&
+        left + item.width * current.scale <= rightEdge &&
+        top + item.height * current.scale <= rect.height - padding
+      );
+    },
+    [containerRef, layout],
+  );
+
   // Wheel needs a non-passive listener to be able to prevent the page from
   // scrolling, which React's onWheel cannot provide.
   useEffect(() => {
@@ -168,7 +199,7 @@ export function useViewport(containerRef: RefObject<HTMLElement | null>, layout:
   }, [containerRef, setViewport, zoomAround]);
 
   return useMemo(
-    () => ({ viewport, fit, zoomBy, zoomTo, toCanvas, panBy, reveal }),
-    [viewport, fit, zoomBy, zoomTo, toCanvas, panBy, reveal],
+    () => ({ viewport, fit, zoomBy, zoomTo, toCanvas, panBy, reveal, isVisible }),
+    [viewport, fit, zoomBy, zoomTo, toCanvas, panBy, reveal, isVisible],
   );
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyTheme } from '../design/theme';
 import type { TerminalKind } from '../domain/kinds';
 import { copyPngToClipboard, exportJpeg, exportPdf, exportPng, exportSvg } from '../export';
+import { useKeepInView } from '../hooks/useKeepInView';
 import { useKeyboard } from '../hooks/useKeyboard';
 import { useLayout } from '../hooks/useLayout';
 import { useViewport } from '../hooks/useViewport';
@@ -44,6 +45,8 @@ export function App() {
     view.fit();
     if (startupNotice) notify(startupNotice);
   }, [notify, view]);
+
+  useKeepInView(layout, view);
 
   const closeOverlays = useCallback((): boolean => {
     if (terminalFor !== null) {
