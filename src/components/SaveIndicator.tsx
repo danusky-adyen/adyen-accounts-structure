@@ -3,7 +3,7 @@ import styles from './SaveIndicator.module.css';
 
 const COPY = {
   saved: {
-    label: 'Saved in this browser',
+    label: 'Saved',
     title: 'This diagram is stored in this browser and comes back on your next visit. Click to save it again.',
   },
   saving: {
