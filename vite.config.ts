@@ -2,7 +2,9 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  plugins: [react()],
+  // The compiler memoises components and callbacks, so a pan frame only
+  // re-renders what actually reads the viewport.
+  plugins: [react({ babel: { plugins: ['babel-plugin-react-compiler'] } })],
   build: {
     target: 'es2022',
     // No source maps in the deployed build: the repository is private, and a

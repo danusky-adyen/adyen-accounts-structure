@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { countNodes } from '../domain/document';
-import { useStore } from '../state/store';
+import type { ExportFormat } from '../export';
+import { useStore, type ThemePreference } from '../state/store';
+import { useZoom } from '../state/viewport';
 import type { ViewportController } from '../hooks/useViewport';
 import { SaveIndicator } from './SaveIndicator';
 import styles from './Toolbar.module.css';
@@ -8,33 +10,21 @@ import styles from './Toolbar.module.css';
 export interface ToolbarProps {
   readonly view: ViewportController;
   readonly onShare: () => void;
-  readonly onExportPng: () => void;
-  readonly onExportJpeg: () => void;
-  readonly onExportSvg: () => void;
-  readonly onExportPdf: () => void;
-  readonly onExportJson: () => void;
-  readonly onCopyPng: () => void;
+  readonly onExport: (format: ExportFormat) => void;
   readonly onReset: () => void;
   readonly onToggleHelp: () => void;
   readonly onOpenImport: () => void;
 }
 
-export function Toolbar({
-  view,
-  onShare,
-  onExportPng,
-  onExportJpeg,
-  onExportSvg,
-  onExportPdf,
-  onExportJson,
-  onCopyPng,
-  onReset,
-  onToggleHelp,
-  onOpenImport,
-}: ToolbarProps) {
+const THEME_ORDER: readonly ThemePreference[] = ['system', 'light', 'dark'];
+const THEME_LABELS: Record<ThemePreference, string> = { system: 'System theme', light: 'Light', dark: 'Dark' };
+
+export function Toolbar({ view, onShare, onExport, onReset, onToggleHelp, onOpenImport }: ToolbarProps) {
   const doc = useStore((state) => state.doc);
-  const theme = useStore((state) => state.theme);
-  const setTheme = useStore((state) => state.setTheme);
+  const themePreference = useStore((state) => state.themePreference);
+  const setThemePreference = useStore((state) => state.setThemePreference);
+  const zoom = useZoom();
+  const nextTheme = THEME_ORDER[(THEME_ORDER.indexOf(themePreference) + 1) % THEME_ORDER.length] ?? 'system';
   const undo = useStore((state) => state.undo);
   const redo = useStore((state) => state.redo);
   const canUndo = useStore((state) => state.past.length > 0);
@@ -112,34 +102,18 @@ export function Toolbar({
           <span className="buttonLabel">Share</span>
         </button>
 
-        <ExportMenu
-          onExportPng={onExportPng}
-          onExportJpeg={onExportJpeg}
-          onExportSvg={onExportSvg}
-          onExportPdf={onExportPdf}
-          onExportJson={onExportJson}
-          onCopyPng={onCopyPng}
-        />
+        <ExportMenu onExport={onExport} />
 
         <span className="divider" />
 
         <button
           type="button"
           className="iconButton"
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          aria-label="Toggle colour theme"
+          onClick={() => setThemePreference(nextTheme)}
+          title={`${THEME_LABELS[themePreference]}, click for ${THEME_LABELS[nextTheme].toLowerCase()}`}
+          aria-label={`Colour theme: ${THEME_LABELS[themePreference]}`}
         >
-          {theme === 'dark' ? (
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
-            </svg>
-          )}
+          <ThemeGlyph preference={themePreference} />
         </button>
 
         <button type="button" className="iconButton" onClick={onToggleHelp} title="Help and shortcuts (?)">
@@ -169,7 +143,7 @@ export function Toolbar({
           onClick={() => view.zoomTo(1)}
           title="Reset zoom to 100%"
         >
-          {Math.round(view.viewport.scale * 100)}%
+          {Math.round(zoom * 100)}%
         </button>
         <button
           type="button"
@@ -194,16 +168,65 @@ export function Toolbar({
   );
 }
 
-interface ExportMenuProps {
-  readonly onExportPng: () => void;
-  readonly onExportJpeg: () => void;
-  readonly onExportSvg: () => void;
-  readonly onExportPdf: () => void;
-  readonly onExportJson: () => void;
-  readonly onCopyPng: () => void;
+interface ExportItem {
+  readonly format: ExportFormat;
+  readonly label: string;
+  readonly hint?: string;
+  /** Path data for a 24×24 stroked glyph. */
+  readonly icon: readonly string[];
+  /** Drawn under a separator: it copies rather than downloads. */
+  readonly separate?: boolean;
 }
 
-function ExportMenu({ onExportPng, onExportJpeg, onExportSvg, onExportPdf, onExportJson, onCopyPng }: ExportMenuProps) {
+const EXPORT_ITEMS: readonly ExportItem[] = [
+  { format: 'png', label: 'PNG image', hint: '2.5×', icon: ['M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'M3 16l5-4 4 3 3-2 6 4'] },
+  {
+    format: 'jpeg',
+    label: 'JPEG image',
+    hint: 'smaller',
+    icon: ['M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'M6.9 9.5a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0', 'M3 17l5.5-5 4 3.5L16 12l5 5'],
+  },
+  { format: 'svg', label: 'SVG vector', icon: ['M4 16.5 9 7l4 7 2.5-3.5L20 16.5z', 'M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'] },
+  { format: 'pdf', label: 'PDF document', icon: ['M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', 'M14 3v5h5'] },
+  {
+    format: 'json',
+    label: 'JSON data',
+    hint: 're-importable',
+    icon: ['M9 4H7a2 2 0 0 0-2 2v3.5L3 12l2 2.5V18a2 2 0 0 0 2 2h2', 'M15 4h2a2 2 0 0 1 2 2v3.5l2 2.5-2 2.5V18a2 2 0 0 1-2 2h-2'],
+  },
+  {
+    format: 'copy',
+    label: 'Copy image',
+    icon: ['M11 9h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z', 'M15 5H6a2 2 0 0 0-2 2v9'],
+    separate: true,
+  },
+];
+
+function ThemeGlyph({ preference }: { readonly preference: ThemePreference }) {
+  if (preference === 'light') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" />
+      </svg>
+    );
+  }
+  if (preference === 'dark') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden>
+        <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8M12 16v4" />
+    </svg>
+  );
+}
+
+function ExportMenu({ onExport }: { readonly onExport: (format: ExportFormat) => void }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -222,11 +245,6 @@ function ExportMenu({ onExportPng, onExportJpeg, onExportSvg, onExportPdf, onExp
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [open]);
-
-  const run = (action: () => void) => () => {
-    setOpen(false);
-    action();
-  };
 
   return (
     <div className={styles.menuWrapper} ref={wrapperRef}>
@@ -249,53 +267,28 @@ function ExportMenu({ onExportPng, onExportJpeg, onExportSvg, onExportPdf, onExp
 
       {open ? (
         <div className={`panel ${styles.menu}`} role="menu">
-          <button type="button" className={styles.menuItem} role="menuitem" onClick={run(onExportPng)}>
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <path d="M3 16l5-4 4 3 3-2 6 4" />
-            </svg>
-            PNG image
-            <span className={styles.menuHint}>2.5×</span>
-          </button>
-          <button type="button" className={styles.menuItem} role="menuitem" onClick={run(onExportJpeg)}>
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <circle cx="8.5" cy="9.5" r="1.6" />
-              <path d="M3 17l5.5-5 4 3.5L16 12l5 5" />
-            </svg>
-            JPEG image
-            <span className={styles.menuHint}>smaller</span>
-          </button>
-          <button type="button" className={styles.menuItem} role="menuitem" onClick={run(onExportSvg)}>
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <path d="M4 16.5 9 7l4 7 2.5-3.5L20 16.5z" />
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-            </svg>
-            SVG vector
-          </button>
-          <button type="button" className={styles.menuItem} role="menuitem" onClick={run(onExportPdf)}>
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
-              <path d="M14 3v5h5" />
-            </svg>
-            PDF document
-          </button>
-          <button type="button" className={styles.menuItem} role="menuitem" onClick={run(onExportJson)}>
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <path d="M9 4H7a2 2 0 0 0-2 2v3.5L3 12l2 2.5V18a2 2 0 0 0 2 2h2" />
-              <path d="M15 4h2a2 2 0 0 1 2 2v3.5l2 2.5-2 2.5V18a2 2 0 0 1-2 2h-2" />
-            </svg>
-            JSON data
-            <span className={styles.menuHint}>re-importable</span>
-          </button>
-          <div className={styles.menuSeparator} />
-          <button type="button" className={styles.menuItem} role="menuitem" onClick={run(onCopyPng)}>
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <rect x="9" y="9" width="11" height="11" rx="2" />
-              <path d="M15 5H6a2 2 0 0 0-2 2v9" />
-            </svg>
-            Copy image
-          </button>
+          {EXPORT_ITEMS.map((item) => (
+            <Fragment key={item.format}>
+              {item.separate ? <div className={styles.menuSeparator} /> : null}
+              <button
+                type="button"
+                className={styles.menuItem}
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onExport(item.format);
+                }}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden>
+                  {item.icon.map((d) => (
+                    <path key={d} d={d} />
+                  ))}
+                </svg>
+                {item.label}
+                {item.hint ? <span className={styles.menuHint}>{item.hint}</span> : null}
+              </button>
+            </Fragment>
+          ))}
         </div>
       ) : null}
     </div>

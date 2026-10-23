@@ -99,7 +99,8 @@ function documentKey(storage: MemoryStorage): string {
 /** A fresh module graph, which is what a page load gives you. */
 async function load() {
   vi.resetModules();
-  return await import('../src/state/store');
+  const [store, autosave] = await Promise.all([import('../src/state/store'), import('../src/state/autosave')]);
+  return { ...store, ...autosave };
 }
 
 beforeEach(() => {

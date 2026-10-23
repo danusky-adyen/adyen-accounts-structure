@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { monogram } from '../design/brand';
 import { ancestorsOf, canAddChildOfKind, findNode, indexDocument, type AccountNode } from '../domain/document';
 import { captionFor, specOf, variantGroupOf } from '../domain/kinds';
@@ -34,11 +34,9 @@ export function Inspector() {
   const pendingKind = pending !== null && pending.nodeId === selectedId ? pending.kind : null;
   // Kept locally while typing so a half-written domain is not thrown away by
   // the normaliser on every keystroke.
-  const [domainDraft, setDomainDraft] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDomainDraft(null);
-  }, [selectedId]);
+  // Tagged with its node so selecting another card drops it without an effect.
+  const [draftEntry, setDraftEntry] = useState<{ readonly nodeId: string; readonly value: string } | null>(null);
+  const domainDraft = draftEntry !== null && draftEntry.nodeId === selectedId ? draftEntry.value : null;
 
   const context = useMemo(() => {
     if (!node || selectedId === null) return null;
@@ -185,7 +183,7 @@ export function Inspector() {
           domain={node.logoDomain}
           draft={domainDraft}
           tint={spec.tint}
-          onDraft={setDomainDraft}
+          onDraft={(value) => setDraftEntry(value === null ? null : { nodeId: selectedId, value })}
           onCommit={(value) => setLogoDomain(selectedId, value)}
         />
       ) : null}

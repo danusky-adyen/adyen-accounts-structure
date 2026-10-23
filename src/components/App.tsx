@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyTheme } from '../design/theme';
 import type { TerminalKind } from '../domain/kinds';
-import { copyPngToClipboard, exportJpeg, exportJson, exportPdf, exportPng, exportSvg } from '../export';
+import { exportDiagram, type ExportFormat } from '../export';
 import { useKeepInView } from '../hooks/useKeepInView';
 import { useKeyboard } from '../hooks/useKeyboard';
 import { useLayout } from '../hooks/useLayout';
@@ -18,6 +18,13 @@ import { Toast } from './Toast';
 import { Toolbar } from './Toolbar';
 import styles from './App.module.css';
 
+/** At most one dialog is open at a time, so which one is a single value. */
+type Overlay =
+  | { readonly type: 'help' }
+  | { readonly type: 'reset' }
+  | { readonly type: 'import' }
+  | { readonly type: 'terminal'; readonly nodeId: string };
+
 export function App() {
   const doc = useStore((state) => state.doc);
   const theme = useStore((state) => state.theme);
@@ -29,10 +36,12 @@ export function App() {
   const layout = useLayout(doc);
   const view = useViewport(containerRef, layout);
 
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [resetOpen, setResetOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [terminalFor, setTerminalFor] = useState<string | null>(null);
+  const [overlay, setOverlay] = useState<Overlay | null>(null);
+  const close = useCallback(() => setOverlay(null), []);
+  const toggleHelp = useCallback(
+    () => setOverlay((current) => (current?.type === 'help' ? null : { type: 'help' })),
+    [],
+  );
 
   useEffect(() => {
     applyTheme(theme);
@@ -47,33 +56,7 @@ export function App() {
   }, [notify, view]);
 
   useKeepInView(layout, view);
-
-  const closeOverlays = useCallback((): boolean => {
-    if (terminalFor !== null) {
-      setTerminalFor(null);
-      return true;
-    }
-    if (resetOpen) {
-      setResetOpen(false);
-      return true;
-    }
-    if (helpOpen) {
-      setHelpOpen(false);
-      return true;
-    }
-    if (importOpen) {
-      setImportOpen(false);
-      return true;
-    }
-    return false;
-  }, [helpOpen, importOpen, resetOpen, terminalFor]);
-
-  useKeyboard({
-    layout,
-    view,
-    onToggleHelp: () => setHelpOpen((open) => !open),
-    onCloseOverlays: closeOverlays,
-  });
+  useKeyboard({ layout, view, onToggleHelp: toggleHelp });
 
   const handleShare = useCallback(async () => {
     const url = buildShareUrl(doc, new URL(window.location.href));
@@ -86,37 +69,10 @@ export function App() {
     }
   }, [doc, notify]);
 
-  const runExport = useCallback(
-    async (action: 'png' | 'jpeg' | 'svg' | 'pdf' | 'json' | 'copy') => {
-      const context = { layout, theme, title: doc.root.name };
+  const handleExport = useCallback(
+    async (format: ExportFormat) => {
       try {
-        if (action === 'json') {
-          exportJson(doc, doc.root.name);
-          notify('JSON downloaded', 'success');
-          return;
-        }
-        if (action === 'svg') {
-          await exportSvg(context);
-          notify('SVG downloaded', 'success');
-          return;
-        }
-        if (action === 'png') {
-          await exportPng(context);
-          notify('PNG downloaded', 'success');
-          return;
-        }
-        if (action === 'jpeg') {
-          await exportJpeg(context);
-          notify('JPEG downloaded', 'success');
-          return;
-        }
-        if (action === 'pdf') {
-          await exportPdf(context);
-          notify('PDF downloaded', 'success');
-          return;
-        }
-        await copyPngToClipboard(context);
-        notify('Image copied to your clipboard', 'success');
+        notify(await exportDiagram(format, doc, { layout, theme, title: doc.root.name }), 'success');
       } catch {
         notify('That export did not work in this browser', 'error');
       }
@@ -130,46 +86,38 @@ export function App() {
         containerRef={containerRef}
         layout={layout}
         view={view}
-        onRequestTerminalPicker={setTerminalFor}
+        onRequestTerminalPicker={(nodeId) => setOverlay({ type: 'terminal', nodeId })}
       />
 
       <Toolbar
         view={view}
         onShare={() => void handleShare()}
-        onExportPng={() => void runExport('png')}
-        onExportJpeg={() => void runExport('jpeg')}
-        onExportSvg={() => void runExport('svg')}
-        onExportPdf={() => void runExport('pdf')}
-        onExportJson={() => void runExport('json')}
-        onCopyPng={() => void runExport('copy')}
-        onReset={() => setResetOpen(true)}
-        onToggleHelp={() => setHelpOpen((open) => !open)}
-        onOpenImport={() => setImportOpen(true)}
+        onExport={(format) => void handleExport(format)}
+        onReset={() => setOverlay({ type: 'reset' })}
+        onToggleHelp={toggleHelp}
+        onOpenImport={() => setOverlay({ type: 'import' })}
       />
 
       <Inspector />
       <Toast />
 
-      {terminalFor !== null ? (
+      {overlay?.type === 'terminal' ? (
         <TerminalPicker
-          onClose={() => setTerminalFor(null)}
+          onClose={close}
           onPick={(terminal: TerminalKind) => {
-            addTerminal(terminalFor, terminal);
-            setTerminalFor(null);
+            addTerminal(overlay.nodeId, terminal);
+            close();
           }}
         />
       ) : null}
 
-      {importOpen ? (
-        <ImportDialog
-          onClose={() => setImportOpen(false)}
-          onBuilt={() => requestAnimationFrame(view.fit)}
-        />
+      {overlay?.type === 'import' ? (
+        <ImportDialog onClose={close} onBuilt={() => requestAnimationFrame(view.fit)} />
       ) : null}
 
-      {helpOpen ? <HelpDialog onClose={() => setHelpOpen(false)} /> : null}
+      {overlay?.type === 'help' ? <HelpDialog onClose={close} /> : null}
 
-      {resetOpen ? (
+      {overlay?.type === 'reset' ? (
         <ConfirmDialog
           title="Start over?"
           description="This clears the diagram in this browser and replaces it with a fresh company account. You can still undo afterwards."
@@ -177,10 +125,10 @@ export function App() {
           tone="danger"
           onConfirm={() => {
             reset();
-            setResetOpen(false);
+            close();
             requestAnimationFrame(view.fit);
           }}
-          onCancel={() => setResetOpen(false)}
+          onCancel={close}
         />
       ) : null}
     </div>

@@ -19,7 +19,7 @@ npm run dev        # http://localhost:5173
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | `tsc --build` across app and node configs |
 | `npm run lint` | ESLint, type-aware |
-| `npm test` | Vitest (153 tests) |
+| `npm test` | Vitest (192 tests) |
 | `node scripts/fetch-payment-logos.mjs` | Refresh the vendored payment-method artwork |
 
 ## Architecture
@@ -79,8 +79,9 @@ JPEG and clipboard, and writes its own single-image PDF (`export/pdf.ts`, ~150
 lines). Since the diagram is already rasterised in-app, a PDF library would only
 be writing a container: dropping jsPDF removed 743 kB of lazily-loaded
 dependencies (html2canvas and DOMPurify came along with it) and the app is now
-one 273 kB file, 88 kB gzipped, plus the payment-logo artwork in a lazy 108 kB
-chunk that is only fetched once a card or a picker needs it.
+one 396 kB file, 128 kB gzipped (React 19 and the compiler's memo caches are
+most of that), plus the payment-logo artwork in a lazy 108 kB chunk that is only
+fetched once a card or a picker needs it.
 
 Every mark on a card has to be inlined before serialising: an SVG loaded *as an
 image* cannot fetch anything, so `withBrandMarks()` resolves the payment logos
@@ -91,9 +92,21 @@ real SVG rather than an `<image>`, so it stays vector all the way into the PDF.
 *Build* accepts, so a file can be edited by hand or handed to a model and pasted
 straight back in; `tests/share.test.ts` holds the two ends together.
 
-**`state/`** is a zustand store: undo/redo over whole documents (120 entries,
-with 700 ms coalescing so typing a name is one entry), write-through to
-localStorage, theme, toasts, drag state and viewport.
+**`state/`** is one zustand store built from two slices. `documentSlice.ts` is
+the diagram and its undo/redo over whole documents (120 entries, with 700 ms
+coalescing so typing a name is one entry); every edit is a pure operation from
+`domain/operations.ts` run through one `edit()` helper. `uiSlice.ts` is the
+session around it: selection, editing, drag, theme, toasts and save status.
+`autosave.ts` observes the store and installs the real `saveNow` when it starts.
+
+Pan and zoom live in a separate store, `viewport.ts`, because they change on
+every frame. Nothing that renders the diagram subscribes to it: the canvas writes
+the transform straight onto the DOM, and only the zoom readout re-renders. The
+viewport controller is one object for the lifetime of the canvas, so holding it
+never costs a re-render either. The React Compiler memoises the rest.
+
+The theme defaults to the operating system's and follows it as it changes, until
+a light or dark theme is picked from the toolbar.
 
 Nothing is ever saved by hand. The document on screen is written to
 localStorage, debounced by 250 ms and flushed when the page is hidden or closed,

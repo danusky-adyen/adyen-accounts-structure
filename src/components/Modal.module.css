@@ -4,26 +4,27 @@
  * scrim is the flat `support-overlay` token, not a blur.
  */
 
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--b-z-instant-interaction);
-  display: grid;
-  place-items: center;
+.dialog::backdrop {
   background: var(--c-overlay);
   animation: fadeIn var(--b-duration-moderate) var(--b-ease-enter);
 }
 
 .dialog {
   width: min(420px, calc(100vw - var(--b-spacer-100)));
+  max-width: none;
   max-height: calc(100vh - var(--b-spacer-140));
+  padding: 0;
   overflow: auto;
-  padding: var(--b-spacer-090);
+  color: var(--c-text);
   border-radius: var(--b-radius-l);
   background: var(--c-surface-raised);
   border: var(--b-border-width-s) solid var(--c-border);
   box-shadow: var(--b-shadow-high);
   animation: dialogIn var(--b-duration-moderate) var(--b-ease-enter);
+}
+
+.body {
+  padding: var(--b-spacer-090);
 }
 
 .dialogWide {

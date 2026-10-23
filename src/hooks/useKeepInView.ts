@@ -19,10 +19,6 @@ import type { ViewportController } from './useViewport';
  */
 export function useKeepInView(layout: Layout, view: ViewportController): void {
   const knownRef = useRef<ReadonlySet<string> | null>(null);
-  // The controller is rebuilt on every pan; holding it in a ref keeps this
-  // effect firing on layout changes alone.
-  const viewRef = useRef(view);
-  viewRef.current = view;
 
   useEffect(() => {
     const known = knownRef.current;
@@ -32,10 +28,9 @@ export function useKeepInView(layout: Layout, view: ViewportController): void {
     // The first layout belongs to the initial fit.
     if (known === null) return;
 
-    const controller = viewRef.current;
     // Layout order, so a run of additions pans to the first new card rather
     // than whichever one the diff happened to yield first.
-    const hidden = layout.nodes.find((node) => !known.has(node.id) && !controller.isVisible(node.id));
-    if (hidden) controller.reveal(hidden.id);
-  }, [layout]);
+    const hidden = layout.nodes.find((node) => !known.has(node.id) && !view.isVisible(node.id));
+    if (hidden) view.reveal(hidden.id);
+  }, [layout, view]);
 }

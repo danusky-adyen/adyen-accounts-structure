@@ -219,3 +219,19 @@ describe('toasts', () => {
     expect(useStore.getState().toast?.message).toBe('Second');
   });
 });
+
+describe('theme', () => {
+  it('follows the system until a theme is picked, and again once system is picked', () => {
+    useStore.getState().setThemePreference('system');
+    useStore.getState().setSystemTheme('dark');
+    expect(useStore.getState().theme).toBe('dark');
+
+    useStore.getState().setThemePreference('light');
+    useStore.getState().setSystemTheme('dark');
+    expect(useStore.getState().theme).toBe('light');
+
+    useStore.getState().setThemePreference('system');
+    useStore.getState().setSystemTheme('dark');
+    expect(useStore.getState().theme).toBe('dark');
+  });
+});

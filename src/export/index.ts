@@ -151,3 +151,34 @@ export async function exportPdf(context: ExportContext): Promise<void> {
   const pdf = buildImagePdf(image, { width, height, title: context.title });
   download(pdf, fileName(context.title, 'pdf'));
 }
+
+export type ExportFormat = 'png' | 'jpeg' | 'svg' | 'pdf' | 'json' | 'copy';
+
+const EXPORTS: Record<
+  ExportFormat,
+  { readonly run: (doc: StructureDocument, context: ExportContext) => Promise<void>; readonly done: string }
+> = {
+  png: { run: (_doc, context) => exportPng(context), done: 'PNG downloaded' },
+  jpeg: { run: (_doc, context) => exportJpeg(context), done: 'JPEG downloaded' },
+  svg: { run: (_doc, context) => exportSvg(context), done: 'SVG downloaded' },
+  pdf: { run: (_doc, context) => exportPdf(context), done: 'PDF downloaded' },
+  json: {
+    run: (doc, context) => {
+      exportJson(doc, context.title);
+      return Promise.resolve();
+    },
+    done: 'JSON downloaded',
+  },
+  copy: { run: (_doc, context) => copyPngToClipboard(context), done: 'Image copied to your clipboard' },
+};
+
+/** Runs one export and returns what to tell the user once it is done. */
+export async function exportDiagram(
+  format: ExportFormat,
+  doc: StructureDocument,
+  context: ExportContext,
+): Promise<string> {
+  const entry = EXPORTS[format];
+  await entry.run(doc, context);
+  return entry.done;
+}

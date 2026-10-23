@@ -43,17 +43,19 @@ export interface KeyboardOptions {
   readonly layout: Layout;
   readonly view: ViewportController;
   readonly onToggleHelp: () => void;
-  readonly onCloseOverlays: () => boolean;
 }
 
-export function useKeyboard({ layout, view, onToggleHelp, onCloseOverlays }: KeyboardOptions): void {
+export function useKeyboard({ layout, view, onToggleHelp }: KeyboardOptions): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
+      // An open dialog owns the keyboard, Escape included: typing in the help
+      // or a picker must not rename or move the card behind it.
+      if (event.target instanceof Element && event.target.closest('dialog') !== null) return;
+
       const store = useStore.getState();
       const modifier = event.metaKey || event.ctrlKey;
 
       if (event.key === 'Escape') {
-        if (onCloseOverlays()) return;
         if (store.editingId !== null) {
           store.setEditing(null);
           return;
@@ -173,7 +175,7 @@ export function useKeyboard({ layout, view, onToggleHelp, onCloseOverlays }: Key
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [layout, onCloseOverlays, onToggleHelp, view]);
+  }, [layout, onToggleHelp, view]);
 }
 
 function selectAndReveal(id: string, view: ViewportController): void {

@@ -1,8 +1,17 @@
-import { useCallback, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+} from 'react';
 import { specOf, type NodeKind } from '../domain/kinds';
 import type { Layout } from '../layout';
 import { dropCandidates, resolveDropTarget } from '../interaction/dropTarget';
-import { useStore, type Viewport } from '../state/store';
+import { useStore } from '../state/store';
+import { getViewport, setViewport, viewportStore, type Viewport } from '../state/viewport';
 import { usePaymentLogos } from '../hooks/useBrandMarks';
 import type { ViewportController } from '../hooks/useViewport';
 import { EdgeLayer } from './EdgeLayer';
@@ -46,8 +55,20 @@ interface NodeInteraction {
 
 type Interaction = PanInteraction | NodeInteraction;
 
+/**
+ * Writes the viewport onto the DOM. Pan and zoom never go through a React
+ * render, so a frame costs one style write however many cards there are.
+ */
+function paintViewport(world: HTMLElement, grid: HTMLElement, viewport: Viewport): void {
+  world.style.transform = `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.scale})`;
+  const size = GRID_SIZE * viewport.scale;
+  grid.style.backgroundSize = `${size}px ${size}px`;
+  grid.style.backgroundPosition = `${viewport.x}px ${viewport.y}px`;
+  grid.style.opacity = viewport.scale < 0.5 ? '0.4' : '1';
+}
+
 export interface CanvasProps {
-  readonly containerRef: RefObject<HTMLDivElement>;
+  readonly containerRef: RefObject<HTMLDivElement | null>;
   readonly layout: Layout;
   readonly view: ViewportController;
   readonly onRequestTerminalPicker: (nodeId: string) => void;
@@ -76,7 +97,16 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
 
   const interaction = useRef<Interaction | null>(null);
   const [panning, setPanning] = useState(false);
-  const { viewport } = view;
+  const worldRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const world = worldRef.current;
+    const grid = gridRef.current;
+    if (!world || !grid) return;
+    paintViewport(world, grid, getViewport());
+    return viewportStore.subscribe((state) => paintViewport(world, grid, state.viewport));
+  }, []);
 
   const candidates = useMemo(
     () => (drag ? dropCandidates(doc, layout, drag.nodeId) : null),
@@ -108,10 +138,14 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
         startClientY: event.clientY,
         moved: false,
       };
-      if (selectedId !== id) select(id);
+      // Read at press time so the handler, and every card holding it, stays
+      // the same object when the selection moves.
+      if (useStore.getState().selectedId !== id) select(id);
     },
-    [select, selectedId],
+    [select],
   );
+
+  const handleCancelEdit = useCallback(() => setEditing(null), [setEditing]);
 
   const handleBackgroundPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -121,7 +155,7 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
         pointerId: event.pointerId,
         startClientX: event.clientX,
         startClientY: event.clientY,
-        startViewport: useStore.getState().viewport,
+        startViewport: getViewport(),
         moved: false,
       };
       setPanning(true);
@@ -141,7 +175,7 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
         if (!current.moved && Math.hypot(dx, dy) < 2) return;
         if (!current.moved) capturePointer(containerRef.current, event.pointerId);
         current.moved = true;
-        useStore.getState().setViewport({
+        setViewport({
           scale: current.startViewport.scale,
           x: current.startViewport.x + dx,
           y: current.startViewport.y + dy,
@@ -233,19 +267,9 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
       onPointerCancel={finishInteraction}
       onDoubleClick={view.fit}
     >
-      <div
-        className={styles.grid}
-        style={{
-          backgroundSize: `${GRID_SIZE * viewport.scale}px ${GRID_SIZE * viewport.scale}px`,
-          backgroundPosition: `${viewport.x}px ${viewport.y}px`,
-          opacity: viewport.scale < 0.5 ? 0.4 : 1,
-        }}
-      />
+      <div ref={gridRef} className={styles.grid} />
 
-      <div
-        className={styles.world}
-        style={{ transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.scale})` }}
-      >
+      <div ref={worldRef} className={styles.world}>
         <EdgeLayer
           layout={layout}
           activeNodeId={activeNodeId}
@@ -282,7 +306,7 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
                 onPointerDown={handleCardPointerDown}
                 onStartEdit={setEditing}
                 onCommitName={handleCommitName}
-                onCancelEdit={() => setEditing(null)}
+                onCancelEdit={handleCancelEdit}
                 onAddChild={handleAddChild}
                 onCycleKind={cycleKind}
                 onAddLegalEntity={handleAddLegalEntity}

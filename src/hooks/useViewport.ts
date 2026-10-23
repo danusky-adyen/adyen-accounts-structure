@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, type RefObject } from 'react';
 import type { Layout } from '../layout';
 import type { Point } from '../layout/geometry';
-import { useStore, type Viewport } from '../state/store';
+import { useStore } from '../state/store';
+import { getViewport, setViewport } from '../state/viewport';
 
 export const MIN_SCALE = 0.2;
 export const MAX_SCALE = 2.5;
@@ -10,8 +11,12 @@ const FIT_MAX_SCALE = 1.15;
 const FIT_INSETS = { top: 92, right: 56, bottom: 84, left: 56 };
 const INSPECTOR_WIDTH = 344;
 
+/**
+ * One object for the lifetime of the canvas. It reads the viewport and the
+ * layout when called rather than closing over them, so nothing that holds it
+ * re-renders or re-subscribes when you pan.
+ */
 export interface ViewportController {
-  readonly viewport: Viewport;
   readonly fit: () => void;
   readonly zoomBy: (factor: number) => void;
   readonly zoomTo: (scale: number) => void;
@@ -30,32 +35,28 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+/** The inspector floats over the canvas, so a card behind it is as good as off-screen. */
+function rightInset(width: number, fallback: number): number {
+  return useStore.getState().inspectorOpen && width > 900 ? INSPECTOR_WIDTH : fallback;
+}
+
 /**
  * Owns pan and zoom for the canvas: wheel and trackpad gestures, the toolbar
  * buttons and fit-to-content all go through one place, and screen coordinates
  * are converted here so interaction code never repeats the maths.
  */
 export function useViewport(containerRef: RefObject<HTMLElement | null>, layout: Layout): ViewportController {
-  const viewport = useStore((state) => state.viewport);
-  const setViewport = useStore((state) => state.setViewport);
+  const layoutRef = useRef(layout);
+  // A layout effect, so a fit requested right after an edit already sees it.
+  useLayoutEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
 
-  const toCanvas = useCallback(
-    (clientX: number, clientY: number): Point => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      const current = useStore.getState().viewport;
-      const originX = rect?.left ?? 0;
-      const originY = rect?.top ?? 0;
-      return {
-        x: (clientX - originX - current.x) / current.scale,
-        y: (clientY - originY - current.y) / current.scale,
-      };
-    },
-    [containerRef],
-  );
+  const controller = useMemo((): ViewportController & { zoomAround: (scale: number, focus: Point) => void } => {
+    const bounds = (): DOMRect | undefined => containerRef.current?.getBoundingClientRect();
 
-  const zoomAround = useCallback(
-    (nextScale: number, focus: Point) => {
-      const current = useStore.getState().viewport;
+    const zoomAround = (nextScale: number, focus: Point): void => {
+      const current = getViewport();
       const scale = clamp(nextScale, MIN_SCALE, MAX_SCALE);
       if (scale === current.scale) return;
       const ratio = scale / current.scale;
@@ -64,114 +65,101 @@ export function useViewport(containerRef: RefObject<HTMLElement | null>, layout:
         x: focus.x - (focus.x - current.x) * ratio,
         y: focus.y - (focus.y - current.y) * ratio,
       });
-    },
-    [setViewport],
-  );
+    };
 
-  const zoomBy = useCallback(
-    (factor: number) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      const focus = { x: (rect?.width ?? 0) / 2, y: (rect?.height ?? 0) / 2 };
-      zoomAround(useStore.getState().viewport.scale * factor, focus);
-    },
-    [containerRef, zoomAround],
-  );
+    const centre = (): Point => {
+      const rect = bounds();
+      return { x: (rect?.width ?? 0) / 2, y: (rect?.height ?? 0) / 2 };
+    };
 
-  const zoomTo = useCallback(
-    (scale: number) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      const focus = { x: (rect?.width ?? 0) / 2, y: (rect?.height ?? 0) / 2 };
-      zoomAround(scale, focus);
-    },
-    [containerRef, zoomAround],
-  );
+    return {
+      zoomAround,
 
-  const panBy = useCallback(
-    (dx: number, dy: number) => {
-      const current = useStore.getState().viewport;
-      setViewport({ ...current, x: current.x + dx, y: current.y + dy });
-    },
-    [setViewport],
-  );
+      toCanvas: (clientX, clientY) => {
+        const rect = bounds();
+        const current = getViewport();
+        return {
+          x: (clientX - (rect?.left ?? 0) - current.x) / current.scale,
+          y: (clientY - (rect?.top ?? 0) - current.y) / current.scale,
+        };
+      },
 
-  const fit = useCallback(() => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return;
-    const { content } = layout;
-    if (content.width === 0 || content.height === 0) return;
+      zoomBy: (factor) => zoomAround(getViewport().scale * factor, centre()),
+      zoomTo: (scale) => zoomAround(scale, centre()),
 
-    const rightInset =
-      useStore.getState().inspectorOpen && rect.width > 900 ? INSPECTOR_WIDTH : FIT_INSETS.right;
-    const availableWidth = Math.max(120, rect.width - FIT_INSETS.left - rightInset);
-    const availableHeight = Math.max(120, rect.height - FIT_INSETS.top - FIT_INSETS.bottom);
+      panBy: (dx, dy) => {
+        const current = getViewport();
+        setViewport({ ...current, x: current.x + dx, y: current.y + dy });
+      },
 
-    const scale = clamp(
-      Math.min(availableWidth / content.width, availableHeight / content.height),
-      MIN_SCALE,
-      FIT_MAX_SCALE,
-    );
+      fit: () => {
+        const rect = bounds();
+        if (!rect || rect.width === 0) return;
+        const { content } = layoutRef.current;
+        if (content.width === 0 || content.height === 0) return;
 
-    const scaledHeight = content.height * scale;
-    setViewport({
-      scale,
-      x: FIT_INSETS.left + (availableWidth - content.width * scale) / 2 - content.x * scale,
-      y:
-        scaledHeight <= availableHeight
-          ? FIT_INSETS.top + (availableHeight - scaledHeight) / 2 - content.y * scale
-          : FIT_INSETS.top - content.y * scale,
-    });
-  }, [containerRef, layout, setViewport]);
+        const availableWidth = Math.max(120, rect.width - FIT_INSETS.left - rightInset(rect.width, FIT_INSETS.right));
+        const availableHeight = Math.max(120, rect.height - FIT_INSETS.top - FIT_INSETS.bottom);
 
-  const reveal = useCallback(
-    (nodeId: string) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      const item = layout.byId.get(nodeId);
-      if (!rect || !item) return;
+        const scale = clamp(
+          Math.min(availableWidth / content.width, availableHeight / content.height),
+          MIN_SCALE,
+          FIT_MAX_SCALE,
+        );
 
-      const current = useStore.getState().viewport;
-      const left = item.x * current.scale + current.x;
-      const top = item.y * current.scale + current.y;
-      const right = left + item.width * current.scale;
-      const bottom = top + item.height * current.scale;
-      const padding = 48;
+        const scaledHeight = content.height * scale;
+        setViewport({
+          scale,
+          x: FIT_INSETS.left + (availableWidth - content.width * scale) / 2 - content.x * scale,
+          y:
+            scaledHeight <= availableHeight
+              ? FIT_INSETS.top + (availableHeight - scaledHeight) / 2 - content.y * scale
+              : FIT_INSETS.top - content.y * scale,
+        });
+      },
 
-      let dx = 0;
-      let dy = 0;
-      if (left < padding) dx = padding - left;
-      else if (right > rect.width - padding) dx = Math.max(rect.width - padding - right, padding - left);
-      if (top < padding) dy = padding - top;
-      else if (bottom > rect.height - padding) dy = Math.max(rect.height - padding - bottom, padding - top);
+      reveal: (nodeId) => {
+        const rect = bounds();
+        const item = layoutRef.current.byId.get(nodeId);
+        if (!rect || !item) return;
 
-      if (dx !== 0 || dy !== 0) setViewport({ ...current, x: current.x + dx, y: current.y + dy });
-    },
-    [containerRef, layout, setViewport],
-  );
+        const current = getViewport();
+        const left = item.x * current.scale + current.x;
+        const top = item.y * current.scale + current.y;
+        const right = left + item.width * current.scale;
+        const bottom = top + item.height * current.scale;
+        const padding = 48;
 
-  const isVisible = useCallback(
-    (nodeId: string): boolean => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      const item = layout.byId.get(nodeId);
-      if (!rect || !item) return true;
+        let dx = 0;
+        let dy = 0;
+        if (left < padding) dx = padding - left;
+        else if (right > rect.width - padding) dx = Math.max(rect.width - padding - right, padding - left);
+        if (top < padding) dy = padding - top;
+        else if (bottom > rect.height - padding) dy = Math.max(rect.height - padding - bottom, padding - top);
 
-      const current = useStore.getState().viewport;
-      const padding = 24;
-      // The inspector floats over the canvas, so a card behind it is as good as
-      // off-screen.
-      const rightEdge =
-        rect.width -
-        (useStore.getState().inspectorOpen && rect.width > 900 ? INSPECTOR_WIDTH : padding);
+        if (dx !== 0 || dy !== 0) setViewport({ ...current, x: current.x + dx, y: current.y + dy });
+      },
 
-      const left = item.x * current.scale + current.x;
-      const top = item.y * current.scale + current.y;
-      return (
-        left >= padding &&
-        top >= padding &&
-        left + item.width * current.scale <= rightEdge &&
-        top + item.height * current.scale <= rect.height - padding
-      );
-    },
-    [containerRef, layout],
-  );
+      isVisible: (nodeId) => {
+        const rect = bounds();
+        const item = layoutRef.current.byId.get(nodeId);
+        if (!rect || !item) return true;
+
+        const current = getViewport();
+        const padding = 24;
+        const rightEdge = rect.width - rightInset(rect.width, padding);
+
+        const left = item.x * current.scale + current.x;
+        const top = item.y * current.scale + current.y;
+        return (
+          left >= padding &&
+          top >= padding &&
+          left + item.width * current.scale <= rightEdge &&
+          top + item.height * current.scale <= rect.height - padding
+        );
+      },
+    };
+  }, [containerRef]);
 
   // Wheel needs a non-passive listener to be able to prevent the page from
   // scrolling, which React's onWheel cannot provide.
@@ -185,21 +173,15 @@ export function useViewport(containerRef: RefObject<HTMLElement | null>, layout:
       const focus = { x: event.clientX - rect.left, y: event.clientY - rect.top };
 
       if (event.ctrlKey || event.metaKey) {
-        const factor = Math.exp(-event.deltaY * 0.01);
-        zoomAround(useStore.getState().viewport.scale * factor, focus);
+        controller.zoomAround(getViewport().scale * Math.exp(-event.deltaY * 0.01), focus);
         return;
       }
-
-      const current = useStore.getState().viewport;
-      setViewport({ ...current, x: current.x - event.deltaX, y: current.y - event.deltaY });
+      controller.panBy(-event.deltaX, -event.deltaY);
     };
 
     element.addEventListener('wheel', onWheel, { passive: false });
     return () => element.removeEventListener('wheel', onWheel);
-  }, [containerRef, setViewport, zoomAround]);
+  }, [containerRef, controller]);
 
-  return useMemo(
-    () => ({ viewport, fit, zoomBy, zoomTo, toCanvas, panBy, reveal, isVisible }),
-    [viewport, fit, zoomBy, zoomTo, toCanvas, panBy, reveal, isVisible],
-  );
+  return controller;
 }

@@ -7,7 +7,7 @@
 import type { StructureDocument } from '../domain/document';
 import { normalizeDocument } from '../domain/normalize';
 import { LEGACY_STORAGE_KEY, importLegacyMarkup } from '../share/legacy';
-import type { ThemeName } from '../design/palette';
+import type { ThemePreference } from './uiSlice';
 
 const DOCUMENT_KEY = 'aas.document.v2';
 const THEME_KEY = 'aas.theme';
@@ -90,14 +90,15 @@ export function clearStoredDocument(): void {
   }
 }
 
-export function loadTheme(): ThemeName | null {
+/** Null when nothing was chosen yet, which means following the system. */
+export function loadThemePreference(): ThemePreference | null {
   const value = storage()?.getItem(THEME_KEY);
-  return value === 'light' || value === 'dark' ? value : null;
+  return value === 'light' || value === 'dark' || value === 'system' ? value : null;
 }
 
-export function saveTheme(theme: ThemeName): void {
+export function saveThemePreference(preference: ThemePreference): void {
   try {
-    storage()?.setItem(THEME_KEY, theme);
+    storage()?.setItem(THEME_KEY, preference);
   } catch {
     /* ignore */
   }

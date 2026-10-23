@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Guards the design layer. The palette and the primitive tokens are the only
  * place a colour or a size is allowed to be written down, and both the DOM and

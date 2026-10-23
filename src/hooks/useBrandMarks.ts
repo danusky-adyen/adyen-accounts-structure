@@ -30,27 +30,21 @@ export function usePaymentLogos(needed: boolean): PaymentLogoMap | null {
 
 /** A company logo as a data URL, or null while it loads or if there is none. */
 export function useCompanyLogo(domain: string): string | null {
-  const [dataUrl, setDataUrl] = useState<string | null>(() => (domain === '' ? null : peekCompanyLogo(domain)));
+  // Tagged with its domain so a stale result never shows on a renamed brand.
+  const [loaded, setLoaded] = useState<{ readonly domain: string; readonly url: string | null } | null>(null);
+  const cached = domain === '' ? null : peekCompanyLogo(domain);
 
   useEffect(() => {
-    if (domain === '') {
-      setDataUrl(null);
-      return;
-    }
-    const cached = peekCompanyLogo(domain);
-    if (cached !== null) {
-      setDataUrl(cached);
-      return;
-    }
+    if (domain === '' || peekCompanyLogo(domain) !== null) return;
     let active = true;
-    setDataUrl(null);
-    void loadCompanyLogo(domain).then((loaded) => {
-      if (active) setDataUrl(loaded);
+    void loadCompanyLogo(domain).then((url) => {
+      if (active) setLoaded({ domain, url });
     });
     return () => {
       active = false;
     };
   }, [domain]);
 
-  return dataUrl;
+  if (domain === '') return null;
+  return cached ?? (loaded?.domain === domain ? loaded.url : null);
 }
