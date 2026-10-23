@@ -51,6 +51,7 @@ export default [
         EventTarget: 'readonly',
         Request: 'readonly',
         Response: 'readonly',
+        Headers: 'readonly',
       },
     },
     plugins: {

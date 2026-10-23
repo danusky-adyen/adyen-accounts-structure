@@ -6,8 +6,6 @@ the account settings, integrations and payment methods that belong to each
 level, then share the result as a URL or export it as SVG, PNG, JPEG, PDF or JSON.
 
 Everything runs in the browser: no server, no account, no data leaving the tab.
-The one exception is optional: an [MCP server](#mcp-server) lets an AI assistant
-draw diagrams for you, and it stores nothing either.
 
 ```bash
 npm install
@@ -268,17 +266,23 @@ drift from what the tool actually accepts. The answer goes through the same
 kind or nests a terminal under a company account produces a clean diagram rather
 than a broken one, and the paste box also accepts a full share URL.
 
-## MCP server
+## MCP server (local experiment)
 
 The same idea without the copy and paste: an AI assistant that speaks the
 [Model Context Protocol](https://modelcontextprotocol.io) can draw a diagram
-itself and hand you the link. It lives next to the editor at
+itself and hand you the link.
 
-```
-https://adyen-accounts-structure.vercel.app/api/mcp
+This is a personal experiment, **not an approved Adyen MCP**. Adyen only allows
+MCP servers that have been reviewed and onboarded through the GenAI Platform, so
+the server is never deployed: it runs on your own machine while the dev server is
+up, and only answers requests from `localhost`. Use it with made-up data, never
+with real merchant or customer information.
+
+```bash
+npm run dev        # the server is at http://localhost:5173/api/mcp
 ```
 
-and offers three tools:
+It offers three tools:
 
 | Tool | What it does |
 | --- | --- |
@@ -286,47 +290,22 @@ and offers three tools:
 | `build_diagram` | Validates a diagram and returns a share link, an outline and what validation removed |
 | `read_diagram` | Turns a share link back into JSON, so an existing diagram can be changed |
 
-plus a `diagram_from_notes` prompt. Ask something like *"Draw the account
-structure from these notes"* and the assistant reads the guide, writes the JSON,
-builds it and gives you a link that opens in the editor.
+plus a `diagram_from_notes` prompt. Links point at the local editor. Nothing is
+stored: the diagram lives in the link, exactly as when you share one from the
+toolbar.
 
-Nothing is stored: the diagram lives in the link, exactly as when you share one
-from the toolbar. The notes you give the assistant do go to its model provider,
-so the usual rules about what customer information may go into which AI tool
-apply.
-
-**Claude Code**
+To try it from Claude Code:
 
 ```bash
-claude mcp add --transport http adyen-accounts https://adyen-accounts-structure.vercel.app/api/mcp
-```
-
-**Claude Desktop / claude.ai**: Settings → Connectors → Add custom connector,
-and paste the URL.
-
-**Cursor**: in `~/.cursor/mcp.json`
-
-```json
-{ "mcpServers": { "adyen-accounts": { "url": "https://adyen-accounts-structure.vercel.app/api/mcp" } } }
-```
-
-**VS Code**: in `.vscode/mcp.json`
-
-```json
-{ "servers": { "adyen-accounts": { "type": "http", "url": "https://adyen-accounts-structure.vercel.app/api/mcp" } } }
-```
-
-**Factory Droid**
-
-```bash
-droid mcp add adyen-accounts https://adyen-accounts-structure.vercel.app/api/mcp --type http
+claude mcp add --transport http adyen-accounts-local http://localhost:5173/api/mcp
 ```
 
 The server is `src/mcp/`: `tools.ts` wraps the importer, normaliser and share
 codec the editor already uses, and `server.ts` is a stateless Streamable HTTP
 endpoint that answers each JSON-RPC request with plain JSON, so it needs no SDK
-and no session store. `api/mcp.ts` deploys it as a Vercel edge function. Every
-deployment, previews included, hands out links to itself.
+and no session store. A small plugin in `vite.config.ts` mounts it on the dev
+server and turns away any other host or origin, which also stops a web page from
+reaching it through DNS rebinding.
 
 ## Testing
 
@@ -350,10 +329,10 @@ flush that a tab closed mid-edit depends on.
 
 ## Deployment
 
-Vercel needs no configuration: it detects Vite, runs `npm run build`, serves
-`dist/` and deploys `api/mcp.ts` as an edge function. Any static host serves the
-editor the same way; only the MCP server needs Vercel, or anything else that can
-run a function taking a `Request` and returning a `Response`.
+Vercel needs no configuration: it detects Vite, runs `npm run build` and serves
+`dist/`. Any static host works the same way; the app is entirely client-side, so
+there is nothing to configure beyond serving `index.html`. The MCP server is not
+part of the build.
 
 ## Keyboard
 
