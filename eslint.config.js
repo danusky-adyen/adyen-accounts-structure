@@ -49,6 +49,8 @@ export default [
         Storage: 'readonly',
         Event: 'readonly',
         EventTarget: 'readonly',
+        Request: 'readonly',
+        Response: 'readonly',
       },
     },
     plugins: {

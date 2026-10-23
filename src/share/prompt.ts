@@ -136,7 +136,20 @@ export function buildImportPrompt(): string {
 
 Return ONLY a JSON object, with no prose and no code fences.
 
-## Shape
+${diagramGuide()}
+## The notes to convert
+
+<paste the notes here>
+`;
+}
+
+/**
+ * The rules for writing a diagram: its shape, the kinds and what may nest in
+ * what, and two worked examples. Shared by the pasted prompt and the MCP server,
+ * so a model gets the same instructions whichever way it reaches the tool.
+ */
+export function diagramGuide(): string {
+  return `## Shape
 
 Every node is:
 {
@@ -245,9 +258,5 @@ no balance platform because the notes never point to one:
 ${quote(SPARSE_NOTES)}
 
 ${JSON.stringify(SPARSE_EXAMPLE, null, 2)}
-
-## The notes to convert
-
-<paste the notes here>
 `;
 }

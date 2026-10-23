@@ -6,6 +6,8 @@ the account settings, integrations and payment methods that belong to each
 level, then share the result as a URL or export it as SVG, PNG, JPEG, PDF or JSON.
 
 Everything runs in the browser: no server, no account, no data leaving the tab.
+The one exception is optional: an [MCP server](#mcp-server) lets an AI assistant
+draw diagrams for you, and it stores nothing either.
 
 ```bash
 npm install
@@ -19,7 +21,7 @@ npm run dev        # http://localhost:5173
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | `tsc --build` across app and node configs |
 | `npm run lint` | ESLint, type-aware |
-| `npm test` | Vitest (192 tests) |
+| `npm test` | Vitest (208 tests) |
 | `node scripts/fetch-payment-logos.mjs` | Refresh the vendored payment-method artwork |
 
 ## Architecture
@@ -31,6 +33,7 @@ the DOM. This one is layered, and each layer only depends on the ones above it:
 domain/     pure model and rules   — no DOM, no React
 layout/     pure geometry          — depends on domain
 share/      URL codec              — depends on domain
+mcp/        MCP server             — depends on share
 export/     SVG, PNG, JPEG, PDF    — depends on layout
 state/      store, undo, storage   — depends on domain + share
 components/ React views            — depends on everything
@@ -265,13 +268,74 @@ drift from what the tool actually accepts. The answer goes through the same
 kind or nests a terminal under a company account produces a clean diagram rather
 than a broken one, and the paste box also accepts a full share URL.
 
+## MCP server
+
+The same idea without the copy and paste: an AI assistant that speaks the
+[Model Context Protocol](https://modelcontextprotocol.io) can draw a diagram
+itself and hand you the link. It lives next to the editor at
+
+```
+https://adyen-accounts-structure.vercel.app/api/mcp
+```
+
+and offers three tools:
+
+| Tool | What it does |
+| --- | --- |
+| `get_diagram_guide` | The rules for writing a diagram, the same text as the *Build* prompt |
+| `build_diagram` | Validates a diagram and returns a share link, an outline and what validation removed |
+| `read_diagram` | Turns a share link back into JSON, so an existing diagram can be changed |
+
+plus a `diagram_from_notes` prompt. Ask something like *"Draw the account
+structure from these notes"* and the assistant reads the guide, writes the JSON,
+builds it and gives you a link that opens in the editor.
+
+Nothing is stored: the diagram lives in the link, exactly as when you share one
+from the toolbar. The notes you give the assistant do go to its model provider,
+so the usual rules about what customer information may go into which AI tool
+apply.
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http adyen-accounts https://adyen-accounts-structure.vercel.app/api/mcp
+```
+
+**Claude Desktop / claude.ai**: Settings → Connectors → Add custom connector,
+and paste the URL.
+
+**Cursor**: in `~/.cursor/mcp.json`
+
+```json
+{ "mcpServers": { "adyen-accounts": { "url": "https://adyen-accounts-structure.vercel.app/api/mcp" } } }
+```
+
+**VS Code**: in `.vscode/mcp.json`
+
+```json
+{ "servers": { "adyen-accounts": { "type": "http", "url": "https://adyen-accounts-structure.vercel.app/api/mcp" } } }
+```
+
+**Factory Droid**
+
+```bash
+droid mcp add adyen-accounts https://adyen-accounts-structure.vercel.app/api/mcp --type http
+```
+
+The server is `src/mcp/`: `tools.ts` wraps the importer, normaliser and share
+codec the editor already uses, and `server.ts` is a stateless Streamable HTTP
+endpoint that answers each JSON-RPC request with plain JSON, so it needs no SDK
+and no session store. `api/mcp.ts` deploys it as a Vercel edge function. Every
+deployment, previews included, hands out links to itself.
+
 ## Testing
 
 `npm test` covers the layers that can be reasoned about without a browser:
 domain rules and structural sharing, the normalizer against hostile input, the
 layout engine, share round-trips (including legacy payloads and the size
 comparison above), SVG well-formedness, the PDF byte layout and the store's
-history semantics.
+history semantics, and the MCP server end to end, from `initialize` to a built
+link that reads back into the same diagram.
 
 Two tests exist because of bugs they now prevent: an SVG scan that catches an
 attribute value ending its own quoting (a quoted font name once broke every
@@ -286,9 +350,10 @@ flush that a tab closed mid-edit depends on.
 
 ## Deployment
 
-Vercel needs no configuration: it detects Vite, runs `npm run build` and serves
-`dist/`. Any static host works the same way; the app is entirely client-side, so
-there is nothing to configure beyond serving `index.html`.
+Vercel needs no configuration: it detects Vite, runs `npm run build`, serves
+`dist/` and deploys `api/mcp.ts` as an edge function. Any static host serves the
+editor the same way; only the MCP server needs Vercel, or anything else that can
+run a function taking a `Request` and returning a `Response`.
 
 ## Keyboard
 
