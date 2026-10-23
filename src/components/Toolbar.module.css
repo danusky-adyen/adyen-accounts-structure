@@ -38,6 +38,22 @@
   }
 }
 
+/* With the name card gone, the centred bar takes its corner so it cannot run
+   into the one on the right. */
+@media (max-width: 560px) {
+  .topCenter {
+    left: var(--b-spacer-070);
+    transform: none;
+  }
+}
+
+/* Too narrow for two bars side by side: the right one drops below. */
+@media (max-width: 350px) {
+  .topRight {
+    top: calc(var(--b-spacer-070) + 48px);
+  }
+}
+
 .wordmark {
   display: flex;
   flex-direction: column;

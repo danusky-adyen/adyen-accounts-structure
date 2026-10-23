@@ -108,7 +108,7 @@ export const NodeCard = memo(function NodeCard({
         </span>
       ) : null}
 
-      <KindTile item={item} logoUrl={logoUrl} onCycleKind={onCycleKind} />
+      <KindTile item={item} selected={selected} logoUrl={logoUrl} onCycleKind={onCycleKind} />
 
       {editing ? (
         <NameEditor
@@ -333,19 +333,26 @@ export const NodeCard = memo(function NodeCard({
 
 interface KindTileProps {
   readonly item: LayoutNode;
+  readonly selected: boolean;
   /** Null while the brand mark is loading, or when this kind has no logo. */
   readonly logoUrl: string | null;
   readonly onCycleKind: (id: string) => void;
 }
 
 /**
- * The glyph, brand mark or monogram in the card's top-left corner. Where a card
- * has alternative types it is also the control that switches between them, as
- * it was in the original tool: the fastest way to turn a POS account into an
- * Ecom one is to tap what already tells you which it is. Cards with no
- * alternatives render the same tile as plain decoration.
+ * The glyph, brand mark or monogram at the top of the card. Where a card has
+ * alternative types it is also the control that switches between them: the
+ * fastest way to turn a POS account into an Ecom one is to tap what already
+ * tells you which it is. Cards with no alternatives render it as decoration.
+ *
+ * It only switches on a card that is already selected. The tile is the biggest
+ * target on the card, so a first click meant to select it would otherwise
+ * change its type by accident.
  */
-function KindTile({ item, logoUrl, onCycleKind }: KindTileProps) {
+function KindTile({ item, selected, logoUrl, onCycleKind }: KindTileProps) {
+  // Whether the card was selected when this press began. The card selects on
+  // pointerdown, so by the time `click` arrives it always looks selected.
+  const armed = useRef(false);
   const spec = specOf(item.kind);
   const { slots, node } = item;
   const next = nextVariant(item.kind);
@@ -392,17 +399,22 @@ function KindTile({ item, logoUrl, onCycleKind }: KindTileProps) {
       type="button"
       className={styles.iconBox}
       style={box}
-      data-switchable="true"
+      data-switchable={selected}
       tabIndex={-1}
-      title={`Switch to ${nextLabel}`}
+      title={selected ? `Switch to ${nextLabel}` : undefined}
       aria-label={`Switch ${node.name} to ${nextLabel}`}
       // The card itself handles selection on pointerdown, which should still
-      // happen; only the double-click-to-rename is suppressed, so tapping twice
-      // steps two types on instead of opening the name field.
-      onDoubleClick={(event) => event.stopPropagation()}
+      // happen. On a selected card the double-click-to-rename is suppressed, so
+      // tapping twice steps two types on instead of opening the name field.
+      onPointerDown={() => {
+        armed.current = selected;
+      }}
+      onDoubleClick={(event) => {
+        if (selected) event.stopPropagation();
+      }}
       onClick={(event) => {
         event.stopPropagation();
-        onCycleKind(item.id);
+        if (armed.current) onCycleKind(item.id);
       }}
     >
       {content}
