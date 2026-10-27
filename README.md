@@ -180,7 +180,8 @@ a card and a panel beside it says what that level is for and what lives there.
 A merchant account, for example, is where payment methods are switched on,
 payouts are configured and the reconciliation reports are generated; a store
 overrides terminal settings but has no payout of its own. On a touch screen a
-tap does what hovering does. The setting is remembered in the browser.
+tap does what hovering does. It is on until you turn it off, and the browser
+remembers that choice.
 
 The text lives in `domain/explanations.ts`, one summary and a few points per
 kind, written from docs.adyen.com and kept to what holds for most setups. Each

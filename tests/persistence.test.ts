@@ -277,14 +277,14 @@ describe('keeping the diagram between visits', () => {
     expect(reopened.getState().doc.root.name).toBe('My Company');
   });
 
-  it('remembers whether Explain mode was on', async () => {
+  it('starts with Explain mode on and remembers turning it off', async () => {
     const harness = install();
     const { useStore } = await load();
-    expect(useStore.getState().explainMode).toBe(false);
-    useStore.getState().setExplainMode(true);
+    expect(useStore.getState().explainMode).toBe(true);
+    useStore.getState().setExplainMode(false);
 
     install(harness.storage);
     const { useStore: reopened } = await load();
-    expect(reopened.getState().explainMode).toBe(true);
+    expect(reopened.getState().explainMode).toBe(false);
   });
 });

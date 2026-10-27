@@ -106,7 +106,7 @@ export function saveThemePreference(preference: ThemePreference): void {
 }
 
 export function loadExplainMode(): boolean {
-  return storage()?.getItem(EXPLAIN_KEY) === 'on';
+  return storage()?.getItem(EXPLAIN_KEY) !== 'off';
 }
 
 export function saveExplainMode(on: boolean): void {
