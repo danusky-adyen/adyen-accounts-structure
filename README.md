@@ -19,7 +19,7 @@ npm run dev        # http://localhost:5173
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | `tsc --build` across app and node configs |
 | `npm run lint` | ESLint, type-aware |
-| `npm test` | Vitest (236 tests) |
+| `npm test` | Vitest (252 tests) |
 | `node scripts/fetch-payment-logos.mjs` | Refresh the vendored payment-method artwork |
 
 ## Architecture
@@ -187,6 +187,27 @@ The text lives in `domain/explanations.ts`, one summary and a few points per
 kind, written from docs.adyen.com and kept to what holds for most setups. Each
 point has a topic that picks its icon and colour: money in green, payment
 methods and terminals in orange, reports and people in blue, setup in grey.
+
+## Templates and guided setup
+
+The *Templates* button opens a panel on the left with starting points for the
+setups that come up most: a webshop, a retail chain, an omnichannel retailer, an
+international merchant, a marketplace, a franchise and an embedded-finance
+platform. Clicking one replaces the diagram (undo brings it back). It is open on
+a first visit and stays closed once you close it.
+
+*Guided setup* in the same panel asks a few questions instead: the company and
+whether its merchant accounts repeat per country or brand, which channels it
+uses, how online and in-person payments are integrated, how many stores and
+terminals there are, and whether a balance platform pays out to sellers,
+franchisees or users. Steps for unused channels are skipped, and the last step
+counts what will be drawn before anything changes. *Adjust* on a template opens
+the guided setup with that template's answers filled in.
+
+Templates are stored as guided-setup answers (`domain/templates.ts`), and
+`domain/guided.ts` turns answers into the same authoring JSON the *Build* prompt
+asks a model for, then passes it through `normalizeDocument`. Nesting rules,
+child limits and link cardinality are therefore enforced in one place.
 
 ## Design system
 

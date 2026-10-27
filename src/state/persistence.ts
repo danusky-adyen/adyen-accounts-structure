@@ -12,6 +12,7 @@ import type { ThemePreference } from './uiSlice';
 const DOCUMENT_KEY = 'aas.document.v2';
 const THEME_KEY = 'aas.theme';
 const EXPLAIN_KEY = 'aas.explain';
+const TEMPLATES_KEY = 'aas.templates';
 
 function storage(): Storage | null {
   try {
@@ -112,6 +113,19 @@ export function loadExplainMode(): boolean {
 export function saveExplainMode(on: boolean): void {
   try {
     storage()?.setItem(EXPLAIN_KEY, on ? 'on' : 'off');
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Open until it is closed once, so a first visit sees the starting points. */
+export function loadTemplatesOpen(): boolean {
+  return storage()?.getItem(TEMPLATES_KEY) !== 'closed';
+}
+
+export function saveTemplatesOpen(open: boolean): void {
+  try {
+    storage()?.setItem(TEMPLATES_KEY, open ? 'open' : 'closed');
   } catch {
     /* ignore */
   }

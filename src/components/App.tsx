@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { prefersReducedMotion } from '../design/motion';
 import { applyTheme } from '../design/theme';
+import type { StructureDocument } from '../domain/document';
+import { buildFromAnswers, type GuidedAnswers } from '../domain/guided';
 import type { TerminalKind } from '../domain/kinds';
+import type { Template } from '../domain/templates';
 import { exportDiagram, type ExportFormat } from '../export';
 import { useKeepInView } from '../hooks/useKeepInView';
 import { useKeyboard } from '../hooks/useKeyboard';
@@ -13,7 +16,9 @@ import { Canvas, type IntroState } from './Canvas';
 import { HelpDialog } from './HelpDialog';
 import { ImportDialog } from './ImportDialog';
 import { Inspector } from './Inspector';
+import { GuidedSetup } from './GuidedSetup';
 import { ConfirmDialog } from './Modal';
+import { TemplatesPanel } from './TemplatesPanel';
 import { TerminalPicker } from './TerminalPicker';
 import { Toast } from './Toast';
 import { Toolbar } from './Toolbar';
@@ -24,6 +29,7 @@ type Overlay =
   | { readonly type: 'help' }
   | { readonly type: 'reset' }
   | { readonly type: 'import' }
+  | { readonly type: 'guided'; readonly answers: GuidedAnswers | undefined }
   | { readonly type: 'terminal'; readonly nodeId: string };
 
 export function App() {
@@ -32,6 +38,7 @@ export function App() {
   const notify = useStore((state) => state.notify);
   const addTerminal = useStore((state) => state.addTerminal);
   const reset = useStore((state) => state.reset);
+  const replaceDocument = useStore((state) => state.replaceDocument);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const layout = useLayout(doc);
@@ -81,6 +88,22 @@ export function App() {
     }
   }, [doc, notify]);
 
+  const showNewDiagram = useCallback(
+    (next: StructureDocument, message: string) => {
+      replaceDocument(next);
+      notify(message, 'success');
+      playIntro();
+      requestAnimationFrame(view.fit);
+    },
+    [notify, playIntro, replaceDocument, view],
+  );
+
+  const applyTemplate = useCallback(
+    (template: Template) =>
+      showNewDiagram(buildFromAnswers(template.answers), `Loaded ${template.name}. Undo brings your diagram back.`),
+    [showNewDiagram],
+  );
+
   const handleExport = useCallback(
     async (format: ExportFormat) => {
       try {
@@ -113,6 +136,8 @@ export function App() {
         onOpenImport={() => setOverlay({ type: 'import' })}
       />
 
+      <TemplatesPanel onApply={applyTemplate} onOpenGuided={(answers) => setOverlay({ type: 'guided', answers })} />
+
       <Inspector />
       <Toast />
 
@@ -132,6 +157,17 @@ export function App() {
           onBuilt={() => {
             playIntro();
             requestAnimationFrame(view.fit);
+          }}
+        />
+      ) : null}
+
+      {overlay?.type === 'guided' ? (
+        <GuidedSetup
+          initial={overlay.answers}
+          onClose={close}
+          onBuild={(built) => {
+            close();
+            showNewDiagram(built, 'Diagram created. Undo brings your previous one back.');
           }}
         />
       ) : null}

@@ -24,6 +24,8 @@ export function Toolbar({ view, onShare, onExport, onReset, onToggleHelp, onOpen
   const themePreference = useStore((state) => state.themePreference);
   const setThemePreference = useStore((state) => state.setThemePreference);
   const explainMode = useStore((state) => state.explainMode);
+  const templatesOpen = useStore((state) => state.templatesOpen);
+  const setTemplatesOpen = useStore((state) => state.setTemplatesOpen);
   const setExplainMode = useStore((state) => state.setExplainMode);
   const zoom = useZoom();
   const nextTheme = THEME_ORDER[(THEME_ORDER.indexOf(themePreference) + 1) % THEME_ORDER.length] ?? 'system';
@@ -74,6 +76,22 @@ export function Toolbar({ view, onShare, onExport, onReset, onToggleHelp, onOpen
           </svg>
         </button>
         <span className="divider" />
+        <button
+          type="button"
+          className="iconButton"
+          onClick={() => setTemplatesOpen(!templatesOpen)}
+          data-active={templatesOpen}
+          aria-pressed={templatesOpen}
+          title="Templates and guided setup"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden>
+            <rect x="4" y="4" width="7" height="7" rx="1.5" />
+            <rect x="13" y="4" width="7" height="7" rx="1.5" />
+            <rect x="4" y="13" width="7" height="7" rx="1.5" />
+            <rect x="13" y="13" width="7" height="7" rx="1.5" />
+          </svg>
+          <span className="buttonLabel">Templates</span>
+        </button>
         <button
           type="button"
           className="iconButton"

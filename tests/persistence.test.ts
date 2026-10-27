@@ -287,4 +287,15 @@ describe('keeping the diagram between visits', () => {
     const { useStore: reopened } = await load();
     expect(reopened.getState().explainMode).toBe(false);
   });
+
+  it('shows the templates on a first visit and remembers closing them', async () => {
+    const harness = install();
+    const { useStore } = await load();
+    expect(useStore.getState().templatesOpen).toBe(true);
+    useStore.getState().setTemplatesOpen(false);
+
+    install(harness.storage);
+    const { useStore: reopened } = await load();
+    expect(reopened.getState().templatesOpen).toBe(false);
+  });
 });

@@ -10,6 +10,8 @@ const FIT_MAX_SCALE = 1.15;
 /** Space the floating toolbars occupy, so fitting never hides a card behind one. */
 const FIT_INSETS = { top: 92, right: 56, bottom: 84, left: 56 };
 const INSPECTOR_WIDTH = 344;
+/** Must match the templates panel's width plus its offset from the edge. */
+const TEMPLATES_WIDTH = 312;
 
 /**
  * One object for the lifetime of the canvas. It reads the viewport and the
@@ -38,6 +40,11 @@ function clamp(value: number, min: number, max: number): number {
 /** The inspector floats over the canvas, so a card behind it is as good as off-screen. */
 function rightInset(width: number, fallback: number): number {
   return useStore.getState().inspectorOpen && width > 900 ? INSPECTOR_WIDTH : fallback;
+}
+
+/** The same for the templates panel on the left. */
+function leftInset(width: number, fallback: number): number {
+  return useStore.getState().templatesOpen && width > 900 ? TEMPLATES_WIDTH : fallback;
 }
 
 /**
@@ -98,7 +105,8 @@ export function useViewport(containerRef: RefObject<HTMLElement | null>, layout:
         const { content } = layoutRef.current;
         if (content.width === 0 || content.height === 0) return;
 
-        const availableWidth = Math.max(120, rect.width - FIT_INSETS.left - rightInset(rect.width, FIT_INSETS.right));
+        const left = leftInset(rect.width, FIT_INSETS.left);
+        const availableWidth = Math.max(120, rect.width - left - rightInset(rect.width, FIT_INSETS.right));
         const availableHeight = Math.max(120, rect.height - FIT_INSETS.top - FIT_INSETS.bottom);
 
         const scale = clamp(
@@ -110,7 +118,7 @@ export function useViewport(containerRef: RefObject<HTMLElement | null>, layout:
         const scaledHeight = content.height * scale;
         setViewport({
           scale,
-          x: FIT_INSETS.left + (availableWidth - content.width * scale) / 2 - content.x * scale,
+          x: left + (availableWidth - content.width * scale) / 2 - content.x * scale,
           y:
             scaledHeight <= availableHeight
               ? FIT_INSETS.top + (availableHeight - scaledHeight) / 2 - content.y * scale
@@ -129,11 +137,12 @@ export function useViewport(containerRef: RefObject<HTMLElement | null>, layout:
         const right = left + item.width * current.scale;
         const bottom = top + item.height * current.scale;
         const padding = 48;
+        const leftEdge = leftInset(rect.width, padding);
 
         let dx = 0;
         let dy = 0;
-        if (left < padding) dx = padding - left;
-        else if (right > rect.width - padding) dx = Math.max(rect.width - padding - right, padding - left);
+        if (left < leftEdge) dx = leftEdge - left;
+        else if (right > rect.width - padding) dx = Math.max(rect.width - padding - right, leftEdge - left);
         if (top < padding) dy = padding - top;
         else if (bottom > rect.height - padding) dy = Math.max(rect.height - padding - bottom, padding - top);
 
@@ -147,12 +156,13 @@ export function useViewport(containerRef: RefObject<HTMLElement | null>, layout:
 
         const current = getViewport();
         const padding = 24;
+        const leftEdge = leftInset(rect.width, padding);
         const rightEdge = rect.width - rightInset(rect.width, padding);
 
         const left = item.x * current.scale + current.x;
         const top = item.y * current.scale + current.y;
         return (
-          left >= padding &&
+          left >= leftEdge &&
           top >= padding &&
           left + item.width * current.scale <= rightEdge &&
           top + item.height * current.scale <= rect.height - padding
