@@ -113,8 +113,10 @@ export function Toolbar({ view, onShare, onExport, onReset, onToggleHelp, onOpen
       <div className={`panel ${styles.bar} ${styles.topRight}`}>
         <button type="button" className="iconButton" onClick={onShare} title="Copy a share link">
           <svg viewBox="0 0 24 24" aria-hidden>
-            <path d="M9.5 14.5a4 4 0 0 0 5.7.4l2.4-2.4a4 4 0 0 0-5.6-5.7l-1.4 1.4" />
-            <path d="M14.5 9.5a4 4 0 0 0-5.7-.4l-2.4 2.4a4 4 0 0 0 5.6 5.7l1.4-1.4" />
+            <path d="M18 2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5z" />
+            <path d="M6 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5z" />
+            <path d="M18 16.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5z" />
+            <path d="M8.2 10.7l7.6-4.4M8.2 13.3l7.6 4.4" />
           </svg>
           <span className="buttonLabel">Share</span>
         </button>

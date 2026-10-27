@@ -99,10 +99,7 @@ const TOPICS: Record<ExplainTopic, TopicStyle> = {
   },
   link: {
     tint: 'grey',
-    icon: [
-      'M9.5 14.5a4 4 0 0 0 5.7.4l2.4-2.4a4 4 0 0 0-5.6-5.7l-1.4 1.4',
-      'M14.5 9.5a4 4 0 0 0-5.7-.4l-2.4 2.4a4 4 0 0 0 5.6 5.7l1.4-1.4',
-    ],
+    icon: ['M10 7H7a5 5 0 0 0 0 10h3', 'M14 7h3a5 5 0 0 1 0 10h-3', 'M8 12h8'],
   },
   industry: {
     tint: 'grey',

@@ -101,8 +101,7 @@ export const NodeCard = memo(function NodeCard({
       {linkCount > 0 ? (
         <span className={styles.linkBadge} title={`${linkCount} link${linkCount > 1 ? 's' : ''}`}>
           <svg viewBox="0 0 24 24" aria-hidden>
-            <path d="M9.5 14.5a4 4 0 0 0 5.7.4l2.4-2.4a4 4 0 0 0-5.6-5.7l-1.4 1.4" />
-            <path d="M14.5 9.5a4 4 0 0 0-5.7-.4l-2.4 2.4a4 4 0 0 0 5.6 5.7l1.4-1.4" />
+            <path d="M10 7H7a5 5 0 0 0 0 10h3M14 7h3a5 5 0 0 1 0 10h-3M8 12h8" />
           </svg>
           {linkCount > 1 ? linkCount : null}
         </span>
