@@ -15,6 +15,7 @@ import { getViewport, setViewport, viewportStore, type Viewport } from '../state
 import { usePaymentLogos } from '../hooks/useBrandMarks';
 import type { ViewportController } from '../hooks/useViewport';
 import { EdgeLayer } from './EdgeLayer';
+import { ExplainCard } from './ExplainCard';
 import { NodeCard } from './NodeCard';
 import styles from './Canvas.module.css';
 
@@ -81,6 +82,7 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
   const editingSeed = useStore((state) => state.editingSeed);
   const hoveredLinkId = useStore((state) => state.hoveredLinkId);
   const drag = useStore((state) => state.drag);
+  const explainMode = useStore((state) => state.explainMode);
 
   const select = useStore((state) => state.select);
   const setEditing = useStore((state) => state.setEditing);
@@ -97,6 +99,8 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
 
   const interaction = useRef<Interaction | null>(null);
   const [panning, setPanning] = useState(false);
+  /** The card under the pointer, explained while Explain mode is on. */
+  const [explainedId, setExplainedId] = useState<string | null>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -130,6 +134,8 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
     (event: ReactPointerEvent<HTMLDivElement>, id: string) => {
       if (event.button !== 0) return;
       event.stopPropagation();
+      // A finger has no hover, so on touch a tap is what asks for the explanation.
+      if (event.pointerType === 'touch') setExplainedId(id);
       interaction.current = {
         kind: 'node',
         pointerId: event.pointerId,
@@ -150,6 +156,7 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
   const handleBackgroundPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (event.button !== 0 && event.button !== 1) return;
+      if (event.pointerType === 'touch') setExplainedId(null);
       interaction.current = {
         kind: 'pan',
         pointerId: event.pointerId,
@@ -254,6 +261,24 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
     [setHoveredLink, toggleLink],
   );
 
+  const handlePointerOver = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'touch') return;
+    const card = (event.target as Element).closest<HTMLElement>('[data-node-id]');
+    setExplainedId(card?.dataset['nodeId'] ?? null);
+  }, []);
+
+  const handlePointerLeave = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'touch') setExplainedId(null);
+  }, []);
+
+  const explained =
+    explainMode && !panning && drag === null && explainedId !== null
+      ? (layout.nodes.find((item) => item.id === explainedId) ?? null)
+      : null;
+  const explainedParentId = explained?.parentId ?? null;
+  const explainedParentKind =
+    explainedParentId === null ? null : (layout.nodes.find((item) => item.id === explainedParentId)?.kind ?? null);
+
   const activeNodeId = drag?.nodeId ?? selectedId;
 
   return (
@@ -265,6 +290,8 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
       onPointerMove={handlePointerMove}
       onPointerUp={finishInteraction}
       onPointerCancel={finishInteraction}
+      onPointerOver={handlePointerOver}
+      onPointerLeave={handlePointerLeave}
       onDoubleClick={view.fit}
     >
       <div ref={gridRef} className={styles.grid} />
@@ -318,6 +345,10 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
           })}
         </div>
       </div>
+
+      {explained === null ? null : (
+        <ExplainCard item={explained} parentKind={explainedParentKind} containerRef={containerRef} />
+      )}
     </div>
   );
 }

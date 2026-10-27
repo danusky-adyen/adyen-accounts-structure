@@ -276,4 +276,15 @@ describe('keeping the diagram between visits', () => {
     const { useStore: reopened } = await load();
     expect(reopened.getState().doc.root.name).toBe('My Company');
   });
+
+  it('remembers whether Explain mode was on', async () => {
+    const harness = install();
+    const { useStore } = await load();
+    expect(useStore.getState().explainMode).toBe(false);
+    useStore.getState().setExplainMode(true);
+
+    install(harness.storage);
+    const { useStore: reopened } = await load();
+    expect(reopened.getState().explainMode).toBe(true);
+  });
 });

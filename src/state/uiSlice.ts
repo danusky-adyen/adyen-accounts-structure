@@ -1,7 +1,8 @@
 /**
  * Everything about the session that is not the diagram: what is selected or
  * being edited, the drag in flight, the theme, the toast and the save state.
- * None of it goes into history, a share link or storage (bar the theme).
+ * None of it goes into history, a share link or storage (bar the theme and
+ * Explain mode).
  */
 
 import type { StateCreator } from 'zustand';
@@ -9,7 +10,7 @@ import type { NodeId } from '../domain/document';
 import type { NodeKind } from '../domain/kinds';
 import type { ThemeName } from '../design/palette';
 import { systemTheme } from '../design/theme';
-import { loadThemePreference, saveThemePreference } from './persistence';
+import { loadExplainMode, loadThemePreference, saveExplainMode, saveThemePreference } from './persistence';
 import type { AppState } from './store';
 
 export type DropAction = 'link' | 'inside' | 'before' | 'after';
@@ -62,6 +63,8 @@ export interface UiSlice {
   themePreference: ThemePreference;
   /** The theme actually shown, with `system` resolved. */
   theme: ThemeName;
+  /** Hovering a card explains what that level of the structure is for. */
+  explainMode: boolean;
   toast: Toast | null;
   saveStatus: SaveStatus;
 
@@ -76,6 +79,7 @@ export interface UiSlice {
   setThemePreference: (preference: ThemePreference) => void;
   /** Called with the OS theme whenever it changes. */
   setSystemTheme: (theme: ThemeName) => void;
+  setExplainMode: (on: boolean) => void;
   /**
    * Writes the current diagram to storage now, whatever is in there. A no-op
    * until autosave starts and installs the real one.
@@ -103,6 +107,7 @@ export const createUiSlice: StateCreator<AppState, [], [], UiSlice> = (set, get)
 
     themePreference: preference,
     theme: preference === 'system' ? systemTheme() : preference,
+    explainMode: loadExplainMode(),
     toast: null,
     saveStatus: 'saved',
 
@@ -121,6 +126,11 @@ export const createUiSlice: StateCreator<AppState, [], [], UiSlice> = (set, get)
     },
     setSystemTheme: (theme) => {
       if (get().themePreference === 'system') set({ theme });
+    },
+
+    setExplainMode: (on) => {
+      saveExplainMode(on);
+      set({ explainMode: on });
     },
 
     saveNow: () => {},

@@ -11,6 +11,7 @@ import type { ThemePreference } from './uiSlice';
 
 const DOCUMENT_KEY = 'aas.document.v2';
 const THEME_KEY = 'aas.theme';
+const EXPLAIN_KEY = 'aas.explain';
 
 function storage(): Storage | null {
   try {
@@ -99,6 +100,18 @@ export function loadThemePreference(): ThemePreference | null {
 export function saveThemePreference(preference: ThemePreference): void {
   try {
     storage()?.setItem(THEME_KEY, preference);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadExplainMode(): boolean {
+  return storage()?.getItem(EXPLAIN_KEY) === 'on';
+}
+
+export function saveExplainMode(on: boolean): void {
+  try {
+    storage()?.setItem(EXPLAIN_KEY, on ? 'on' : 'off');
   } catch {
     /* ignore */
   }

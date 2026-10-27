@@ -19,7 +19,7 @@ npm run dev        # http://localhost:5173
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | `tsc --build` across app and node configs |
 | `npm run lint` | ESLint, type-aware |
-| `npm test` | Vitest (208 tests) |
+| `npm test` | Vitest (226 tests) |
 | `node scripts/fetch-payment-logos.mjs` | Refresh the vendored payment-method artwork |
 
 ## Architecture
@@ -172,6 +172,20 @@ Group*, *From Acme Stores* or *Overridden in 2 accounts below*, and a card that
 is overridden somewhere below gets an asterisk on its settings badge. So both
 directions are visible: standing on a child you can see what it inherits, and
 standing on a parent you can see where its value stops applying.
+
+## Explain mode
+
+The Explain button in the top bar turns hovering into a short lesson: point at
+a card and a panel beside it says what that level is for and what lives there.
+A merchant account, for example, is where payment methods are switched on,
+payouts are configured and the reconciliation reports are generated; a store
+overrides terminal settings but has no payout of its own. On a touch screen a
+tap does what hovering does. The setting is remembered in the browser.
+
+The text lives in `domain/explanations.ts`, one summary and a few points per
+kind, written from docs.adyen.com and kept to what holds for most setups. Each
+point has a topic that picks its icon and colour: money in green, payment
+methods and terminals in orange, reports and people in blue, setup in grey.
 
 ## Design system
 

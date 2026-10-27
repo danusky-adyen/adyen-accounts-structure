@@ -23,6 +23,8 @@ export function Toolbar({ view, onShare, onExport, onReset, onToggleHelp, onOpen
   const doc = useStore((state) => state.doc);
   const themePreference = useStore((state) => state.themePreference);
   const setThemePreference = useStore((state) => state.setThemePreference);
+  const explainMode = useStore((state) => state.explainMode);
+  const setExplainMode = useStore((state) => state.setExplainMode);
   const zoom = useZoom();
   const nextTheme = THEME_ORDER[(THEME_ORDER.indexOf(themePreference) + 1) % THEME_ORDER.length] ?? 'system';
   const undo = useStore((state) => state.undo);
@@ -90,6 +92,21 @@ export function Toolbar({ view, onShare, onExport, onReset, onToggleHelp, onOpen
             <path d="M3 4v5h5" />
           </svg>
           <span className="buttonLabel">Reset</span>
+        </button>
+        <span className="divider" />
+        <button
+          type="button"
+          className="iconButton"
+          onClick={() => setExplainMode(!explainMode)}
+          data-active={explainMode}
+          aria-pressed={explainMode}
+          title={explainMode ? 'Explain is on: hover a card to learn what it does' : 'Explain: hover a card to learn what it does'}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden>
+            <path d="M9 18h6M10 21h4" />
+            <path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z" />
+          </svg>
+          <span className="buttonLabel">Explain</span>
         </button>
       </div>
 
