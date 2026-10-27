@@ -31,6 +31,8 @@ export default [
         clearTimeout: 'readonly',
         requestAnimationFrame: 'readonly',
         cancelAnimationFrame: 'readonly',
+        performance: 'readonly',
+        getComputedStyle: 'readonly',
         URL: 'readonly',
         URLSearchParams: 'readonly',
         Blob: 'readonly',

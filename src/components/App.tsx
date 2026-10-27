@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { prefersReducedMotion } from '../design/motion';
 import { applyTheme } from '../design/theme';
 import type { TerminalKind } from '../domain/kinds';
 import { exportDiagram, type ExportFormat } from '../export';
@@ -8,7 +9,7 @@ import { useLayout } from '../hooks/useLayout';
 import { useViewport } from '../hooks/useViewport';
 import { buildShareUrl } from '../share/url';
 import { startupNotice, useStore } from '../state/store';
-import { Canvas } from './Canvas';
+import { Canvas, type IntroState } from './Canvas';
 import { HelpDialog } from './HelpDialog';
 import { ImportDialog } from './ImportDialog';
 import { Inspector } from './Inspector';
@@ -37,6 +38,17 @@ export function App() {
   const view = useViewport(containerRef, layout);
 
   const [overlay, setOverlay] = useState<Overlay | null>(null);
+  const [intro, setIntro] = useState<IntroState | null>(() =>
+    prefersReducedMotion() ? null : { key: 0, phase: 'assemble' },
+  );
+  const playIntro = useCallback(() => {
+    if (!prefersReducedMotion()) setIntro((current) => ({ key: (current?.key ?? 0) + 1, phase: 'assemble' }));
+  }, []);
+  const revealIntro = useCallback(
+    () => setIntro((current) => (current === null ? null : { ...current, phase: 'reveal' })),
+    [],
+  );
+  const endIntro = useCallback(() => setIntro(null), []);
   const close = useCallback(() => setOverlay(null), []);
   const toggleHelp = useCallback(
     () => setOverlay((current) => (current?.type === 'help' ? null : { type: 'help' })),
@@ -81,11 +93,14 @@ export function App() {
   );
 
   return (
-    <div className={styles.app}>
+    <div className={styles.app} data-intro={intro?.phase}>
       <Canvas
         containerRef={containerRef}
         layout={layout}
         view={view}
+        intro={intro}
+        onIntroReveal={revealIntro}
+        onIntroDone={endIntro}
         onRequestTerminalPicker={(nodeId) => setOverlay({ type: 'terminal', nodeId })}
       />
 
@@ -112,7 +127,13 @@ export function App() {
       ) : null}
 
       {overlay?.type === 'import' ? (
-        <ImportDialog onClose={close} onBuilt={() => requestAnimationFrame(view.fit)} />
+        <ImportDialog
+          onClose={close}
+          onBuilt={() => {
+            playIntro();
+            requestAnimationFrame(view.fit);
+          }}
+        />
       ) : null}
 
       {overlay?.type === 'help' ? <HelpDialog onClose={close} /> : null}
@@ -126,6 +147,7 @@ export function App() {
           onConfirm={() => {
             reset();
             close();
+            playIntro();
             requestAnimationFrame(view.fit);
           }}
           onCancel={close}

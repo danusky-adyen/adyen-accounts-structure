@@ -14,8 +14,10 @@ import { useStore } from '../state/store';
 import { getViewport, setViewport, viewportStore, type Viewport } from '../state/viewport';
 import { usePaymentLogos } from '../hooks/useBrandMarks';
 import type { ViewportController } from '../hooks/useViewport';
+import { useTileMotion, type TileMotionRefs } from '../hooks/useTileMotion';
 import { EdgeLayer } from './EdgeLayer';
 import { ExplainCard } from './ExplainCard';
+import { Intro } from './Intro';
 import { NodeCard } from './NodeCard';
 import styles from './Canvas.module.css';
 
@@ -68,14 +70,32 @@ function paintViewport(world: HTMLElement, grid: HTMLElement, viewport: Viewport
   grid.style.opacity = viewport.scale < 0.5 ? '0.4' : '1';
 }
 
+export interface IntroState {
+  /** Bumped for every play, so each one starts from scratch. */
+  readonly key: number;
+  /** `assemble` while the shapes form, `reveal` while the cards fade in. */
+  readonly phase: 'assemble' | 'reveal';
+}
+
 export interface CanvasProps {
   readonly containerRef: RefObject<HTMLDivElement | null>;
   readonly layout: Layout;
   readonly view: ViewportController;
+  readonly intro: IntroState | null;
+  readonly onIntroReveal: () => void;
+  readonly onIntroDone: () => void;
   readonly onRequestTerminalPicker: (nodeId: string) => void;
 }
 
-export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: CanvasProps) {
+export function Canvas({
+  containerRef,
+  layout,
+  view,
+  intro,
+  onIntroReveal,
+  onIntroDone,
+  onRequestTerminalPicker,
+}: CanvasProps) {
   const doc = useStore((state) => state.doc);
   const selectedId = useStore((state) => state.selectedId);
   const editingId = useStore((state) => state.editingId);
@@ -103,6 +123,14 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
   const [explainedId, setExplainedId] = useState<string | null>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
+  const ghostCardsRef = useRef<HTMLDivElement>(null);
+  const ghostEdgesRef = useRef<SVGGElement>(null);
+  const motionRefs = useMemo(
+    (): TileMotionRefs => ({ tree: treeRef, edges: worldRef, ghostCards: ghostCardsRef, ghostEdges: ghostEdgesRef }),
+    [],
+  );
+  useTileMotion(layout, motionRefs, intro !== null);
 
   useLayoutEffect(() => {
     const world = worldRef.current;
@@ -233,12 +261,13 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
     [move, notify, select, setDrag, setEditing, toggleLink],
   );
 
-  // A click asks for one specific card, so it selects what it created and the
-  // inspector follows. ⇧↓ deliberately does not.
+  // A click asks for one specific card, so it selects what it created (⇧↓
+  // deliberately does not). The sidebar is left as it was: popping it open on
+  // every add gets in the way of building out a tree.
   const handleAddChild = useCallback(
     (id: string, kind?: NodeKind) => {
       const created = addChild(id, kind);
-      if (created) select(created);
+      if (created) select(created, { inspect: false });
     },
     [addChild, select],
   );
@@ -272,7 +301,7 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
   }, []);
 
   const explained =
-    explainMode && !panning && drag === null && explainedId !== null
+    explainMode && intro === null && !panning && drag === null && explainedId !== null
       ? (layout.nodes.find((item) => item.id === explainedId) ?? null)
       : null;
   const explainedParentId = explained?.parentId ?? null;
@@ -286,6 +315,7 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
       ref={containerRef}
       className={styles.canvas}
       data-panning={panning}
+      data-intro={intro?.phase}
       onPointerDown={handleBackgroundPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={finishInteraction}
@@ -296,7 +326,15 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
     >
       <div ref={gridRef} className={styles.grid} />
 
+      {intro === null ? null : (
+        <Intro key={intro.key} layout={layout} onReveal={onIntroReveal} onDone={onIntroDone} />
+      )}
+
       <div ref={worldRef} className={styles.world}>
+        <svg className={styles.ghosts} aria-hidden>
+          <g ref={ghostEdgesRef} />
+        </svg>
+
         <EdgeLayer
           layout={layout}
           activeNodeId={activeNodeId}
@@ -308,7 +346,9 @@ export function Canvas({ containerRef, layout, view, onRequestTerminalPicker }: 
           onLinkRemove={handleRemoveLink}
         />
 
-        <div className={styles.tree} role="tree" aria-label="Account structure">
+        <div ref={ghostCardsRef} className={styles.ghosts} aria-hidden />
+
+        <div ref={treeRef} className={styles.tree} role="tree" aria-label="Account structure">
           {layout.nodes.map((item) => {
             const target = drag?.target ?? null;
             const dropAction =

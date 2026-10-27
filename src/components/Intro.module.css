@@ -1,0 +1,45 @@
+/* Screen-sized, under the real diagram: the cards fade in on top of it. */
+.layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Stroke widths match EdgeLayer and the cards, so the hand-over is seamless. */
+.edge {
+  fill: none;
+  stroke: var(--c-edge);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.link {
+  fill: none;
+  stroke: var(--c-link-edge);
+  stroke-width: 1.75;
+  stroke-dasharray: 5 5;
+  stroke-linecap: round;
+}
+
+.card {
+  fill: var(--c-surface);
+  stroke: var(--c-border);
+  stroke-width: 1;
+}
+
+.card[data-surface='platform'] {
+  fill: var(--c-platform-surface);
+}
+
+.card[data-surface='sunken'] {
+  fill: var(--c-surface-sunken);
+}
+
+.card[data-strong='true'] {
+  stroke: var(--c-border-strong);
+}

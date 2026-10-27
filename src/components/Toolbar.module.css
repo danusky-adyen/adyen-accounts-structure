@@ -7,6 +7,33 @@
   /* Bento's navigation tier: above the elevated inspector, so a toolbar
      dropdown opens over the panel rather than behind it. */
   z-index: var(--b-z-navigation);
+  /* `translate` composes with the centring `transform` below. */
+  transition:
+    opacity 360ms var(--b-ease-enter),
+    translate 480ms var(--b-ease-enter);
+}
+
+/* The toolbars wait for the intro, then slide in as the cards appear. */
+:global([data-intro='assemble']) .bar {
+  opacity: 0;
+  translate: 0 calc(-1 * var(--b-spacer-070));
+  transition: none;
+}
+
+:global([data-intro='assemble']) .bottomLeft {
+  translate: 0 var(--b-spacer-070);
+}
+
+:global([data-intro='reveal']) .topCenter {
+  transition-delay: 50ms;
+}
+
+:global([data-intro='reveal']) .topRight {
+  transition-delay: 100ms;
+}
+
+:global([data-intro='reveal']) .bottomLeft {
+  transition-delay: 150ms;
 }
 
 .topLeft {

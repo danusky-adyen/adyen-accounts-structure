@@ -68,7 +68,8 @@ export interface UiSlice {
   toast: Toast | null;
   saveStatus: SaveStatus;
 
-  select: (id: NodeId | null) => void;
+  /** Selects a card and opens its details, unless `inspect` is false: then the sidebar stays as it was. */
+  select: (id: NodeId | null, options?: { readonly inspect?: boolean }) => void;
   setEditing: (id: NodeId | null, seed?: string) => void;
   setHovered: (id: NodeId | null) => void;
   setHoveredLink: (id: string | null) => void;
@@ -111,8 +112,14 @@ export const createUiSlice: StateCreator<AppState, [], [], UiSlice> = (set, get)
     toast: null,
     saveStatus: 'saved',
 
-    select: (id) =>
-      set({ selectedId: id, inspectorOpen: id !== null, editingId: null, editingSeed: null, pendingKind: null }),
+    select: (id, options) =>
+      set({
+        selectedId: id,
+        inspectorOpen: id !== null && (options?.inspect === false ? get().inspectorOpen : true),
+        editingId: null,
+        editingSeed: null,
+        pendingKind: null,
+      }),
     setEditing: (id, seed) => set({ editingId: id, editingSeed: seed ?? null }),
     setHovered: (id) => set({ hoveredId: id }),
     setHoveredLink: (id) => set({ hoveredLinkId: id }),

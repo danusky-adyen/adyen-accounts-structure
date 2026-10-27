@@ -65,6 +65,7 @@ export const EdgeLayer = memo(function EdgeLayer({
           return (
             <path
               key={edge.id}
+              data-path={`edge:${edge.id}`}
               d={edge.path}
               className={highlighted ? `${styles.edge} ${styles.edgeActive}` : styles.edge}
             />
@@ -84,7 +85,11 @@ export const EdgeLayer = memo(function EdgeLayer({
                 onPointerEnter={() => onLinkHover(link.id)}
                 onPointerLeave={() => onLinkHover(null)}
               />
-              <path d={link.path} className={active ? `${styles.link} ${styles.linkActive}` : styles.link} />
+              <path
+                data-path={`link:${link.id}`}
+                d={link.path}
+                className={active ? `${styles.link} ${styles.linkActive}` : styles.link}
+              />
               {link.handles.map((handle) => (
                 <g
                   key={`${link.id}-${handle.nodeId}`}

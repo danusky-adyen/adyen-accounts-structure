@@ -137,6 +137,20 @@ describe('editing actions', () => {
     expect(useStore.getState().inspectorOpen).toBe(true);
   });
 
+  it('can select a card without opening the sidebar, and leaves an open one open', () => {
+    const rootId = useStore.getState().doc.root.id;
+    const created = useStore.getState().addChild(rootId);
+
+    useStore.getState().select(created, { inspect: false });
+    expect(useStore.getState().selectedId).toBe(created);
+    expect(useStore.getState().inspectorOpen).toBe(false);
+
+    useStore.getState().select(rootId);
+    useStore.getState().select(created, { inspect: false });
+    expect(useStore.getState().selectedId).toBe(created);
+    expect(useStore.getState().inspectorOpen).toBe(true);
+  });
+
   it('cycles a kind through its variant group when nothing is lost', () => {
     const merchantId = ids(useStore.getState().doc)[1] as string;
     useStore.getState().remove(byName(useStore.getState().doc, 'Store').id);

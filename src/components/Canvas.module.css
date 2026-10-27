@@ -37,3 +37,35 @@
   width: 0;
   height: 0;
 }
+
+/* Cards and connectors that were just removed, playing out their exit. */
+.ghosts {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* While the intro assembles, the real diagram waits, hidden at once, then
+   fades in over the shapes once they match it. */
+.world {
+  transition: opacity 320ms var(--b-ease-enter);
+}
+
+.canvas[data-intro='assemble'] .world {
+  opacity: 0;
+  transition: none;
+}
+
+.canvas[data-intro='assemble'] .grid {
+  animation: gridIn 700ms var(--b-ease-enter);
+}
+
+@keyframes gridIn {
+  from {
+    opacity: 0;
+  }
+}
