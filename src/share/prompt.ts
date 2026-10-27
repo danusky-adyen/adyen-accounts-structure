@@ -134,7 +134,9 @@ const SPARSE_EXAMPLE = {
 export function buildImportPrompt(): string {
   return `You are turning notes about a merchant's Adyen setup into a JSON diagram.
 
-Return ONLY a JSON object, with no prose and no code fences.
+Return ONLY the JSON object, with no prose before or after it. If you can, put it
+in a single \`\`\`json code block, so it keeps its formatting and can be copied in
+one click.
 
 ${diagramGuide()}
 ## The notes to convert

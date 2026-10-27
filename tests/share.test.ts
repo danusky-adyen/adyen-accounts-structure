@@ -21,6 +21,7 @@ import { PAYMENT_METHODS } from '../src/domain/paymentMethods';
 import { SHARE_FORMAT_VERSION, WIRE_CODES, decodeDocument, encodeDocument } from '../src/share/codec';
 import { decodeLegacyShareLink } from '../src/share/legacy';
 import { importFromText } from '../src/share/import';
+import { buildImportPrompt } from '../src/share/prompt';
 import { buildShareUrl, readSharedDocument } from '../src/share/url';
 import { byName, doc, ids, kinds, named, node } from './helpers';
 
@@ -463,5 +464,17 @@ describe('exported JSON', () => {
     expect(
       areLinked(outcome.doc, byName(outcome.doc, 'Retail NL').id, byName(outcome.doc, 'Webshop').id),
     ).toBe(true);
+  });
+});
+
+describe('the Build prompt', () => {
+  it('asks for a json code block, and the reply it gets back imports as is', () => {
+    expect(buildImportPrompt()).toContain('```json code block');
+
+    const diagram = { root: { kind: 'company', name: 'Rye & Co', children: [{ kind: 'pos', name: 'Shops' }] } };
+    const reply = `\`\`\`json\n${JSON.stringify(diagram, null, 2)}\n\`\`\``;
+    const outcome = importFromText(reply);
+    expect('error' in outcome).toBe(false);
+    expect((outcome as { doc: StructureDocument }).doc.root.name).toBe('Rye & Co');
   });
 });
