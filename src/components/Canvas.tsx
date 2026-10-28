@@ -240,6 +240,8 @@ export function Canvas({
         if (!current.moved) {
           select(null);
           setEditing(null);
+          const store = useStore.getState();
+          if (store.templatesOpen) store.setTemplatesOpen(false);
         }
         return;
       }
