@@ -11,10 +11,10 @@
 .card {
   position: absolute;
   border-radius: var(--b-radius-l);
-  background: var(--c-surface);
+  background-color: var(--c-surface);
   border: var(--b-border-width-s) solid var(--c-border);
   transition:
-    background var(--b-duration-fast) var(--b-ease-linear),
+    background-color var(--b-duration-fast) var(--b-ease-linear),
     border-color var(--b-duration-fast) var(--b-ease-linear),
     box-shadow var(--b-duration-fast) var(--b-ease-linear),
     opacity var(--b-duration-moderate) var(--b-ease-standard),
@@ -24,17 +24,19 @@
   touch-action: none;
 }
 
+/* State tints are transparent, so they are laid over the card's own opaque
+   fill rather than replacing it; otherwise the lines behind would show. */
 .card:hover {
-  background: var(--c-surface-hover);
+  background-image: linear-gradient(var(--c-surface-hover), var(--c-surface-hover));
   border-color: var(--c-border-hover);
 }
 
 .card[data-platform='true'] {
-  background: var(--c-platform-surface);
+  background-color: var(--c-platform-surface);
 }
 
 .card[data-tone='management'] {
-  background: var(--c-surface-sunken);
+  background-color: var(--c-surface-sunken);
 }
 
 .card[data-tone='root'] {
@@ -59,13 +61,13 @@
 .card[data-droptarget='link'] {
   border-color: var(--c-accent);
   border-style: dashed;
-  background: var(--c-accent-soft);
+  background-image: linear-gradient(var(--c-accent-soft), var(--c-accent-soft));
   opacity: 1;
 }
 
 .card[data-droptarget='inside'] {
   border-color: var(--c-accent);
-  background: var(--c-accent-soft);
+  background-image: linear-gradient(var(--c-accent-soft), var(--c-accent-soft));
   opacity: 1;
   transform: scale(1.02);
 }

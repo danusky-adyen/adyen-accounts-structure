@@ -237,9 +237,9 @@ so the tokens are transcribed with their names attached instead of installed —
 which also means the SVG exporter can read the same raw values, and an export
 cannot drift from the screen. Three consequences worth knowing:
 
-- **Green means something.** Adyen Green is never tinted: it fills key actions,
-  the selection ring, the active tree path and money-holding accounts, always
-  with Adyen Black on top. Active toggles and hover states are transparent tints
+- **Green means something.** Adyen Green is used at full strength for key
+  actions, the selection ring and the active tree path, always with Adyen Black
+  on top. Active toggles and hover states are transparent tints
   of Adyen Black (on light) or white (on dark), not green.
 - **Adyen Sans and Adyen MONO, with fallbacks.** Neither typeface is publicly
   hosted, so the stacks name them first and fall back to the system grotesque
@@ -252,8 +252,13 @@ cannot drift from the screen. Three consequences worth knowing:
   border and the canvas colour. Hover changes the surface colour and selection
   reads as a ring.
 - **Fifteen kinds share four tint families:** blue for the parties you sell
-  with, orange for in-person hardware, Adyen Green for anything holding money,
-  and Adyen Black tones for compliance and reference records.
+  with, orange for in-person hardware, green for anything holding money, and
+  Adyen Black for compliance and reference records. Each family is a light fill
+  and a deeper line in one hue, at the same lightness and chroma as the others,
+  so no icon tile is louder than the rest. Green takes Adyen Green's hue and
+  grey takes Adyen Black's.
+- **Card fills are opaque.** Tree and link lines run behind the cards, so hover
+  and drop tints are laid over a card's own fill instead of replacing it.
 
 `tests/design.test.ts` guards the parts a compiler cannot: every `--b-*` a
 stylesheet references is one the token module actually emits (an unknown custom

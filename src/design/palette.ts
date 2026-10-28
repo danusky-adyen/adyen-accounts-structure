@@ -117,7 +117,8 @@ export const PALETTES: Record<ThemeName, Palette> = {
     canvasDot: BLACK['0500'],
     surface: BLACK['0000'],
     surfaceRaised: BLACK['0000'],
-    surfaceSunken: black(0.075), // 0200
+    // Opaque, because reference cards use it and lines must not show through.
+    surfaceSunken: BLACK['0200'],
     surfaceHover: black(0.039), // 0100
     surfaceActive: black(0.075), // 0200
     panel: BLACK['0000'],
@@ -157,8 +158,8 @@ export const PALETTES: Record<ThemeName, Palette> = {
     canvasDot: white(0.12),
     surface: BLACK['2900'],
     surfaceRaised: BLACK['2700'],
-    // White tints step *up* from the card, so a sunken surface stays visible.
-    surfaceSunken: white(0.07),
+    // Steps *up* from the card so it stays visible, and opaque like the light one.
+    surfaceSunken: BLACK['2600'],
     surfaceHover: white(0.05),
     surfaceActive: white(0.1),
     panel: BLACK['2800'],
@@ -198,10 +199,16 @@ export const PALETTES: Record<ThemeName, Palette> = {
 
 /**
  * Per-kind accent for the icon tile. The fifteen kinds share four families:
- * blue for the parties you sell with and orange for in-person hardware and
- * instruments (Bento weak-background and on-weak-label pairs), Adyen Green for
- * anything holding money, and Adyen Black tones for compliance and reference
- * records.
+ * blue for the parties you sell with, orange for in-person hardware and
+ * instruments, green for anything holding money, and Adyen Black for
+ * compliance and reference records.
+ *
+ * Every family is built the same way, so no tile shouts louder than another:
+ * a light fill and a deeper line in one hue, each at the same CIELAB lightness
+ * and chroma as the other families (fill L 90, line L 47 on light; fill L 28,
+ * line L 80 on dark). Green takes Adyen Green's own hue and grey Adyen Black's,
+ * which keeps the set in key with the brand colours. The fill is dark enough to
+ * stand off a platform or reference card, and the line clears 3.5:1 on it.
  */
 export type TintName = 'blue' | 'orange' | 'green' | 'grey';
 
@@ -215,14 +222,10 @@ export interface Tint {
 }
 
 export const TINTS: Record<TintName, Tint> = {
-  // background-highlight-weak / label-on-background-highlight-weak
-  blue: { line: '#0065c9', lineDark: '#84b9ed', fill: '#f0f6fd', fillDark: '#00305f' },
-  // background-warning-weak / label-on-background-warning-weak
-  orange: { line: '#955900', lineDark: '#ff9e11', fill: '#fff4e5', fillDark: '#462a00' },
-  // Adyen Green at full strength with Adyen Black on it, never a pale tint.
-  green: { line: BLACK['3200'], lineDark: BLACK['3200'], fill: ADYEN_GREEN, fillDark: ADYEN_GREEN },
-  // Black 0200 / 1800 on light, Black 2600 / 0800 on dark
-  grey: { line: BLACK['1800'], lineDark: BLACK['0800'], fill: BLACK['0200'], fillDark: BLACK['2600'] },
+  blue: { line: '#0079cb', lineDark: '#72ceff', fill: '#d0e5fc', fillDark: '#244560' },
+  orange: { line: '#a75c19', lineDark: '#ffb67d', fill: '#f9ddcb', fillDark: '#583c27' },
+  green: { line: '#00813d', lineDark: '#84d99a', fill: '#d0e9d4', fillDark: '#2a4932' },
+  grey: { line: '#637183', lineDark: '#bcc7d9', fill: '#dde3ec', fillDark: '#3c434d' },
 };
 
 export function tintFill(tint: TintName, theme: ThemeName): string {
