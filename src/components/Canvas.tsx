@@ -38,6 +38,8 @@ function capturePointer(element: HTMLElement | null, pointerId: number): void {
 const DRAG_THRESHOLD_PX = 5;
 const GRID_SIZE = 26;
 
+const noop = (): void => {};
+
 interface PanInteraction {
   readonly kind: 'pan';
   readonly pointerId: number;
@@ -54,6 +56,8 @@ interface NodeInteraction {
   readonly startClientX: number;
   readonly startClientY: number;
   moved: boolean;
+  /** Where on the card it was picked up, in canvas units, so the copy under the pointer does not jump. */
+  grab: { x: number; y: number };
 }
 
 type Interaction = PanInteraction | NodeInteraction;
@@ -171,10 +175,13 @@ export function Canvas({
         startClientX: event.clientX,
         startClientY: event.clientY,
         moved: false,
+        grab: { x: 0, y: 0 },
       };
+      // Pressing selects but leaves the sidebar alone: the press may turn into a
+      // drag, and only a plain click opens the details (see finishInteraction).
       // Read at press time so the handler, and every card holding it, stays
       // the same object when the selection moves.
-      if (useStore.getState().selectedId !== id) select(id);
+      if (useStore.getState().selectedId !== id) select(id, { inspect: false });
     },
     [select],
   );
@@ -219,12 +226,17 @@ export function Canvas({
       }
 
       if (!current.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
-      if (!current.moved) capturePointer(containerRef.current, event.pointerId);
+      if (!current.moved) {
+        capturePointer(containerRef.current, event.pointerId);
+        const item = layout.byId.get(current.nodeId);
+        const start = view.toCanvas(current.startClientX, current.startClientY);
+        if (item) current.grab = { x: start.x - item.x, y: start.y - item.y };
+      }
       current.moved = true;
 
       const pointer = view.toCanvas(event.clientX, event.clientY);
       const target = resolveDropTarget(doc, layout, current.nodeId, pointer);
-      setDrag({ nodeId: current.nodeId, pointer, target });
+      setDrag({ nodeId: current.nodeId, pointer, grab: current.grab, target });
     },
     [containerRef, doc, layout, setDrag, view],
   );
@@ -248,7 +260,11 @@ export function Canvas({
 
       const active = useStore.getState().drag;
       setDrag(null);
-      if (!current.moved || !active) return;
+      if (!current.moved) {
+        if (useStore.getState().selectedId === current.nodeId) useStore.getState().setInspectorOpen(true);
+        return;
+      }
+      if (!active) return;
 
       const target = active.target;
       if (!target) return;
@@ -311,6 +327,7 @@ export function Canvas({
     explainedParentId === null ? null : (layout.nodes.find((item) => item.id === explainedParentId)?.kind ?? null);
 
   const activeNodeId = drag?.nodeId ?? selectedId;
+  const draggedItem = drag === null ? null : (layout.byId.get(drag.nodeId) ?? null);
 
   return (
     <div
@@ -386,6 +403,33 @@ export function Canvas({
             );
           })}
         </div>
+
+        {drag === null || draggedItem === null ? null : (
+          <div className={styles.dragCopy} data-action={drag.target?.action ?? 'none'} aria-hidden inert>
+            <NodeCard
+              item={{ ...draggedItem, x: drag.pointer.x - drag.grab.x, y: drag.pointer.y - drag.grab.y }}
+              selected={false}
+              editing={false}
+              editingSeed={null}
+              dragging={false}
+              dimmed={false}
+              dropAction={null}
+              linkCount={linkCounts.get(draggedItem.id) ?? 0}
+              paymentLogos={paymentLogos}
+              tabbable={false}
+              onPointerDown={noop}
+              onStartEdit={noop}
+              onCommitName={noop}
+              onCancelEdit={noop}
+              onAddChild={noop}
+              onCycleKind={noop}
+              onAddLegalEntity={noop}
+              onDelete={noop}
+              onOpenTerminalPicker={noop}
+              onRemoveTerminal={noop}
+            />
+          </div>
+        )}
       </div>
 
       {explained === null ? null : (

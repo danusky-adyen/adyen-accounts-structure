@@ -49,6 +49,32 @@
   pointer-events: none;
 }
 
+/* The see-through copy of a card that follows the pointer while it is dragged. */
+.dragCopy {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.dragCopy > * {
+  opacity: 0.72;
+  box-shadow: var(--b-shadow-high);
+  transform: rotate(-1.5deg) scale(1.03);
+  cursor: grabbing;
+  transition:
+    opacity var(--b-duration-fast) var(--b-ease-linear),
+    transform var(--b-duration-fast) var(--b-ease-enter);
+}
+
+/* Over a link target the line is what matters, so the copy steps back. */
+.dragCopy[data-action='link'] > * {
+  opacity: 0.4;
+  transform: scale(0.92);
+}
+
 /* While the intro assembles, the real diagram waits, hidden at once, then
    fades in over the shapes once they match it. */
 .world {

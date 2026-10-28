@@ -31,6 +31,8 @@ export interface DragState {
   readonly nodeId: NodeId;
   /** Pointer position in canvas coordinates. */
   readonly pointer: { readonly x: number; readonly y: number };
+  /** Offset of the pointer from the card's corner where it was picked up. */
+  readonly grab: { readonly x: number; readonly y: number };
   readonly target: DropTarget | null;
 }
 
