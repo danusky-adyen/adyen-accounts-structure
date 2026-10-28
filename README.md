@@ -19,7 +19,7 @@ npm run dev        # http://localhost:5173
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | `tsc --build` across app and node configs |
 | `npm run lint` | ESLint, type-aware |
-| `npm test` | Vitest (257 tests) |
+| `npm test` | Vitest (260 tests) |
 | `node scripts/fetch-payment-logos.mjs` | Refresh the vendored payment-method artwork |
 
 ## Architecture
@@ -211,13 +211,14 @@ child limits and link cardinality are therefore enforced in one place.
 
 ## Design system
 
-The interface follows Bento, Adyen's design system:
-its colour, spacing, radius, type, motion, elevation and z-index tokens, and its
-component recipes for buttons, cards, tags, inputs, modals and toasts.
+Colour and type follow the Adyen brand guidelines; spacing, radius, motion and
+z-index follow Bento, Adyen's design system, along with its component recipes
+for buttons, cards, tags, inputs, modals and toasts.
 
-Two files hold every value. `design/palette.ts` carries colour for both themes,
-with the Bento token each value implements named in a comment beside it
-(`surface: '#ffffff', // background-primary`). `design/tokens.ts` carries
+Two files hold every value. `design/palette.ts` carries colour for both themes:
+Adyen Green (`#00d16a`), always at full strength, and the 32-tone Adyen Black
+scale from 0100 to 3200 (`#001222`). The supporting blue, orange and red keep
+their Bento token names in a comment. `design/tokens.ts` carries
 everything theme-independent and publishes it as CSS custom properties under
 Bento's own names, so a stylesheet in this repo can be read against the design
 system line by line:
@@ -236,27 +237,30 @@ so the tokens are transcribed with their names attached instead of installed —
 which also means the SVG exporter can read the same raw values, and an export
 cannot drift from the screen. Three consequences worth knowing:
 
-- **The type scale is Bento's; the font stack is not.** Bento ships the Adyen UI
-  typeface from a CDN. Loading it would put a network request in front of the
-  first paint and a woff2 subset inside every exported file, so the system stack
-  stays and only the sizes, line heights and weights come from Bento: 14/20 body,
-  12/18 caption, 16/26 titles. Bento text has no letter-spacing and no case
-  transform, so the uppercase micro-labels are gone.
-- **Cards are flat.** Bento gives a card `background-primary`, a 1 px
-  `outline-primary` and radius `l`, and no shadow; shadows are for layers that
-  genuinely float. So the canvas cards lost their drop shadows, hover raises the
-  surface colour instead of the card, and selection reads as a ring.
-- **Fifteen kinds share four tint families.** Bento's palette is deliberately
-  narrow, so the eleven hand-picked tints collapsed onto four real weak-background
-  and on-weak-label pairs: blue for the parties you sell with, orange for
-  in-person hardware, green for anything holding money, grey for compliance and
-  reference records.
+- **Green means something.** Adyen Green is never tinted: it fills key actions,
+  the selection ring, the active tree path and money-holding accounts, always
+  with Adyen Black on top. Active toggles and hover states are transparent tints
+  of Adyen Black (on light) or white (on dark), not green.
+- **Adyen Sans and Adyen MONO, with fallbacks.** Neither typeface is publicly
+  hosted, so the stacks name them first and fall back to the system grotesque
+  and monospace. No web font is fetched, which keeps the first paint and every
+  export free of font downloads. Mono capitals mark labels and technical
+  details: the account type on each card, integration chips, section labels,
+  setting keys and shortcuts. The sizes come from Bento: 14/20 body, 12/18
+  caption, 16/26 titles.
+- **No drop shadows.** Cards, panels, dialogs and toasts are separated by their
+  border and the canvas colour. Hover changes the surface colour and selection
+  reads as a ring.
+- **Fifteen kinds share four tint families:** blue for the parties you sell
+  with, orange for in-person hardware, Adyen Green for anything holding money,
+  and Adyen Black tones for compliance and reference records.
 
 `tests/design.test.ts` guards the parts a compiler cannot: every `--b-*` a
 stylesheet references is one the token module actually emits (an unknown custom
 property is silently dropped, not an error, which is how a camelCased z-index
-token went unnoticed), no stylesheet reintroduces uppercasing, tracking or
-frosted glass, and the canvas metrics stay on the spacer, radius and type ramps.
+token went unnoticed), Adyen Green is only used at full strength, capitals and
+tracking appear only on mono labels, no stylesheet adds a drop shadow or frosted
+glass, and the canvas metrics stay on the spacer, radius and type ramps.
 
 Icons are the one part of Bento not adopted: the 24×24 set exists only in Figma,
 no published package ships the artwork, and the Figma seat available here is

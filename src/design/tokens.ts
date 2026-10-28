@@ -7,6 +7,19 @@
  * the raw values; everything in this file is theme-independent.
  */
 
+/**
+ * `--b-font-*`. Adyen Sans for everything, Adyen MONO for technical details and
+ * small labels. Neither is publicly hosted, so each falls back to the closest
+ * system face: a neutral grotesque, and the platform's monospace. Single quotes
+ * on purpose: the same strings are written into SVG `font-family` attributes.
+ */
+export const FONT = {
+  sans: "'Adyen Sans', -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  mono: "'Adyen Mono', 'Adyen MONO', ui-monospace, 'SF Mono', SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace",
+} as const;
+
+export type FontFamily = keyof typeof FONT;
+
 /** `--b-spacer-*`. The whole system sits on this ramp. */
 export const SPACER = {
   '000': 0,
@@ -73,7 +86,10 @@ export const Z_INDEX = { elevated: 5, navigation: 10, instantInteraction: 15 } a
 /** `--b-focus-ring-*`: a 1px gap in the page colour, then a 3px ring. */
 export const FOCUS_RING = { spacer: BORDER_WIDTH.s, outline: BORDER_WIDTH.l } as const;
 
-/** `--b-shadow-*`, for floating layers only. Bento cards carry no shadow. */
+/**
+ * `--b-shadow-*`. Kept for reference only: the brand rules out drop shadows, so
+ * floating layers are separated by their border and the canvas colour instead.
+ */
 export const SHADOW = {
   low: '0 2px 4px rgba(0, 18, 34, 0.04), 0 1px 2px rgba(0, 18, 34, 0.02)',
   medium: '0 6px 12px rgba(0, 18, 34, 0.08), 0 2px 4px rgba(0, 18, 34, 0.04)',
@@ -90,6 +106,7 @@ function kebab(value: string): string {
 /** Every primitive as a `--b-*` custom property, in Bento's own naming. */
 export function tokenDeclarations(): readonly string[] {
   const lines: string[] = [];
+  for (const [name, value] of Object.entries(FONT)) lines.push(`--b-font-${name}: ${value};`);
   for (const [step, value] of Object.entries(SPACER)) lines.push(`--b-spacer-${step}: ${value}px;`);
   for (const [name, value] of Object.entries(RADIUS)) lines.push(`--b-radius-${name}: ${value}px;`);
   for (const [name, value] of Object.entries(BORDER_WIDTH)) lines.push(`--b-border-width-${name}: ${value}px;`);

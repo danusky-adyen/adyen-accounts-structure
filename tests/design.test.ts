@@ -10,7 +10,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { PALETTES, TINTS, tintFill, tintLine, type Palette } from '../src/design/palette';
+import { ADYEN_GREEN, BLACK, PALETTES, TINTS, tintFill, tintLine, type Palette } from '../src/design/palette';
 import { CARD, TREE } from '../src/layout/metrics';
 import { RADIUS, SPACER, TYPE, Z_INDEX, tokenDeclarations } from '../src/design/tokens';
 
@@ -40,6 +40,31 @@ describe('palette', () => {
       for (const [front, back] of contrasting) {
         expect(palette[front]).not.toBe(palette[back]);
       }
+    }
+  });
+
+  it('uses Adyen Green only at full strength, with Adyen Black on it', () => {
+    for (const palette of Object.values(PALETTES)) {
+      expect(palette.accent).toBe(ADYEN_GREEN);
+      expect(palette.edgeActive).toBe(ADYEN_GREEN);
+      expect(palette.onAccent).toBe(BLACK['3200']);
+    }
+    expect(ADYEN_GREEN).toBe('#00d16a');
+    expect(BLACK['3200']).toBe('#001222');
+    expect(Object.keys(BLACK)).toHaveLength(33);
+  });
+
+  it('builds the neutrals from Adyen Black and white', () => {
+    expect(PALETTES.light.text).toBe(BLACK['3200']);
+    expect(PALETTES.light.textMuted).toBe(BLACK['1800']);
+    expect(PALETTES.light.textFaint).toBe(BLACK['1400']);
+    expect(PALETTES.light.canvas).toBe(BLACK['0100']);
+    expect(PALETTES.dark.canvas).toBe(BLACK['3200']);
+    for (const value of [PALETTES.light.border, PALETTES.light.surfaceHover, PALETTES.light.accentSoft]) {
+      expect(value).toMatch(/^rgba\(0, 18, 34, /);
+    }
+    for (const value of [PALETTES.dark.border, PALETTES.dark.surfaceHover, PALETTES.dark.accentSoft]) {
+      expect(value).toMatch(/^rgba\(255, 255, 255, /);
     }
   });
 
@@ -104,10 +129,19 @@ describe('stylesheets', () => {
     }
   });
 
-  it('leaves no uppercased or letter-spaced text, which Bento does not use', () => {
+  it('sets capitals and tracking only on Adyen MONO labels', () => {
     for (const [path, css] of sheets) {
-      expect(css, path).not.toMatch(/text-transform:\s*uppercase/);
-      expect(css, path).not.toMatch(/letter-spacing:/);
+      for (const rule of css.split('}')) {
+        if (/text-transform:\s*uppercase|letter-spacing:/.test(rule)) {
+          expect(rule, path).toMatch(/font-family:\s*var\(--b-font-mono\)/);
+        }
+      }
+    }
+  });
+
+  it('draws no drop shadows', () => {
+    for (const [path, css] of sheets) {
+      expect(css, path).not.toMatch(/var\(--b-shadow-/);
     }
   });
 
@@ -149,7 +183,8 @@ describe('canvas metrics', () => {
   it('uses the Bento type scale for the name and the caption', () => {
     expect(CARD.nameSize).toBe(TYPE.bodyStrongest.size);
     expect(CARD.nameWeight).toBe(TYPE.bodyStrongest.weight);
-    expect(CARD.captionSize).toBe(TYPE.caption.size);
+    // The caption is a mono label in capitals, one step under the caption size.
+    expect(CARD.captionSize).toBe(TYPE.caption.size - 1);
     expect(CARD.captionLineHeight).toBe(TYPE.caption.lineHeight);
   });
 });

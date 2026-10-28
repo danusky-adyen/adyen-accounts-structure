@@ -44,7 +44,7 @@
 /* Selection reads as a ring rather than elevation, so the row stays flat. */
 .card[data-selected='true'] {
   border-color: var(--c-accent);
-  box-shadow: 0 0 0 var(--b-border-width-l) var(--c-accent-soft);
+  box-shadow: 0 0 0 var(--b-border-width-s) var(--c-accent);
 }
 
 .card[data-dragging='true'] {
@@ -140,6 +140,8 @@
   right: 0;
   padding: 0 var(--b-spacer-060);
   text-align: center;
+  font-family: var(--b-font-mono);
+  text-transform: uppercase;
   font-weight: var(--b-text-caption-weight);
   color: var(--c-text-muted);
   white-space: nowrap;
@@ -206,7 +208,6 @@
   border-radius: 50%;
   background: var(--c-surface);
   border: var(--b-border-width-s) solid var(--c-border);
-  box-shadow: var(--b-shadow-low);
   opacity: 0;
   pointer-events: none;
   transition:
@@ -241,7 +242,7 @@
 
 .addButton:hover {
   background: var(--c-accent);
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
   transform: scale(1.1);
 }
 
@@ -257,7 +258,7 @@
 
 .secondaryButton:hover {
   background: var(--c-accent);
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
   transform: scale(1.1);
 }
 
@@ -274,7 +275,7 @@
 
 .terminalButton:hover {
   background: var(--c-accent);
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
   transform: scale(1.1);
 }
 
@@ -355,8 +356,9 @@
   border: var(--b-border-width-s) solid var(--c-surface);
 }
 
-/* Bento tag: radius `s`, weak background, caption-stronger label. */
+/* Bento tag: radius `s`, weak background, caption-stronger label in mono. */
 .chip {
+  font-family: var(--b-font-mono);
   position: absolute;
   display: flex;
   align-items: center;

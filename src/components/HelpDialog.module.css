@@ -19,6 +19,7 @@
 
 .keys {
   flex: none;
+  font-family: var(--b-font-mono);
   width: 46%;
   font-size: var(--b-text-caption-size);
   line-height: var(--b-text-caption-line-height);

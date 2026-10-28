@@ -69,6 +69,7 @@
 .keyText,
 .valueText {
   min-width: 0;
+  font-family: var(--b-font-mono);
   font-size: var(--b-text-caption-size);
   line-height: var(--b-text-caption-line-height);
   overflow: hidden;
@@ -112,7 +113,7 @@
 
 .tag[data-kind='own'] {
   background: var(--c-accent);
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
 }
 
 /* Bento's weak accent background is the hover pair for accent-text labels. */

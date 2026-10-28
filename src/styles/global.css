@@ -1,8 +1,8 @@
 /**
  * Shared primitives, following the Bento component recipes:
  * buttons and inputs use radius `m` with a 100ms linear transition, floating
- * surfaces use radius `l` with `shadow-medium`, and interactive states come
- * from the `*-hover` / `*-active` background tokens rather than ad-hoc alpha.
+ * surfaces use radius `l` with a border and no shadow, and interactive states
+ * are transparent tints of Adyen Black (or white, on dark).
  */
 
 *,
@@ -19,9 +19,10 @@ body,
 }
 
 body {
-  /* Bento ships the Adyen UI typeface from a CDN; the system stack keeps this
-     tool offline-capable and keeps exported files free of embedded fonts. */
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* Adyen Sans where it is installed, the closest system face elsewhere. No
+     web font is fetched, which keeps the tool offline-capable and exported
+     files free of embedded fonts. */
+  font-family: var(--b-font-sans);
   font-size: var(--b-text-body-size);
   line-height: var(--b-text-body-line-height);
   font-weight: var(--b-text-body-weight);
@@ -68,7 +69,6 @@ textarea {
   background: var(--c-panel);
   border: var(--b-border-width-s) solid var(--c-panel-border);
   border-radius: var(--b-radius-l);
-  box-shadow: var(--b-shadow-medium);
 }
 
 .iconButton {
@@ -101,9 +101,11 @@ textarea {
   cursor: default;
 }
 
+/* An active toggle is a transparent tint, not green: green is kept for value
+   and key actions. */
 .iconButton[data-active='true'] {
   background: var(--c-accent-soft);
-  color: var(--c-accent-text);
+  color: var(--c-text);
 }
 
 .iconButton svg {
@@ -139,9 +141,12 @@ textarea {
   flex: none;
 }
 
-/* Bento captions carry no tracking and no case transform. */
+/* Small labels are Adyen MONO capitals, as in the brand's UI imagery. */
 .sectionLabel {
-  font-size: var(--b-text-caption-size);
+  font-family: var(--b-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: calc(var(--b-text-caption-size) - 1px);
   line-height: var(--b-text-caption-line-height);
   font-weight: var(--b-text-caption-stronger-weight);
   color: var(--c-text-muted);

@@ -4,18 +4,16 @@
  * DOM.
  */
 
-export type TextMeasurer = (text: string, weight: number, size: number) => number;
+import { FONT, type FontFamily } from '../design/tokens';
 
-/**
- * Single quotes on purpose: the same string is written into an SVG
- * `font-family` attribute, where double quotes would end the attribute.
- */
-export const FONT_STACK =
-  "-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+export type TextMeasurer = (text: string, weight: number, size: number, family?: FontFamily) => number;
+
+export const FONT_STACK = FONT.sans;
+export const MONO_STACK = FONT.mono;
 
 /** Cheap approximation used in tests and before a canvas is available. */
-export const estimateTextWidth: TextMeasurer = (text, weight, size) => {
-  const factor = weight >= 600 ? 0.58 : 0.54;
+export const estimateTextWidth: TextMeasurer = (text, weight, size, family = 'sans') => {
+  const factor = family === 'mono' ? 0.6 : weight >= 600 ? 0.58 : 0.54;
   return text.length * size * factor;
 };
 
@@ -29,11 +27,11 @@ export function createCanvasMeasurer(): TextMeasurer {
   if (!context) return estimateTextWidth;
 
   const cache = new Map<string, number>();
-  return (text, weight, size) => {
-    const key = `${weight}|${size}|${text}`;
+  return (text, weight, size, family = 'sans') => {
+    const key = `${family}|${weight}|${size}|${text}`;
     const cached = cache.get(key);
     if (cached !== undefined) return cached;
-    context.font = `${weight} ${size}px ${FONT_STACK}`;
+    context.font = `${weight} ${size}px ${FONT[family]}`;
     const width = context.measureText(text).width;
     if (cache.size > 4000) cache.clear();
     cache.set(key, width);

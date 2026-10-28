@@ -101,6 +101,7 @@
 
 .zoomValue {
   min-width: 46px;
+  font-family: var(--b-font-mono);
   text-align: center;
   font-size: var(--b-text-caption-size);
   font-weight: var(--b-text-caption-stronger-weight);

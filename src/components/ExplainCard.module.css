@@ -12,7 +12,6 @@
   gap: var(--b-spacer-050);
   pointer-events: none;
   z-index: var(--b-z-elevated);
-  box-shadow: var(--b-shadow-high);
   animation: appear var(--b-duration-fast) var(--b-ease-enter);
 }
 

@@ -164,7 +164,7 @@ function packChips(
   let row = 0;
 
   for (const label of labels) {
-    const width = Math.ceil(measure(label, CARD.chipTextWeight, CARD.chipTextSize)) + CARD.chipPaddingX * 2;
+    const width = Math.ceil(measure(label, CARD.chipTextWeight, CARD.chipTextSize, 'mono')) + CARD.chipPaddingX * 2;
     const needed = rowWidth === 0 ? width : rowWidth + CARD.chipGap + width;
     if (needed > innerWidth && rowWidth > 0) {
       row += 1;
@@ -235,7 +235,7 @@ export function measureCard(
 
   const maxTextWidth = CARD.maxWidth - CARD.paddingX * 2;
   const wrapped = wrapText(node.name, maxTextWidth, CARD.nameMaxLines, measure, CARD.nameWeight, CARD.nameSize);
-  const captionWidth = measure(caption, CARD.captionWeight, CARD.captionSize);
+  const captionWidth = measure(caption.toUpperCase(), CARD.captionWeight, CARD.captionSize, 'mono');
 
   // An empty terminal row is not reserved: the row would read as dead space on
   // every store and merchant card. Adding the first terminal grows the card.
@@ -248,7 +248,7 @@ export function measureCard(
   const labels = spec.supportsIntegrations ? chipLabels(node) : [];
   const widestChip = labels.reduce(
     (widest, label) =>
-      Math.max(widest, Math.ceil(measure(label, CARD.chipTextWeight, CARD.chipTextSize)) + CARD.chipPaddingX * 2),
+      Math.max(widest, Math.ceil(measure(label, CARD.chipTextWeight, CARD.chipTextSize, 'mono')) + CARD.chipPaddingX * 2),
     0,
   );
 

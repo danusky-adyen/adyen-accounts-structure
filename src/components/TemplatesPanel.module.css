@@ -115,7 +115,7 @@
   display: grid;
   place-items: center;
   background: var(--c-accent);
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
 }
 
 .guidedIcon svg {

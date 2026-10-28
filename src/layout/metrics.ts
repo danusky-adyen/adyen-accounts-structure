@@ -22,7 +22,8 @@ export const CARD = {
   nameWeight: TYPE.bodyStrongest.weight,
   nameLineHeight: TYPE.bodyStrongest.lineHeight,
   nameMaxLines: 2,
-  captionSize: TYPE.caption.size,
+  /** The account type is a label, so it is set in mono capitals, a step smaller. */
+  captionSize: TYPE.caption.size - 1,
   captionWeight: TYPE.caption.weight,
   captionLineHeight: TYPE.caption.lineHeight,
   captionGap: SPACER['000'],

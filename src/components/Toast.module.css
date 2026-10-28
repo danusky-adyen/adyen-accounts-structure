@@ -18,14 +18,13 @@
   font-weight: var(--b-text-body-stronger-weight);
   color: var(--c-text-inverse);
   background: var(--c-text);
-  box-shadow: var(--b-shadow-high);
   animation: toastIn var(--b-duration-slow) var(--b-ease-enter);
   cursor: pointer;
 }
 
 .toast[data-tone='success'] {
   background: var(--c-accent);
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
 }
 
 .toast[data-tone='error'] {

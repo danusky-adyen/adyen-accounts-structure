@@ -24,7 +24,7 @@
   display: grid;
   place-items: center;
   background: var(--c-accent);
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
   font-size: var(--b-text-caption-size);
   font-weight: var(--b-text-caption-stronger-weight);
 }
@@ -59,7 +59,7 @@
 
 .copyButton:hover {
   background: var(--c-accent);
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
 }
 
 .prompt,
@@ -70,7 +70,7 @@
   border-radius: var(--b-radius-l);
   border: var(--b-border-width-s) solid var(--c-border);
   background: var(--c-surface-sunken);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--b-font-mono);
   font-size: var(--b-text-caption-size);
   line-height: var(--b-text-caption-line-height);
   outline: none;
@@ -131,7 +131,7 @@
 .primary {
   border-color: transparent;
   background: var(--c-accent);
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
 }
 
 .primary:hover:not(:disabled) {

@@ -14,7 +14,7 @@ import { PALETTES, TINTS, tintFill, type ThemeName } from '../design/palette';
 import { BORDER_WIDTH, RADIUS, TYPE } from '../design/tokens';
 import { specOf, terminalCategoryOf, terminalLabel } from '../domain/kinds';
 import type { Layout, LayoutNode } from '../layout';
-import { FONT_STACK } from '../layout/measure';
+import { FONT_STACK, MONO_STACK } from '../layout/measure';
 import { CARD } from '../layout/metrics';
 
 export interface SvgExportOptions {
@@ -27,6 +27,7 @@ export interface SvgExportOptions {
 const ICON_INSET = 3;
 /** Attribute-safe copy of the font stack. */
 const FONT_ATTR = escapeXml(FONT_STACK);
+const MONO_ATTR = escapeXml(MONO_STACK);
 
 export function escapeXml(value: string): string {
   return value
@@ -125,7 +126,7 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
   });
 
   parts.push(
-    `<text x="${round(centerX)}" y="${round(item.y + slots.captionBaselineTop + CARD.captionLineHeight / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="${CARD.captionSize}" font-weight="${CARD.captionWeight}" fill="${palette.textMuted}">${escapeXml(item.caption)}</text>`,
+    `<text x="${round(centerX)}" y="${round(item.y + slots.captionBaselineTop + CARD.captionLineHeight / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${MONO_ATTR}" font-size="${CARD.captionSize}" font-weight="${CARD.captionWeight}" fill="${palette.textMuted}">${escapeXml(item.caption.toUpperCase())}</text>`,
   );
 
   if (item.node.note.trim() !== '') {
@@ -137,7 +138,7 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
   for (const chip of slots.chips) {
     parts.push(
       `<rect x="${round(item.x + chip.x)}" y="${round(item.y + chip.y)}" width="${round(chip.width)}" height="${round(chip.height)}" rx="${CARD.chipRadius}" fill="${palette.surfaceSunken}" stroke="${palette.border}"/>`,
-      `<text x="${round(item.x + chip.x + chip.width / 2)}" y="${round(item.y + chip.y + chip.height / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="${CARD.chipTextSize}" font-weight="${CARD.chipTextWeight}" fill="${palette.textMuted}">${escapeXml(chip.label)}</text>`,
+      `<text x="${round(item.x + chip.x + chip.width / 2)}" y="${round(item.y + chip.y + chip.height / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${MONO_ATTR}" font-size="${CARD.chipTextSize}" font-weight="${CARD.chipTextWeight}" fill="${palette.textMuted}">${escapeXml(chip.label)}</text>`,
     );
   }
 

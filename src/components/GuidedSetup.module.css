@@ -68,7 +68,7 @@
 .progressItem[data-state='current'] .progressDot {
   background: var(--c-accent);
   border-color: transparent;
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
 }
 
 /* Only the current step keeps its name when space runs out. */
@@ -264,7 +264,7 @@
 .tile[aria-pressed='true'] .tileCheck {
   background: var(--c-accent);
   border-color: transparent;
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
 }
 
 .tileCheck svg {
@@ -487,7 +487,7 @@
 .primary {
   border-color: transparent;
   background: var(--c-accent);
-  color: var(--c-text-inverse);
+  color: var(--c-on-accent);
 }
 
 .primary:hover:not(:disabled) {

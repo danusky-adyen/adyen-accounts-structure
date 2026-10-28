@@ -61,7 +61,6 @@
 
 .dragCopy > * {
   opacity: 0.72;
-  box-shadow: var(--b-shadow-high);
   transform: rotate(-1.5deg) scale(1.03);
   cursor: grabbing;
   transition:

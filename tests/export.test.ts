@@ -100,8 +100,9 @@ describe('renderDiagramSvg', () => {
 
     expect(svg.match(/<text /g) ?? []).toHaveLength(expected);
     expect(svg).toContain('>Kalverstraat<');
-    // Bento captions are sentence case: no uppercasing, no tracking.
-    expect(svg).toContain('>Store<');
+    // Captions are Adyen MONO labels in capitals.
+    expect(svg).toContain('>STORE<');
+    expect(svg).toMatch(/font-family="&apos;Adyen Mono&apos;[^"]*"[^>]*>STORE</);
   });
 
   it('escapes text that would otherwise be markup', () => {
@@ -131,9 +132,10 @@ describe('renderDiagramSvg', () => {
     const dark = renderDiagramSvg(layout, { theme: 'dark', background: true, title: 'Retail' });
 
     expect(light).not.toBe(dark);
-    // Bento `background-secondary`, the light-theme canvas.
-    expect(light).toContain('#f4f5f6');
-    expect(dark).not.toContain('#f4f5f6');
+    // Black 0100 is the light canvas, Adyen Black (3200) the dark one.
+    expect(light).toContain('#f5f6f7');
+    expect(dark).not.toContain('#f5f6f7');
+    expect(dark).toContain('#001222');
   });
 
   it('sizes the canvas to the diagram bounds', () => {
