@@ -143,15 +143,28 @@ Links use `#d=` and a positional format: nodes are written pre-order as arrays
 `[kind, name, children, note, terminals, settings, integrations, methods,
 logoDomain]` with trailing defaults truncated, kinds as frozen integer codes, and
 links as integer index pairs into the pre-order sequence. The result is
-LZ-compressed.
+compressed with raw DEFLATE ([fflate](https://github.com/101arrowz/fflate)) and
+written as base64url.
 
-Compared to the old `#cfg=` JSON payload:
+Until DEFLATE arrived, the payload was packed with lz-string. On long diagrams,
+where notes and addresses are most of the payload, DEFLATE is about 40% shorter:
+a 78-node structure with an address on every store went from 5,929 to 3,672
+characters. The encoder still computes both forms and keeps the shorter one, so
+no link got longer. The decoder tries DEFLATE first and falls back to
+lz-string, so every link shared before the switch still opens.
 
-| Document | v1 | current |
-| --- | --- | --- |
-| Default 3 nodes | 176 chars | 23 chars |
-| 16-node sample | 880 chars | 358 chars |
-| 13-node structure with 6 logos and ~40 payment methods | — | 607 chars (683 in v3) |
+| Document | v1 `#cfg=` | lz-string | DEFLATE (current) |
+| --- | --- | --- | --- |
+| Default 3 nodes | 176 chars | 23 chars | 23 chars (lz-string kept) |
+| 17-node sample | 880 chars | 364 chars | 307 chars |
+| Same sample with settings, integrations, methods, logos | — | 523 chars | 430 chars |
+| 63 nodes, every store with an address note | — | 2,215 chars | 1,284 chars |
+
+Links are as short as the content allows, not short in absolute terms: a
+diagram travels entirely inside the URL and never reaches a server. A truly
+short link (`…/#s=k3x9`) would need the diagram stored server-side, which means
+uploading customer structures and addresses somewhere, so it is deliberately not
+done.
 
 Fields are appended, never inserted, so a v2, v3 or v4 link decodes as a v5
 document with the newer fields empty. Terminals are `[code, count]` pairs as of
@@ -298,6 +311,10 @@ Company logos work differently, because a diagram has to stay shareable through
 a URL alone. The default is a monogram from the account name. Add a domain and
 the logo is fetched from a public logo service, then inlined as a data URL for
 export. What the share link carries is the fifteen characters of `acme.com`.
+A pasted address is reduced to its domain. A pasted logo-service URL
+(icon.horse, unavatar, Clearbit, logo.dev, Google or DuckDuckGo favicons and
+similar) keeps the brand domain it names rather than the service's own host,
+which used to replace the brand with the service's icon.
 
 Two services are tried in turn, [icon.horse](https://icon.horse) and then
 [unavatar.io](https://unavatar.io). Both send `access-control-allow-origin: *`,

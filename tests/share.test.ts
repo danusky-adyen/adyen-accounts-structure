@@ -18,7 +18,13 @@ import {
 } from '../src/domain/operations';
 import { INTEGRATIONS } from '../src/domain/integrations';
 import { PAYMENT_METHODS } from '../src/domain/paymentMethods';
-import { SHARE_FORMAT_VERSION, WIRE_CODES, decodeDocument, encodeDocument } from '../src/share/codec';
+import {
+  SHARE_FORMAT_VERSION,
+  WIRE_CODES,
+  decodeDocument,
+  encodeDocument,
+  readPayload,
+} from '../src/share/codec';
 import { decodeLegacyShareLink } from '../src/share/legacy';
 import { importFromText } from '../src/share/import';
 import { buildImportPrompt } from '../src/share/prompt';
@@ -288,7 +294,7 @@ describe('share codec v5', () => {
     document = addTerminal(document, store.id, 'tapToPaySdkIos');
 
     const encoded = encodeDocument(document);
-    const json = LZString.decompressFromEncodedURIComponent(encoded) ?? '';
+    const json = JSON.stringify(readPayload(encoded));
 
     expect(byName(decodeDocument(encoded) as StructureDocument, 'Store').terminals).toEqual([
       's1u2',
@@ -318,7 +324,7 @@ describe('share codec v5', () => {
 
   it('writes integration and method ids as codes rather than names', () => {
     const document = configuredDocument();
-    const json = LZString.decompressFromEncodedURIComponent(encodeDocument(document)) ?? '';
+    const json = JSON.stringify(readPayload(encodeDocument(document)));
 
     expect(json).not.toContain('terminalApiCloud');
     expect(json).not.toContain('sepadirectdebit');
@@ -392,6 +398,75 @@ describe('legacy share links', () => {
     expect(decodeLegacyShareLink('%%%')).toBeNull();
     expect(decodeLegacyShareLink(LZString.compressToEncodedURIComponent('[]'))).toBeNull();
     expect(decodeLegacyShareLink(LZString.compressToEncodedURIComponent('{"t":"nope"}'))).toBeNull();
+  });
+});
+
+/** A long run of stores with addresses, the kind of diagram an import produces. */
+function largeDocument(): StructureDocument {
+  const cities = ['Aachen', 'Berlin', 'Bonn', 'Bremen', 'Dortmund', 'Essen', 'Hamburg', 'Köln'];
+  const stores = Array.from({ length: 60 }, (_, index) => {
+    const city = cities[index % cities.length] ?? 'Berlin';
+    return named('store', `${city} ${index} (S${index})`);
+  });
+  let document = doc(node('company', named('pos', 'Retail', ...stores), named('ecom', 'Webshop')));
+  forEachNode(document, (each) => {
+    if (each.kind !== 'store') return;
+    const number = each.name.replace(/\D+/g, ' ').trim().split(' ')[0] ?? '0';
+    document = setNote(document, each.id, `Store code S${number}. Hauptstraße ${number}, 5${number}00 Musterstadt, DE`);
+    document = setMethods(document, each.id, ['visa', 'mc', 'amex', 'maestro', 'girocard']);
+  });
+  return document;
+}
+
+/** The document without its ids, which every decode assigns afresh. */
+function withoutIds(document: StructureDocument | null): string {
+  return JSON.stringify(document, (key, value: unknown) => (key === 'id' || key === 'links' ? undefined : value));
+}
+
+describe('share transport', () => {
+  it('compresses a long diagram well below what lz-string managed', () => {
+    const document = largeDocument();
+    const lz = LZString.compressToEncodedURIComponent(JSON.stringify(readPayload(encodeDocument(document))));
+    const encoded = encodeDocument(document);
+
+    expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(encoded.length).toBeLessThan(lz.length * 0.7);
+    expect(withoutIds(decodeDocument(encoded))).toBe(withoutIds(document));
+  });
+
+  it('is never longer than the lz-string form, small diagrams included', () => {
+    for (const document of [createDefaultDocument(), sampleDocument(), configuredDocument(), largeDocument()]) {
+      const lz = LZString.compressToEncodedURIComponent(JSON.stringify(readPayload(encodeDocument(document))));
+      expect(encodeDocument(document).length).toBeLessThanOrEqual(lz.length);
+    }
+  });
+
+  it('still opens an lz-string link whose characters all look like base64url', () => {
+    // Links written before the switch decode first as DEFLATE; one made only of
+    // characters both alphabets share must still fall through to lz-string.
+    let found = 0;
+    for (let index = 0; index < 400 && found < 5; index += 1) {
+      const payload = [SHARE_FORMAT_VERSION, [0, `Company ${index}`, [[1, `Retail ${index}`]]]];
+      const old = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
+      if (!/^[A-Za-z0-9_-]+$/.test(old)) continue;
+      found += 1;
+      expect((decodeDocument(old) as StructureDocument).root.name).toBe(`Company ${index}`);
+    }
+    expect(found).toBeGreaterThan(0);
+  });
+
+  it('opens an old lz-string share url through the hash and through Import', () => {
+    const document = largeDocument();
+    const old = LZString.compressToEncodedURIComponent(JSON.stringify(readPayload(encodeDocument(document))));
+
+    expect(withoutIds(readSharedDocument(`#d=${old}`)?.doc ?? null)).toBe(withoutIds(document));
+    const imported = importFromText(`https://example.com/#d=${old}`) as { doc: StructureDocument };
+    expect(withoutIds(imported.doc)).toBe(withoutIds(document));
+  });
+
+  it('rejects a truncated link instead of opening half a diagram', () => {
+    const encoded = encodeDocument(largeDocument());
+    expect(decodeDocument(encoded.slice(0, Math.floor(encoded.length / 2)))).toBeNull();
   });
 });
 

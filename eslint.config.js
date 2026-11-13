@@ -38,6 +38,7 @@ export default [
         Blob: 'readonly',
         Image: 'readonly',
         FileReader: 'readonly',
+        atob: 'readonly',
         btoa: 'readonly',
         ClipboardItem: 'readonly',
         DOMParser: 'readonly',

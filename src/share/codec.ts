@@ -35,8 +35,18 @@
  * individual models pushed the highest code to 17.
  *
  * Settings keys and values stay as free text: they are whatever the user typed.
+ *
+ * Transport. The payload JSON used to be packed with lz-string alone. It is now
+ * compressed with raw DEFLATE and written as base64url, which takes about 40%
+ * off a long link (a 78-node structure full of store addresses went from 5,929
+ * to 3,672 characters). The encoder still produces both and keeps the
+ * shorter, so no link gets longer, and the decoder accepts either, so every
+ * link written before keeps opening. The decoder tries DEFLATE first and falls
+ * back to lz-string: an old payload that happens to inflate still has to parse
+ * as a versioned payload array, which garbage never does in practice.
  */
 
+import { deflateSync, inflateSync, strFromU8, strToU8 } from 'fflate';
 import LZString from 'lz-string';
 import type { AccountNode, NodeId, StructureDocument } from '../domain/document';
 import { forEachNode } from '../domain/document';
@@ -231,7 +241,60 @@ export function encodeDocument(doc: StructureDocument): string {
 
   const payload: unknown[] = [SHARE_FORMAT_VERSION, root];
   if (links.length > 0) payload.push(links);
-  return LZString.compressToEncodedURIComponent(JSON.stringify(payload));
+  const json = JSON.stringify(payload);
+  const deflated = toBase64Url(deflateSync(strToU8(json), { level: 9 }));
+  const packed = LZString.compressToEncodedURIComponent(json);
+  return deflated.length <= packed.length ? deflated : packed;
+}
+
+function toBase64Url(bytes: Uint8Array): string {
+  let binary = '';
+  // Chunked, because spreading a large array into one call overflows the stack.
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function inflateBase64Url(encoded: string): string | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(encoded)) return null;
+  try {
+    const binary = atob(encoded.replace(/-/g, '+').replace(/_/g, '/'));
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return strFromU8(inflateSync(bytes));
+  } catch {
+    return null;
+  }
+}
+
+function inflateLzString(encoded: string): string | null {
+  try {
+    return LZString.decompressFromEncodedURIComponent(encoded) || null;
+  } catch {
+    return null;
+  }
+}
+
+/** A JSON array that starts with a version this build reads, or null. */
+function parsePayload(json: string | null): unknown[] | null {
+  if (json === null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed)) return null;
+  const payload = parsed as unknown[];
+  return typeof payload[0] === 'number' && READABLE_VERSIONS.has(payload[0]) ? payload : null;
+}
+
+/**
+ * The payload array a share string carries, in either transport. Exposed so
+ * tests can look at the wire format without knowing how it was compressed.
+ */
+export function readPayload(encoded: string): unknown[] | null {
+  return parsePayload(inflateBase64Url(encoded)) ?? parsePayload(inflateLzString(encoded));
 }
 
 interface DecodedNode extends RawNode {
@@ -347,20 +410,10 @@ function decodeNode(value: unknown, counter: { next: number }, flat: DecodedNode
   return node;
 }
 
-/** Decodes a v2 or v3 payload. Returns null when the string is neither. */
+/** Decodes a v2 to v5 payload in either transport. Returns null for anything else. */
 export function decodeDocument(encoded: string): StructureDocument | null {
-  let parsed: unknown;
-  try {
-    const json = LZString.decompressFromEncodedURIComponent(encoded);
-    if (!json) return null;
-    parsed = JSON.parse(json);
-  } catch {
-    return null;
-  }
-
-  if (!Array.isArray(parsed)) return null;
-  const payload = parsed as unknown[];
-  if (typeof payload[0] !== 'number' || !READABLE_VERSIONS.has(payload[0])) return null;
+  const payload = readPayload(encoded);
+  if (!payload) return null;
 
   const flat: DecodedNode[] = [];
   const root = decodeNode(payload[1], { next: 0 }, flat);
