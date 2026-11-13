@@ -296,10 +296,18 @@ cards, the exporter and the LLM prompt all follow the generated registry.
 
 Company logos work differently, because a diagram has to stay shareable through
 a URL alone. The default is a monogram from the account name. Add a domain and
-the logo is fetched from a public logo service ([unavatar.io](https://unavatar.io),
-the one service tested that sends `access-control-allow-origin: *`, which the
-canvas rasteriser needs), then inlined as a data URL for export. What the share
-link carries is the fifteen characters of `acme.com`.
+the logo is fetched from a public logo service, then inlined as a data URL for
+export. What the share link carries is the fifteen characters of `acme.com`.
+
+Two services are tried in turn, [icon.horse](https://icon.horse) and then
+[unavatar.io](https://unavatar.io). Both send `access-control-allow-origin: *`,
+which the canvas rasteriser needs. icon.horse goes first because unavatar allows
+anonymous visitors only 25 requests a day per IP address, which an office behind
+one address uses up quickly; after that every logo fell back to its monogram,
+which looked as if share links lost their logos. A logo that was found is kept in
+localStorage (`aas.logos.v1`, the 60 most recent, favicon-sized ones only), so a
+reload or the next visit shows it straight away without another request. Misses
+are not kept, because a miss may only have been a rate limit.
 
 The alternatives were all worse for this tool: embedding a base64 image in the
 fragment adds tens of kilobytes to every link and eventually exceeds what
