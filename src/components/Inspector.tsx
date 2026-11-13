@@ -340,7 +340,7 @@ function BrandField({ nodeId, name, domain, draft, tint, onDraft, onCommit }: Br
           placeholder="acme.com"
           spellCheck={false}
           autoComplete="off"
-          maxLength={80}
+          maxLength={300}
           onChange={(event) => onDraft(event.target.value)}
           onBlur={commit}
           onKeyDown={(event) => {

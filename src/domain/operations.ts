@@ -319,11 +319,61 @@ export function normalizeDomain(input: string): string {
   const trimmed = input.trim().toLowerCase();
   if (trimmed === '') return '';
   const withoutScheme = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//, '');
-  const host = withoutScheme.split(/[/?#]/)[0] ?? '';
-  const bare = host.replace(/^www\./, '');
+  const host = bareHost(withoutScheme);
+  if (host === '') return '';
+  if (LOGO_SERVICE_HOSTS.has(host)) return brandInLogoServiceUrl(host, withoutScheme) || host;
+  return host;
+}
+
+function bareHost(withoutScheme: string): string {
+  const host = (withoutScheme.split(/[/?#]/)[0] ?? '').replace(/^www\./, '');
   // A domain needs at least one dot and only host-safe characters.
-  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(bare)) return '';
-  return bare.slice(0, MAX_DOMAIN_LENGTH);
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host)) return '';
+  return host.slice(0, MAX_DOMAIN_LENGTH);
+}
+
+/**
+ * Logo and favicon services whose URLs name the brand's domain. People paste
+ * such a URL into the logo field; keeping its host would show the service's
+ * own icon instead of the brand.
+ */
+const LOGO_SERVICE_HOSTS = new Set([
+  'icon.horse',
+  'unavatar.io',
+  'logo.clearbit.com',
+  'img.logo.dev',
+  'logo.uplead.com',
+  'cdn.brandfetch.io',
+  'favicone.com',
+  'favicon.im',
+  'icons.duckduckgo.com',
+  'google.com',
+  't0.gstatic.com',
+  't1.gstatic.com',
+  't2.gstatic.com',
+  't3.gstatic.com',
+]);
+
+/** The first query value or path segment, after the host, that is a domain. */
+function brandInLogoServiceUrl(serviceHost: string, withoutScheme: string): string {
+  const [beforeQuery = '', query = ''] = withoutScheme.split('#')[0]?.split('?') ?? [];
+  const candidates: string[] = [];
+  for (const pair of query.split('&')) {
+    const value = pair.slice(pair.indexOf('=') + 1);
+    try {
+      candidates.push(decodeURIComponent(value));
+    } catch {
+      candidates.push(value);
+    }
+  }
+  // DuckDuckGo names the file after the domain: `/ip3/acme.com.ico`.
+  candidates.push(...beforeQuery.split('/').slice(1).map((segment) => segment.replace(/\.(ico|png|svg|jpe?g)$/, '')));
+
+  for (const candidate of candidates) {
+    const domain = bareHost(candidate.replace(/^[a-z][a-z0-9+.-]*:\/\//, ''));
+    if (domain !== '' && domain !== serviceHost && !LOGO_SERVICE_HOSTS.has(domain)) return domain;
+  }
+  return '';
 }
 
 export function areLinked(doc: StructureDocument, a: NodeId, b: NodeId): boolean {

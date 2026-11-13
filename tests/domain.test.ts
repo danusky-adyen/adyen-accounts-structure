@@ -590,6 +590,25 @@ describe('logo domain', () => {
     expect(normalizeDomain('https://www.Acme.com/path?x=1')).toBe('acme.com');
   });
 
+  it('keeps the brand, not the service, from a pasted logo-service URL', () => {
+    expect(normalizeDomain('https://icon.horse/icon/arndt-autovermietung.de')).toBe('arndt-autovermietung.de');
+    expect(normalizeDomain('https://unavatar.io/google/www.acme.com?fallback=false')).toBe('acme.com');
+    expect(normalizeDomain('https://logo.clearbit.com/acme.com?size=128')).toBe('acme.com');
+    expect(normalizeDomain('https://img.logo.dev/acme.com?token=pk_x')).toBe('acme.com');
+    expect(normalizeDomain('https://www.google.com/s2/favicons?domain=acme.com&sz=128')).toBe('acme.com');
+    expect(normalizeDomain('https://icons.duckduckgo.com/ip3/acme.com.ico')).toBe('acme.com');
+    expect(
+      normalizeDomain(
+        'https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https%3A%2F%2Fwww.acme.com&size=128',
+      ),
+    ).toBe('acme.com');
+  });
+
+  it('keeps a logo service itself when its URL names no other domain', () => {
+    expect(normalizeDomain('https://www.google.com/')).toBe('google.com');
+    expect(normalizeDomain('icon.horse')).toBe('icon.horse');
+  });
+
   it('rejects anything that is not a domain', () => {
     expect(normalizeDomain('nodot')).toBe('');
     expect(normalizeDomain('')).toBe('');
