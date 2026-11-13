@@ -1,0 +1,103 @@
+/**
+ * The frame around a group of compact cards. A sunken, see-through fill so a
+ * link leaving a card inside still reads through it. Geometry comes from
+ * `GROUP` in `layout/metrics.ts`; keep it in step with `export/svg.ts`.
+ */
+
+.frame {
+  position: absolute;
+  border-radius: var(--b-radius-l);
+  border: var(--b-border-width-s) solid var(--c-border);
+  background: color-mix(in srgb, var(--c-surface-sunken) 72%, transparent);
+  transition: opacity var(--b-duration-moderate) var(--b-ease-standard);
+}
+
+.frame[data-dimmed='true'] {
+  opacity: 0.32;
+}
+
+.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--b-spacer-060);
+}
+
+.label {
+  font-family: var(--b-font-mono);
+  text-transform: uppercase;
+  font-weight: var(--b-text-caption-stronger-weight);
+  color: var(--c-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--b-spacer-020);
+  flex-shrink: 0;
+  height: 24px;
+  padding: 0 var(--b-spacer-030) 0 var(--b-spacer-040);
+  border-radius: var(--b-radius-s);
+  font-size: var(--b-text-caption-size);
+  font-weight: var(--b-text-caption-stronger-weight);
+  color: var(--c-accent-text);
+  transition: background var(--b-duration-fast) var(--b-ease-linear);
+}
+
+.toggle:hover {
+  background: var(--c-accent-soft);
+}
+
+.toggle svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--b-duration-fast) var(--b-ease-standard);
+}
+
+.toggle svg[data-expanded='true'] {
+  transform: rotate(180deg);
+}
+
+/* Stands in for the cards the preview leaves out, in the slot the next one
+   would take, so the grid keeps its shape. */
+.more {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border-radius: var(--b-radius-l);
+  border: var(--b-border-width-s) dashed var(--c-border-strong);
+  font-family: var(--b-font-mono);
+  font-size: var(--b-text-caption-size);
+  font-weight: var(--b-text-caption-stronger-weight);
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  transition:
+    border-color var(--b-duration-fast) var(--b-ease-linear),
+    color var(--b-duration-fast) var(--b-ease-linear),
+    background var(--b-duration-fast) var(--b-ease-linear);
+}
+
+.more:hover {
+  border-color: var(--c-accent);
+  border-style: solid;
+  color: var(--c-accent-text);
+  background: var(--c-accent-soft);
+}
+
+.toggle:focus-visible,
+.more:focus-visible {
+  outline: var(--b-border-width-m) solid var(--c-accent);
+  outline-offset: 2px;
+}

@@ -19,7 +19,7 @@ npm run dev        # http://localhost:5173
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | `tsc --build` across app and node configs |
 | `npm run lint` | ESLint, type-aware |
-| `npm test` | Vitest (260 tests) |
+| `npm test` | Vitest (269 tests) |
 | `node scripts/fetch-payment-logos.mjs` | Refresh the vendored payment-method artwork |
 
 ## Architecture
@@ -69,6 +69,20 @@ card rectangles, slot geometry, rounded orthogonal tree edges and lane-packed
 cross-link channels, plus the content bounds. Text is measured up front and the
 resulting line breaks are what both the DOM and the SVG exporter render, so the
 export always matches the screen. Nothing reads element sizes back from the DOM.
+
+Long runs of childless siblings, such as a merchant account's 57 stores, would
+stretch one row of cards across the whole diagram. From six of them on, the
+layout puts them in a framed grid of compact one-row cards instead: the kind
+tile on the left, the name, and a summary line ("2 terminals · 3 methods") in
+place of the terminal row and chips. The grid has three columns up to nine
+cards and four beyond. A grid longer than two rows shows a preview of two rows,
+the last slot counting the rest (`+50 more`); that tile or *Show all* in the
+frame's header opens it, and the open groups are passed in as
+`expandedGroups`. The parent draws one connector to the frame, and links to a
+card in a grid leave through the channel below the tree. A selection the
+preview leaves out (a new store, arrow keys walking past the last card) opens
+its group. Since a compact card has no terminal row, the inspector lists a
+store's terminals as well.
 
 **`share/`** encodes documents into the URL fragment. `normalize.ts` in the
 domain layer is the only trust boundary: every external document — share link,
@@ -394,3 +408,5 @@ character of a name.
 
 Dragging a card by its middle links it to another node, or moves it inside one;
 dragging it by its left or right edge reorders it among its siblings.
+Dropping a card anywhere on a group's frame moves it into that group, and the
+arrow keys walk a group's grid row by row.

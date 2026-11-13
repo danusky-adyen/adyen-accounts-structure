@@ -47,10 +47,10 @@ function snapshot(layout: Layout): Snapshot {
   const paths = new Map<string, string>();
   for (const edge of layout.edges) paths.set(`edge:${edge.id}`, edge.path);
   for (const link of layout.links) paths.set(`link:${link.id}`, link.path);
+  // Group frames move with the cards; their ids (`group:…`) cannot clash with a node's.
+  const boxes = [...layout.nodes, ...layout.groups];
   return {
-    nodes: new Map(
-      layout.nodes.map((item) => [item.id, { x: item.x, y: item.y, width: item.width, height: item.height }]),
-    ),
+    nodes: new Map(boxes.map((item) => [item.id, { x: item.x, y: item.y, width: item.width, height: item.height }])),
     paths,
   };
 }
@@ -85,8 +85,8 @@ export function useTileMotion(layout: Layout, refs: TileMotionRefs, suspended: b
     if (!tree || !edgeLayer) return;
 
     const cards = new Map<NodeId, HTMLElement>();
-    for (const element of tree.querySelectorAll<HTMLElement>('[data-node-id]')) {
-      const id = element.dataset['nodeId'];
+    for (const element of tree.querySelectorAll<HTMLElement>('[data-node-id], [data-group-id]')) {
+      const id = element.dataset['nodeId'] ?? element.dataset['groupId'];
       if (id) cards.set(id, element);
     }
     const paths = new Map<string, SVGPathElement>();
@@ -132,11 +132,20 @@ export function useTileMotion(layout: Layout, refs: TileMotionRefs, suspended: b
       const carried = running ? currentTranslate(element) : { x: 0, y: 0 };
       const dx = was.x - box.x + carried.x;
       const dy = was.y - box.y + carried.y;
-      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
-      animate(element, [{ translate: `${dx}px ${dy}px` }, { translate: '0px 0px' }], {
-        duration: MOVE_MS,
-        easing: MOVE_CURVE,
-      });
+      // A frame also changes size as its group opens or folds, so it grows into place.
+      const resized =
+        element.dataset['groupId'] !== undefined &&
+        (Math.abs(was.width - box.width) >= 0.5 || Math.abs(was.height - box.height) >= 0.5);
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && !resized) continue;
+      const from: Keyframe = { translate: `${dx}px ${dy}px` };
+      const to: Keyframe = { translate: '0px 0px' };
+      if (resized) {
+        from['width'] = `${was.width}px`;
+        from['height'] = `${was.height}px`;
+        to['width'] = `${box.width}px`;
+        to['height'] = `${box.height}px`;
+      }
+      animate(element, [from, to], { duration: MOVE_MS, easing: MOVE_CURVE });
     }
 
     // Removed cards are no longer React's: the detached element plays its exit
@@ -149,6 +158,7 @@ export function useTileMotion(layout: Layout, refs: TileMotionRefs, suspended: b
 
       ghostCount += 1;
       element.removeAttribute('data-node-id');
+      element.removeAttribute('data-group-id');
       element.removeAttribute('tabindex');
       ghosts.appendChild(element);
       const exit = animate(element, [{ opacity: 1 }, { opacity: 0 }], {

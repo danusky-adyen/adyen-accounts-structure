@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { prefersReducedMotion } from '../design/motion';
 import { applyTheme } from '../design/theme';
-import type { StructureDocument } from '../domain/document';
+import { ancestorsOf, type StructureDocument } from '../domain/document';
 import { buildFromAnswers, type GuidedAnswers } from '../domain/guided';
 import type { TerminalKind } from '../domain/kinds';
 import type { Template } from '../domain/templates';
@@ -40,9 +40,24 @@ export function App() {
   const reset = useStore((state) => state.reset);
   const replaceDocument = useStore((state) => state.replaceDocument);
 
+  const expandedGroups = useStore((state) => state.expandedGroups);
+  const selectedId = useStore((state) => state.selectedId);
+  const toggleGroup = useStore((state) => state.toggleGroup);
+
   const containerRef = useRef<HTMLDivElement>(null);
-  const layout = useLayout(doc);
+  const layout = useLayout(doc, expandedGroups);
   const view = useViewport(containerRef, layout);
+
+  // A selection the collapsed preview leaves out (a card just added, a search,
+  // an undo) opens its group before the frame is painted, so what is selected
+  // is always on screen.
+  useLayoutEffect(() => {
+    if (selectedId === null || layout.byId.has(selectedId)) return;
+    const parent = ancestorsOf(doc, selectedId).at(-1);
+    if (parent && !expandedGroups.has(parent.id) && layout.groups.some((group) => group.parentId === parent.id)) {
+      toggleGroup(parent.id);
+    }
+  }, [doc, expandedGroups, layout, selectedId, toggleGroup]);
 
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [intro, setIntro] = useState<IntroState | null>(() =>
@@ -138,7 +153,7 @@ export function App() {
 
       <TemplatesPanel onApply={applyTemplate} onOpenGuided={(answers) => setOverlay({ type: 'guided', answers })} />
 
-      <Inspector />
+      <Inspector onRequestTerminalPicker={(nodeId) => setOverlay({ type: 'terminal', nodeId })} />
       <Toast />
 
       {overlay?.type === 'terminal' ? (

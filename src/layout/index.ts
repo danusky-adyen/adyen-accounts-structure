@@ -23,7 +23,7 @@ import {
   type Rect,
 } from './geometry';
 import { integrationLabel } from '../domain/integrations';
-import { CARD, LINKS, TREE } from './metrics';
+import { CARD, COMPACT, GROUP, LINKS, TREE } from './metrics';
 import { wrapText, type TextMeasurer } from './measure';
 
 /** Setting keys defined anywhere in a node's subtree, excluding the node itself. */
@@ -70,6 +70,12 @@ export interface CardSlots {
   /** Top of the settings count row, when the node has settings. */
   readonly badgeTop: number | null;
   readonly badgeLabel: string;
+  /** A one-row card inside a group: icon on the left, text beside it. */
+  readonly compact: boolean;
+  /** Left edge of the name and summary on a compact card; 0 when centred. */
+  readonly textLeft: number;
+  /** The summary line a compact card shows under its name. */
+  readonly meta: string;
 }
 
 export interface LayoutNode extends Rect {
@@ -83,6 +89,30 @@ export interface LayoutNode extends Rect {
   /** True when a balance platform sits somewhere above this node. */
   readonly insidePlatform: boolean;
   readonly slots: CardSlots;
+  /** The group frame this card is drawn in, if any. */
+  readonly groupId: string | null;
+}
+
+/**
+ * A framed grid of childless siblings. Long runs collapse to a preview of
+ * `GROUP.previewRows` rows, the last slot holding a `+N more` tile.
+ */
+export interface LayoutGroup extends Rect {
+  readonly id: string;
+  readonly parentId: NodeId;
+  /** Depth of the cards inside it. */
+  readonly depth: number;
+  /** "57 stores", or one part per kind when the kinds are mixed. */
+  readonly label: string;
+  readonly total: number;
+  /** Items not drawn while collapsed. */
+  readonly hidden: number;
+  /** True when the group is long enough to collapse at all. */
+  readonly collapsible: boolean;
+  readonly expanded: boolean;
+  readonly columns: number;
+  /** The `+N more` tile, when items are hidden. */
+  readonly more: Rect | null;
 }
 
 export interface LayoutEdge {
@@ -107,6 +137,7 @@ export interface LayoutLink {
 
 export interface Layout {
   readonly nodes: readonly LayoutNode[];
+  readonly groups: readonly LayoutGroup[];
   readonly byId: ReadonlyMap<NodeId, LayoutNode>;
   readonly edges: readonly LayoutEdge[];
   readonly links: readonly LayoutLink[];
@@ -117,15 +148,35 @@ export interface Layout {
 }
 
 interface SizedNode {
+  readonly type: 'node';
   readonly node: AccountNode;
   readonly width: number;
   readonly height: number;
   readonly nameLines: readonly string[];
   readonly caption: string;
   readonly slots: CardSlots;
-  readonly children: readonly SizedNode[];
+  /** What sits in the row below, in document order: cards and at most one group. */
+  readonly children: readonly SizedChild[];
   readonly subtreeWidth: number;
 }
+
+interface SizedGroup {
+  readonly type: 'group';
+  readonly parentId: NodeId;
+  readonly items: readonly SizedNode[];
+  readonly total: number;
+  readonly hidden: number;
+  readonly collapsible: boolean;
+  readonly expanded: boolean;
+  readonly columns: number;
+  readonly cellHeight: number;
+  readonly label: string;
+  readonly width: number;
+  readonly height: number;
+  readonly subtreeWidth: number;
+}
+
+type SizedChild = SizedNode | SizedGroup;
 
 /** Extra facts a card shows that only the whole document can answer. */
 export interface CardContext {
@@ -229,7 +280,7 @@ export function measureCard(
   parentKind: NodeKind | null,
   measure: TextMeasurer,
   context: CardContext = NO_CONTEXT,
-): Omit<SizedNode, 'children' | 'subtreeWidth' | 'node'> {
+): Omit<SizedNode, 'children' | 'subtreeWidth' | 'node' | 'type'> {
   const spec = specOf(node.kind);
   const caption = captionFor(node.kind, parentKind);
 
@@ -319,50 +370,202 @@ export function measureCard(
       methodOverflowBox: methodRow.overflowBox,
       badgeTop,
       badgeLabel,
+      compact: false,
+      textLeft: 0,
+      meta: '',
     },
   };
 }
 
-function sizeTree(
+function plural(noun: string, count: number): string {
+  // "POS" stays upper case; "Store" reads as "stores" mid-sentence.
+  const lower = /^[A-Z][a-z]/.test(noun) ? noun[0]?.toLowerCase() + noun.slice(1) : noun;
+  if (count === 1) return lower;
+  if (/[^aeiou]y$/.test(lower)) return `${lower.slice(0, -1)}ies`;
+  return `${lower}s`;
+}
+
+/**
+ * What a compact card says under its name: the counts a full card would draw.
+ * Trailing counts are dropped until the line fits, so it never needs clipping.
+ */
+function compactMeta(node: AccountNode, caption: string, maxWidth: number, measure: TextMeasurer): string {
+  const parts: string[] = [];
+  if (node.terminals.length > 0) parts.push(`${node.terminals.length} ${plural('terminal', node.terminals.length)}`);
+  if (node.methods.length > 0) parts.push(`${node.methods.length} ${plural('method', node.methods.length)}`);
+  if (node.integrations.length > 0) {
+    parts.push(`${node.integrations.length} ${plural('integration', node.integrations.length)}`);
+  }
+  if (node.settings.length > 0) parts.push(`${node.settings.length} ${plural('setting', node.settings.length)}`);
+  if (parts.length === 0) return caption;
+  const fits = (text: string): boolean =>
+    measure(text.toUpperCase(), CARD.captionWeight, CARD.captionSize, 'mono') <= maxWidth;
+  while (parts.length > 1 && !fits(parts.join(' · '))) parts.pop();
+  return parts.join(' · ');
+}
+
+/** A card inside a group: the kind tile on the left, the name and a summary beside it. */
+export function measureCompactCard(
   node: AccountNode,
   parentKind: NodeKind | null,
   measure: TextMeasurer,
-  contextOf: (node: AccountNode) => CardContext,
-): SizedNode {
-  const children = node.children.map((child) => sizeTree(child, node.kind, measure, contextOf));
-  const card = measureCard(node, parentKind, measure, contextOf(node));
+): Omit<SizedNode, 'children' | 'subtreeWidth' | 'node' | 'type'> {
+  const caption = captionFor(node.kind, parentKind);
+  const width = COMPACT.width;
+  const textLeft = COMPACT.paddingX + COMPACT.iconSize + COMPACT.iconGap;
+  const innerWidth = width - textLeft - COMPACT.paddingX;
+  const wrapped = wrapText(node.name, innerWidth, COMPACT.nameMaxLines, measure, CARD.nameWeight, CARD.nameSize);
 
-  const childrenWidth =
-    children.reduce((total, child) => total + child.subtreeWidth, 0) +
-    Math.max(0, children.length - 1) * TREE.siblingGap;
+  const nameTop = COMPACT.paddingY;
+  const captionTop = nameTop + wrapped.lines.length * CARD.nameLineHeight + COMPACT.metaGap;
+  const height = Math.ceil(captionTop + CARD.captionLineHeight + COMPACT.paddingY);
 
   return {
+    width,
+    height,
+    nameLines: wrapped.lines,
+    caption,
+    slots: {
+      icon: { x: COMPACT.paddingX, y: (height - COMPACT.iconSize) / 2, width: COMPACT.iconSize, height: COMPACT.iconSize },
+      nameTop,
+      nameLineHeight: CARD.nameLineHeight,
+      captionBaselineTop: captionTop,
+      terminalsTop: null,
+      innerWidth,
+      logo: null,
+      chips: [],
+      methods: [],
+      methodOverflow: 0,
+      methodOverflowBox: null,
+      badgeTop: null,
+      badgeLabel: '',
+      compact: true,
+      textLeft,
+      meta: compactMeta(node, caption, innerWidth, measure),
+    },
+  };
+}
+
+function groupLabel(items: readonly AccountNode[], parentKind: NodeKind): string {
+  const counts = new Map<NodeKind, number>();
+  for (const item of items) counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
+  return [...counts]
+    .map(([kind, count]) => `${count} ${plural(captionFor(kind, parentKind), count)}`)
+    .join(' · ');
+}
+
+function groupColumns(total: number): number {
+  return Math.min(total, total <= GROUP.threeColumnsUpTo ? 3 : GROUP.maxColumns);
+}
+
+interface SizingContext {
+  readonly measure: TextMeasurer;
+  readonly contextOf: (node: AccountNode) => CardContext;
+  readonly expanded: ReadonlySet<NodeId>;
+}
+
+function sizeGroup(parent: AccountNode, leaves: readonly AccountNode[], context: SizingContext): SizedGroup {
+  const total = leaves.length;
+  const columns = groupColumns(total);
+  const capacity = columns * GROUP.previewRows;
+  const collapsible = total > capacity;
+  const expanded = !collapsible || context.expanded.has(parent.id);
+  const shown = expanded ? leaves : leaves.slice(0, capacity - 1);
+  const hidden = total - shown.length;
+
+  const items: SizedNode[] = shown.map((leaf) => ({
+    type: 'node',
+    node: leaf,
+    ...measureCompactCard(leaf, parent.kind, context.measure),
+    children: [],
+    subtreeWidth: COMPACT.width,
+  }));
+  const cellHeight = items.reduce((tallest, item) => Math.max(tallest, item.height), 0);
+  const cells = items.length + (hidden > 0 ? 1 : 0);
+  const rows = Math.ceil(cells / columns);
+  const width = GROUP.padding * 2 + columns * COMPACT.width + (columns - 1) * GROUP.gap;
+  const height = GROUP.headerHeight + rows * cellHeight + (rows - 1) * GROUP.gap + GROUP.padding;
+
+  return {
+    type: 'group',
+    parentId: parent.id,
+    items,
+    total,
+    hidden,
+    collapsible,
+    expanded,
+    columns,
+    cellHeight,
+    label: groupLabel(leaves, parent.kind),
+    width,
+    height,
+    subtreeWidth: width,
+  };
+}
+
+/** Childless children that can sit in a group; a detached card keeps its own place. */
+export function isGroupable(node: AccountNode): boolean {
+  return node.children.length === 0 && !specOf(node.kind).detached;
+}
+
+function sizeTree(node: AccountNode, parentKind: NodeKind | null, context: SizingContext): SizedNode {
+  const leaves = node.children.filter(isGroupable);
+  const grouped = leaves.length >= GROUP.minItems;
+
+  const children: SizedChild[] = [];
+  for (const child of node.children) {
+    if (grouped && isGroupable(child)) {
+      // The group takes the place of the first childless child.
+      if (child === leaves[0]) children.push(sizeGroup(node, leaves, context));
+      continue;
+    }
+    children.push(sizeTree(child, node.kind, context));
+  }
+  const card = measureCard(node, parentKind, context.measure, context.contextOf(node));
+
+  return {
+    type: 'node',
     node,
     ...card,
     children,
-    subtreeWidth: Math.max(card.width, childrenWidth),
+    subtreeWidth: Math.max(card.width, childrenWidth(children)),
   };
+}
+
+function childrenWidth(children: readonly SizedChild[]): number {
+  return (
+    children.reduce((total, child) => total + child.subtreeWidth, 0) +
+    Math.max(0, children.length - 1) * TREE.siblingGap
+  );
 }
 
 export interface LayoutOptions {
   readonly measure: TextMeasurer;
+  /** Parents whose collapsed group is shown in full. */
+  readonly expandedGroups?: ReadonlySet<NodeId>;
 }
 
+const NO_GROUPS: ReadonlySet<NodeId> = new Set();
+
 export function layoutDocument(doc: StructureDocument, options: LayoutOptions): Layout {
-  const sized = sizeTree(doc.root, null, options.measure, (node) => {
-    // Only nodes that actually set something can be contradicted below, which
-    // keeps this off the hot path for the vast majority of cards.
-    if (node.settings.length === 0) return NO_CONTEXT;
-    const below = keysSetBelow(node);
-    return { overriddenBelow: node.settings.some((setting) => below.has(setting.key)) };
+  const sized = sizeTree(doc.root, null, {
+    measure: options.measure,
+    contextOf: (node) => {
+      // Only nodes that actually set something can be contradicted below, which
+      // keeps this off the hot path for the vast majority of cards.
+      if (node.settings.length === 0) return NO_CONTEXT;
+      const below = keysSetBelow(node);
+      return { overriddenBelow: node.settings.some((setting) => below.has(setting.key)) };
+    },
+    expanded: options.expandedGroups ?? NO_GROUPS,
   });
 
   // Rows are as tall as their tallest card so every card in a row shares a top
   // edge, which keeps the connector elbows aligned.
   const rowHeights: number[] = [];
-  const collectRowHeights = (item: SizedNode, depth: number): void => {
+  const collectRowHeights = (item: SizedChild, depth: number): void => {
     rowHeights[depth] = Math.max(rowHeights[depth] ?? 0, item.height);
-    item.children.forEach((child) => collectRowHeights(child, depth + 1));
+    if (item.type === 'node') item.children.forEach((child) => collectRowHeights(child, depth + 1));
   };
   collectRowHeights(sized, 0);
 
@@ -374,6 +577,51 @@ export function layoutDocument(doc: StructureDocument, options: LayoutOptions): 
   }
 
   const nodes: LayoutNode[] = [];
+  const groups: LayoutGroup[] = [];
+  const placeGroup = (group: SizedGroup, left: number, depth: number, insidePlatform: boolean): void => {
+    const y = rowTop[depth] ?? 0;
+    const id = `group:${group.parentId}`;
+    const cellAt = (index: number): Rect => ({
+      x: left + GROUP.padding + (index % group.columns) * (COMPACT.width + GROUP.gap),
+      y: y + GROUP.headerHeight + Math.floor(index / group.columns) * (group.cellHeight + GROUP.gap),
+      width: COMPACT.width,
+      height: group.cellHeight,
+    });
+    group.items.forEach((item, index) => {
+      const cell = cellAt(index);
+      nodes.push({
+        id: item.node.id,
+        node: item.node,
+        kind: item.node.kind,
+        parentId: group.parentId,
+        depth,
+        ...cell,
+        caption: item.caption,
+        nameLines: item.nameLines,
+        insidePlatform,
+        // Cards in a row share the tallest one's height, so the summary line
+        // is re-centred along with the icon.
+        slots: { ...item.slots, icon: { ...item.slots.icon, y: (cell.height - item.slots.icon.height) / 2 } },
+        groupId: id,
+      });
+    });
+    groups.push({
+      id,
+      parentId: group.parentId,
+      depth,
+      label: group.label,
+      total: group.total,
+      hidden: group.hidden,
+      collapsible: group.collapsible,
+      expanded: group.expanded,
+      columns: group.columns,
+      more: group.hidden > 0 ? cellAt(group.items.length) : null,
+      x: left,
+      y,
+      width: group.width,
+      height: group.height,
+    });
+  };
   const place = (
     item: SizedNode,
     left: number,
@@ -398,26 +646,25 @@ export function layoutDocument(doc: StructureDocument, options: LayoutOptions): 
       nameLines: item.nameLines,
       insidePlatform,
       slots: item.slots,
+      groupId: null,
     });
 
-    const childrenWidth =
-      item.children.reduce((total, child) => total + child.subtreeWidth, 0) +
-      Math.max(0, item.children.length - 1) * TREE.siblingGap;
-
-    let childLeft = left + (item.subtreeWidth - childrenWidth) / 2;
+    let childLeft = left + (item.subtreeWidth - childrenWidth(item.children)) / 2;
     const childInsidePlatform = insidePlatform || item.node.kind === 'bp';
     for (const child of item.children) {
-      place(child, childLeft, depth + 1, item.node.id, childInsidePlatform);
+      if (child.type === 'group') placeGroup(child, childLeft, depth + 1, childInsidePlatform);
+      else place(child, childLeft, depth + 1, item.node.id, childInsidePlatform);
       childLeft += child.subtreeWidth + TREE.siblingGap;
     }
   };
   place(sized, 0, 0, null, false);
 
   const byId = new Map(nodes.map((node) => [node.id, node] as const));
-  const edges = buildEdges(nodes, byId, rowTop);
+  const edges = buildEdges(nodes, groups, byId, rowTop);
   const links = buildLinks(doc, nodes, byId, rowTop);
 
   const drawn: Rect[] = nodes.map(({ x, y, width, height }) => ({ x, y, width, height }));
+  for (const { x, y, width, height } of groups) drawn.push({ x, y, width, height });
   for (const link of links) {
     drawn.push({ x: link.midpoint.x, y: link.midpoint.y, width: 0, height: 0 });
     for (const handle of link.handles) {
@@ -432,44 +679,58 @@ export function layoutDocument(doc: StructureDocument, options: LayoutOptions): 
     height: content.height + TREE.margin * 2,
   };
 
-  return { nodes, byId, edges, links, content, bounds };
+  return { nodes, groups, byId, edges, links, content, bounds };
+}
+
+/** Parent bottom to child top, through the bus in the gap above the child's row. */
+function treeEdgePath(parent: Rect, child: Rect, busY: number): string {
+  const fromX = rectCenterX(parent);
+  const fromY = rectBottom(parent);
+  const toX = rectCenterX(child);
+  const toY = child.y;
+  return Math.abs(fromX - toX) < 0.5
+    ? `M ${fromX} ${fromY} L ${toX} ${toY}`
+    : roundedPolyline(
+        [
+          { x: fromX, y: fromY },
+          { x: fromX, y: busY },
+          { x: toX, y: busY },
+          { x: toX, y: toY },
+        ],
+        TREE.elbowRadius,
+      );
 }
 
 function buildEdges(
   nodes: readonly LayoutNode[],
+  groups: readonly LayoutGroup[],
   byId: ReadonlyMap<NodeId, LayoutNode>,
   rowTop: readonly number[],
 ): LayoutEdge[] {
   const edges: LayoutEdge[] = [];
+  for (const group of groups) {
+    const parent = byId.get(group.parentId);
+    if (!parent) continue;
+    const busY = (rowTop[group.depth] ?? group.y) - TREE.rowGap / 2;
+    edges.push({ id: `${parent.id}->${group.id}`, parentId: parent.id, childId: group.id, path: treeEdgePath(parent, group, busY) });
+  }
   for (const child of nodes) {
     if (child.parentId === null) continue;
+    // The group frame carries the one connector for everything inside it.
+    if (child.groupId !== null) continue;
     // A balance platform is not owned by the company account: it is reached
     // through the links from the merchant accounts beside it, so it keeps its
     // place in the row but draws no connector upwards.
     if (specOf(child.kind).detached) continue;
     const parent = byId.get(child.parentId);
     if (!parent) continue;
-
-    const fromX = rectCenterX(parent);
-    const fromY = rectBottom(parent);
-    const toX = rectCenterX(child);
-    const toY = child.y;
-    const busY = (rowTop[child.depth] ?? toY) - TREE.rowGap / 2;
-
-    const path =
-      Math.abs(fromX - toX) < 0.5
-        ? `M ${fromX} ${fromY} L ${toX} ${toY}`
-        : roundedPolyline(
-            [
-              { x: fromX, y: fromY },
-              { x: fromX, y: busY },
-              { x: toX, y: busY },
-              { x: toX, y: toY },
-            ],
-            TREE.elbowRadius,
-          );
-
-    edges.push({ id: `${parent.id}->${child.id}`, parentId: parent.id, childId: child.id, path });
+    const busY = (rowTop[child.depth] ?? child.y) - TREE.rowGap / 2;
+    edges.push({
+      id: `${parent.id}->${child.id}`,
+      parentId: parent.id,
+      childId: child.id,
+      path: treeEdgePath(parent, child, busY),
+    });
   }
   return edges;
 }
@@ -492,7 +753,7 @@ function buildLinks(
   const lateral: typeof pairs = [];
   const channel: typeof pairs = [];
   for (const pair of pairs) {
-    if (pair.source.depth === pair.target.depth && isHorizontallyClear(pair.source, pair.target, nodes)) {
+    if (!isGridPair(pair) && pair.source.depth === pair.target.depth && isHorizontallyClear(pair.source, pair.target, nodes)) {
       lateral.push(pair);
     } else {
       channel.push(pair);
@@ -527,8 +788,10 @@ function buildLinks(
 
   // Same-row links that are not neighbours are routed just above the row, in the
   // clear band between the connector bus and the cards.
-  const aboveRow = channel.filter((pair) => pair.source.depth === pair.target.depth);
-  const belowTree = channel.filter((pair) => pair.source.depth !== pair.target.depth);
+  // A card in a group grid may sit under other cards, so its links always leave
+  // through the channel below the tree rather than the band above its row.
+  const aboveRow = channel.filter((pair) => pair.source.depth === pair.target.depth && !isGridPair(pair));
+  const belowTree = channel.filter((pair) => pair.source.depth !== pair.target.depth || isGridPair(pair));
 
   const aboveLanes = assignLanes(
     aboveRow.map(({ source, target }) => ({
@@ -597,6 +860,10 @@ function buildLinks(
   });
 
   return links;
+}
+
+function isGridPair(pair: { readonly source: LayoutNode; readonly target: LayoutNode }): boolean {
+  return pair.source.groupId !== null || pair.target.groupId !== null;
 }
 
 /**

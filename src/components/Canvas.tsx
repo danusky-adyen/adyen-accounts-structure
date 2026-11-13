@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { specOf, type NodeKind } from '../domain/kinds';
 import type { Layout } from '../layout';
+import { GROUP } from '../layout/metrics';
 import { dropCandidates, resolveDropTarget } from '../interaction/dropTarget';
 import { useStore } from '../state/store';
 import { getViewport, setViewport, viewportStore, type Viewport } from '../state/viewport';
@@ -17,6 +18,7 @@ import type { ViewportController } from '../hooks/useViewport';
 import { useTileMotion, type TileMotionRefs } from '../hooks/useTileMotion';
 import { EdgeLayer } from './EdgeLayer';
 import { ExplainCard } from './ExplainCard';
+import { GroupFrame } from './GroupFrame';
 import { Intro } from './Intro';
 import { NodeCard } from './NodeCard';
 import styles from './Canvas.module.css';
@@ -120,6 +122,7 @@ export function Canvas({
   const toggleLink = useStore((state) => state.toggleLink);
   const move = useStore((state) => state.move);
   const notify = useStore((state) => state.notify);
+  const toggleGroup = useStore((state) => state.toggleGroup);
 
   const interaction = useRef<Interaction | null>(null);
   const [panning, setPanning] = useState(false);
@@ -187,6 +190,32 @@ export function Canvas({
   );
 
   const handleCancelEdit = useCallback(() => setEditing(null), [setEditing]);
+
+  // Folding a group away under the selection would leave nothing selected on
+  // screen, so the selection moves up to the parent first.
+  const handleToggleGroup = useCallback(
+    (parentId: string) => {
+      const store = useStore.getState();
+      const selected = store.selectedId === null ? null : layout.byId.get(store.selectedId);
+      const group = layout.groups.find((item) => item.parentId === parentId);
+      if (group?.expanded && selected?.groupId === group.id) {
+        const index = layout.nodes.filter((item) => item.groupId === group.id).indexOf(selected);
+        if (index >= group.columns * GROUP.previewRows - 1) select(parentId, { inspect: false });
+      }
+      toggleGroup(parentId);
+    },
+    [layout, select, toggleGroup],
+  );
+
+  /** Group frames to dim during a drag: those holding no card it could land on. */
+  const dimmedGroups = useMemo(() => {
+    if (candidates === null) return null;
+    const live = new Set<string>();
+    for (const item of layout.nodes) {
+      if (item.groupId !== null && candidates.all.has(item.id)) live.add(item.groupId);
+    }
+    return live;
+  }, [candidates, layout.nodes]);
 
   const handleBackgroundPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -368,6 +397,14 @@ export function Canvas({
         <div ref={ghostCardsRef} className={styles.ghosts} aria-hidden />
 
         <div ref={treeRef} className={styles.tree} role="tree" aria-label="Account structure">
+          {layout.groups.map((group) => (
+            <GroupFrame
+              key={group.id}
+              group={group}
+              dimmed={dimmedGroups !== null && !dimmedGroups.has(group.id)}
+              onToggle={handleToggleGroup}
+            />
+          ))}
           {layout.nodes.map((item) => {
             const target = drag?.target ?? null;
             const dropAction =

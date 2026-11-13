@@ -75,6 +75,39 @@ export const TREE = {
   margin: SPACER['120'],
 } as const;
 
+/**
+ * A run of childless siblings (a merchant's stores, a holder's balance
+ * accounts) is drawn as a framed grid of compact cards once it is long enough
+ * that a single row would stretch the diagram sideways.
+ */
+export const GROUP = {
+  /** Childless siblings needed before they are grouped. */
+  minItems: 6,
+  /** Up to this many items use three columns, more use `maxColumns`. */
+  threeColumnsUpTo: 9,
+  maxColumns: 4,
+  /** Rows a collapsed group shows, the last slot being the `+N more` tile. */
+  previewRows: 2,
+  padding: SPACER['070'],
+  /** Band at the top of the frame holding the label and the toggle. */
+  headerHeight: SPACER['110'],
+  gap: SPACER['060'],
+  radius: RADIUS.l,
+  labelSize: TYPE.caption.size - 1,
+  labelLineHeight: TYPE.caption.lineHeight,
+} as const;
+
+/** A card inside a group: one row, icon on the left, name and a summary line. */
+export const COMPACT = {
+  width: 232,
+  paddingX: SPACER['060'],
+  paddingY: SPACER['050'],
+  iconSize: 32,
+  iconGap: SPACER['050'],
+  nameMaxLines: 2,
+  metaGap: SPACER['000'],
+} as const;
+
 export const LINKS = {
   /** Distance from the deepest card to the first cross-link channel. */
   channelOffset: SPACER['100'],

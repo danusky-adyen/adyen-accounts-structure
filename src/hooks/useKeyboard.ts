@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { findNode } from '../domain/document';
 import { specOf } from '../domain/kinds';
-import type { Layout } from '../layout';
+import { isGroupable, type Layout } from '../layout';
+import type { Rect } from '../layout/geometry';
 import { useStore } from '../state/store';
 import type { ViewportController } from './useViewport';
 
@@ -22,21 +23,54 @@ function neighbour(layout: Layout, id: string, direction: Direction): string | n
   const current = layout.byId.get(id);
   if (!current) return null;
 
+  // Inside a group the arrows walk the grid; stepping off its side leaves for
+  // the sibling beside the frame, and off its top for the parent.
+  const group = current.groupId === null ? null : layout.groups.find((item) => item.id === current.groupId);
+  if (group) {
+    const cells = layout.nodes.filter((node) => node.groupId === group.id);
+    const index = cells.indexOf(current);
+    const step = { up: -group.columns, down: group.columns, left: -1, right: 1 }[direction];
+    const target = cells[index + step];
+    if (target) return target.id;
+    // Walking on past the preview selects the first card it leaves out, which
+    // opens the group (see App).
+    if ((direction === 'right' || direction === 'down') && group.hidden > 0 && index === cells.length - 1) {
+      const parent = layout.byId.get(group.parentId)?.node;
+      const firstHidden = parent?.children.filter(isGroupable)[cells.length];
+      if (firstHidden) return firstHidden.id;
+    }
+    if (direction === 'up') return current.parentId;
+    if (direction === 'down') return null;
+    return besideFrame(layout, current.parentId, group, direction);
+  }
+
   if (direction === 'up') return current.parentId;
   if (direction === 'down') {
     const children = layout.nodes
       .filter((node) => node.parentId === id)
-      .sort((a, b) => a.x - b.x);
+      .sort((a, b) => a.y - b.y || a.x - b.x);
     return children[0]?.id ?? null;
   }
 
+  // A group counts as one sibling, entered at its first card.
   const siblings = layout.nodes
     .filter((node) => node.parentId === current.parentId)
+    .filter((node, _, all) => node.groupId === null || all.find((other) => other.groupId === node.groupId) === node)
     .sort((a, b) => a.x - b.x);
   const index = siblings.findIndex((node) => node.id === id);
   if (index === -1) return null;
   const next = direction === 'left' ? siblings[index - 1] : siblings[index + 1];
   return next?.id ?? null;
+}
+
+/** The nearest ungrouped sibling to the left or right of a group's frame. */
+function besideFrame(layout: Layout, parentId: string | null, group: Rect, direction: 'left' | 'right'): string | null {
+  const outside = layout.nodes.filter((node) => node.parentId === parentId && node.groupId === null);
+  const candidates =
+    direction === 'left'
+      ? outside.filter((node) => node.x < group.x).sort((a, b) => b.x - a.x)
+      : outside.filter((node) => node.x > group.x + group.width).sort((a, b) => a.x - b.x);
+  return candidates[0]?.id ?? null;
 }
 
 export interface KeyboardOptions {

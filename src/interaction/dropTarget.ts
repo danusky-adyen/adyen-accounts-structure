@@ -79,6 +79,16 @@ function parentAbove(
  * end of a row meant aiming for the last card's edge.
  */
 function resolveOpenSpace(doc: StructureDocument, layout: Layout, draggedId: NodeId, point: Point): DropTarget | null {
+  // Anywhere on a group's frame, between its cards included, joins the group.
+  const frame = layout.groups.find(
+    (group) =>
+      point.x >= group.x &&
+      point.x <= group.x + group.width &&
+      point.y >= group.y &&
+      point.y <= group.y + group.height,
+  );
+  if (frame && canMoveNode(doc, draggedId, frame.parentId, 'inside')) return { nodeId: frame.parentId, action: 'inside' };
+
   // Right under a card with no children of its own, its empty row is the target,
   // even when a neighbouring subtree's cards are close by.
   const empty = parentAbove(doc, layout, draggedId, point, (node) =>

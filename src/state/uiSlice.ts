@@ -76,6 +76,8 @@ export interface UiSlice {
   explainMode: boolean;
   /** The templates panel on the left. */
   templatesOpen: boolean;
+  /** Parents whose collapsed group of cards is shown in full. */
+  expandedGroups: ReadonlySet<NodeId>;
   toast: Toast | null;
   saveStatus: SaveStatus;
 
@@ -93,6 +95,8 @@ export interface UiSlice {
   setSystemTheme: (theme: ThemeName) => void;
   setExplainMode: (on: boolean) => void;
   setTemplatesOpen: (open: boolean) => void;
+  /** Shows all of a parent's grouped cards, or folds them back to the preview. */
+  toggleGroup: (parentId: NodeId) => void;
   /**
    * Writes the current diagram to storage now, whatever is in there. A no-op
    * until autosave starts and installs the real one.
@@ -122,6 +126,7 @@ export const createUiSlice: StateCreator<AppState, [], [], UiSlice> = (set, get)
     theme: preference === 'system' ? systemTheme() : preference,
     explainMode: loadExplainMode(),
     templatesOpen: loadTemplatesOpen(),
+    expandedGroups: new Set(),
     toast: null,
     saveStatus: 'saved',
 
@@ -155,6 +160,13 @@ export const createUiSlice: StateCreator<AppState, [], [], UiSlice> = (set, get)
     setTemplatesOpen: (open) => {
       saveTemplatesOpen(open);
       set({ templatesOpen: open });
+    },
+
+    toggleGroup: (parentId) => {
+      const next = new Set(get().expandedGroups);
+      if (next.has(parentId)) next.delete(parentId);
+      else next.add(parentId);
+      set({ expandedGroups: next });
     },
 
     saveNow: () => {},

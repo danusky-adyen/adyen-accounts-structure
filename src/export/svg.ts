@@ -13,9 +13,9 @@ import { getIcon, getTerminalIcon, type IconDef } from '../design/icons';
 import { PALETTES, TINTS, tintFill, type ThemeName } from '../design/palette';
 import { BORDER_WIDTH, RADIUS, TYPE } from '../design/tokens';
 import { specOf, terminalCategoryOf, terminalLabel } from '../domain/kinds';
-import type { Layout, LayoutNode } from '../layout';
+import type { Layout, LayoutGroup, LayoutNode } from '../layout';
 import { FONT_STACK, MONO_STACK } from '../layout/measure';
-import { CARD } from '../layout/metrics';
+import { CARD, COMPACT, GROUP } from '../layout/metrics';
 
 export interface SvgExportOptions {
   readonly theme: ThemeName;
@@ -75,7 +75,7 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
     `<rect x="${round(item.x + slots.icon.x)}" y="${round(item.y + slots.icon.y)}" width="${round(slots.icon.width)}" height="${round(slots.icon.height)}" rx="${RADIUS.m}" fill="${fill}"/>`,
     iconMarkup(
       getIcon(spec.icon),
-      CARD.iconSize - ICON_INSET * 2,
+      slots.icon.width - ICON_INSET * 2,
       item.x + slots.icon.x + ICON_INSET,
       item.y + slots.icon.y + ICON_INSET,
       tint.line,
@@ -84,6 +84,9 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
   ];
 
   const centerX = item.x + item.width / 2;
+  // A compact card sets its text flush left beside the icon instead of centred under it.
+  const textX = slots.compact ? item.x + slots.textLeft : centerX;
+  const textAnchor = slots.compact ? 'start' : 'middle';
 
   if (slots.logo !== null) {
     // The brand tile covers the kind glyph drawn above, so the glyph is redrawn
@@ -121,18 +124,19 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
   item.nameLines.forEach((line, index) => {
     const y = item.y + slots.nameTop + slots.nameLineHeight / 2 + index * slots.nameLineHeight;
     parts.push(
-      `<text x="${round(centerX)}" y="${round(y)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="${CARD.nameSize}" font-weight="${CARD.nameWeight}" fill="${palette.text}">${escapeXml(line)}</text>`,
+      `<text x="${round(textX)}" y="${round(y)}" text-anchor="${textAnchor}" dominant-baseline="central" font-family="${FONT_ATTR}" font-size="${CARD.nameSize}" font-weight="${CARD.nameWeight}" fill="${palette.text}">${escapeXml(line)}</text>`,
     );
   });
 
   parts.push(
-    `<text x="${round(centerX)}" y="${round(item.y + slots.captionBaselineTop + CARD.captionLineHeight / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${MONO_ATTR}" font-size="${CARD.captionSize}" font-weight="${CARD.captionWeight}" fill="${palette.textMuted}">${escapeXml(item.caption.toUpperCase())}</text>`,
+    `<text x="${round(textX)}" y="${round(item.y + slots.captionBaselineTop + CARD.captionLineHeight / 2)}" text-anchor="${textAnchor}" dominant-baseline="central" font-family="${MONO_ATTR}" font-size="${CARD.captionSize}" font-weight="${CARD.captionWeight}" fill="${palette.textMuted}">${escapeXml((slots.compact ? slots.meta : item.caption).toUpperCase())}</text>`,
   );
 
   if (item.node.note.trim() !== '') {
-    parts.push(
-      `<circle cx="${round(item.x + item.width - 15)}" cy="${round(item.y + 15)}" r="3" fill="${palette.textFaint}"/>`,
-    );
+    // On a compact card the corner belongs to the name, so the dot sits on the border.
+    const cx = slots.compact ? item.x + item.width - COMPACT.paddingX - 18 : item.x + item.width - 15;
+    const cy = slots.compact ? item.y : item.y + 15;
+    parts.push(`<circle cx="${round(cx)}" cy="${round(cy)}" r="3" fill="${palette.textFaint}"/>`);
   }
 
   for (const chip of slots.chips) {
@@ -191,6 +195,23 @@ function cardMarkup(item: LayoutNode, theme: ThemeName): string {
   return `<g>${parts.join('')}</g>`;
 }
 
+/** The frame of a group, its label and the `+N more` tile; the cards are drawn over it. */
+function groupMarkup(group: LayoutGroup, theme: ThemeName): string {
+  const palette = PALETTES[theme];
+  const parts = [
+    `<rect x="${round(group.x)}" y="${round(group.y)}" width="${round(group.width)}" height="${round(group.height)}" rx="${GROUP.radius}" fill="${palette.surfaceSunken}" fill-opacity="0.72" stroke="${palette.border}" stroke-width="${BORDER_WIDTH.s}"/>`,
+    `<text x="${round(group.x + GROUP.padding)}" y="${round(group.y + GROUP.headerHeight / 2)}" dominant-baseline="central" font-family="${MONO_ATTR}" font-size="${GROUP.labelSize}" font-weight="${TYPE.captionStronger.weight}" fill="${palette.textMuted}">${escapeXml(group.label.toUpperCase())}</text>`,
+  ];
+  if (group.more !== null) {
+    const { more } = group;
+    parts.push(
+      `<rect x="${round(more.x + 0.5)}" y="${round(more.y + 0.5)}" width="${round(more.width - 1)}" height="${round(more.height - 1)}" rx="${CARD.radius}" fill="none" stroke="${palette.borderStrong}" stroke-width="${BORDER_WIDTH.s}" stroke-dasharray="4 3"/>`,
+      `<text x="${round(more.x + more.width / 2)}" y="${round(more.y + more.height / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${MONO_ATTR}" font-size="${TYPE.caption.size}" font-weight="${TYPE.captionStronger.weight}" fill="${palette.textMuted}">+${group.hidden} MORE</text>`,
+    );
+  }
+  return `<g>${parts.join('')}</g>`;
+}
+
 export function renderDiagramSvg(layout: Layout, options: SvgExportOptions): string {
   const palette = PALETTES[options.theme];
   const { bounds } = layout;
@@ -209,6 +230,7 @@ export function renderDiagramSvg(layout: Layout, options: SvgExportOptions): str
     )
     .join('');
 
+  const groups = layout.groups.map((group) => groupMarkup(group, options.theme)).join('');
   const cards = layout.nodes.map((item) => cardMarkup(item, options.theme)).join('');
   const background = options.background
     ? `<rect x="${round(bounds.x)}" y="${round(bounds.y)}" width="${round(bounds.width)}" height="${round(bounds.height)}" fill="${palette.canvas}"/>`
@@ -218,6 +240,7 @@ export function renderDiagramSvg(layout: Layout, options: SvgExportOptions): str
     `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(bounds.width)}" height="${Math.ceil(bounds.height)}" viewBox="${round(bounds.x)} ${round(bounds.y)} ${round(bounds.width)} ${round(bounds.height)}">`,
     `<title>${escapeXml(options.title)}</title>`,
     background,
+    groups,
     `<g>${edges}${links}</g>`,
     cards,
     '</svg>',

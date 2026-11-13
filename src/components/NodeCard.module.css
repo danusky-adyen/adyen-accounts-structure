@@ -124,6 +124,35 @@
   text-overflow: ellipsis;
 }
 
+.card[data-compact='true'] .name,
+.card[data-compact='true'] .caption {
+  padding: 0;
+  text-align: left;
+}
+
+/* On a one-row card the name reaches the top-right corner, so the badges sit
+   on the border instead of inside it. */
+.card[data-compact='true'] .noteBadge,
+.card[data-compact='true'] .linkBadge {
+  top: -8px;
+  padding: 0 var(--b-spacer-010);
+  border-radius: var(--b-radius-s);
+  background: var(--c-surface);
+}
+
+.card[data-compact='true'] .noteBadge {
+  right: var(--b-spacer-090);
+}
+
+.card[data-compact='true'] .linkBadge {
+  left: auto;
+  right: var(--b-spacer-120);
+}
+
+.card[data-compact='true'] .nameInput {
+  text-align: left;
+}
+
 .nameInput {
   position: absolute;
   text-align: center;

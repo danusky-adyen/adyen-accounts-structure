@@ -107,7 +107,13 @@ export function planIntro(layout: Layout): IntroPlan {
     };
   });
 
-  const settledAt = new Map(cards.map((card) => [card.id, card.morphAt]));
+  const settledAt = new Map<string, number>(cards.map((card) => [card.id, card.morphAt]));
+  // A group's one connector is drawn as its first card lands.
+  layout.nodes.forEach((item, index) => {
+    const card = cards[index];
+    if (item.groupId === null || !card) return;
+    settledAt.set(item.groupId, Math.min(settledAt.get(item.groupId) ?? Infinity, card.morphAt));
+  });
   const edges = layout.edges.map((edge) => ({
     id: edge.id,
     path: edge.path,

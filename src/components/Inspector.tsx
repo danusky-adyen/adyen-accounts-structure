@@ -1,17 +1,21 @@
 import { useMemo, useState } from 'react';
 import { monogram } from '../design/brand';
 import { ancestorsOf, canAddChildOfKind, findNode, indexDocument, type AccountNode } from '../domain/document';
-import { captionFor, specOf, variantGroupOf } from '../domain/kinds';
+import { captionFor, specOf, terminalCategoryOf, terminalLabel, variantGroupOf } from '../domain/kinds';
 import { kindChangeImpact } from '../domain/operations';
 import { useCompanyLogo } from '../hooks/useBrandMarks';
 import { useStore } from '../state/store';
-import { Icon } from './Icon';
+import { Icon, TerminalIcon } from './Icon';
 import { NodeIntegrations } from './NodeIntegrations';
 import { NodeMethods } from './NodeMethods';
 import { NodeSettings } from './NodeSettings';
 import styles from './Inspector.module.css';
 
-export function Inspector() {
+export interface InspectorProps {
+  readonly onRequestTerminalPicker: (nodeId: string) => void;
+}
+
+export function Inspector({ onRequestTerminalPicker }: InspectorProps) {
   const doc = useStore((state) => state.doc);
   const selectedId = useStore((state) => state.selectedId);
   const open = useStore((state) => state.inspectorOpen);
@@ -26,6 +30,7 @@ export function Inspector() {
   const remove = useStore((state) => state.remove);
   const toggleLink = useStore((state) => state.toggleLink);
   const setLogoDomain = useStore((state) => state.setLogoDomain);
+  const removeTerminalAt = useStore((state) => state.removeTerminalAt);
 
   const node = selectedId === null ? null : findNode(doc, selectedId);
   // The pending switch lives in the store because it can be started from the
@@ -186,6 +191,38 @@ export function Inspector() {
           onDraft={(value) => setDraftEntry(value === null ? null : { nodeId: selectedId, value })}
           onCommit={(value) => setLogoDomain(selectedId, value)}
         />
+      ) : null}
+
+      {/* Listed here as well as on the card, because a card drawn compact in a
+          group has no room for its terminal row. */}
+      {spec.supportsTerminals ? (
+        <div className={styles.field}>
+          <span className="sectionLabel">Terminals</span>
+          <div className={styles.chipRow}>
+            {node.terminals.map((terminal, index) => (
+              <button
+                key={`${terminal}-${index}`}
+                type="button"
+                className={styles.chip}
+                title="Remove"
+                aria-label={`Remove the ${terminalLabel(terminal)} terminal`}
+                onClick={() => removeTerminalAt(selectedId, index)}
+              >
+                <TerminalIcon name={terminalCategoryOf(terminal)} size={14} tint={spec.tint} />
+                {terminalLabel(terminal)}
+                <svg viewBox="0 0 24 24" aria-hidden>
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            ))}
+            <button type="button" className={styles.chip} onClick={() => onRequestTerminalPicker(selectedId)}>
+              <svg viewBox="0 0 24 24" aria-hidden>
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Add terminal
+            </button>
+          </div>
+        </div>
       ) : null}
 
       {spec.supportsIntegrations ? <NodeIntegrations node={node} /> : null}

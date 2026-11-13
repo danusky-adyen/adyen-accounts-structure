@@ -6,7 +6,7 @@ import { nextVariant, specOf, terminalCategoryOf, terminalLabel, variantLabel } 
 import { methodLabel } from '../domain/paymentMethods';
 import { useCompanyLogo } from '../hooks/useBrandMarks';
 import type { LayoutNode } from '../layout';
-import { CARD } from '../layout/metrics';
+import { CARD, COMPACT } from '../layout/metrics';
 import { Icon, TerminalIcon } from './Icon';
 import styles from './NodeCard.module.css';
 
@@ -78,6 +78,7 @@ export const NodeCard = memo(function NodeCard({
       data-droptarget={dropAction ?? undefined}
       data-tone={spec.tone}
       data-platform={item.insidePlatform && spec.tone !== 'management'}
+      data-compact={slots.compact}
       role="treeitem"
       aria-level={item.depth + 1}
       aria-selected={selected}
@@ -113,7 +114,7 @@ export const NodeCard = memo(function NodeCard({
         <NameEditor
           initialValue={editingSeed ?? node.name}
           selectAll={editingSeed === null}
-          left={CARD.paddingX - 4}
+          left={(slots.compact ? slots.textLeft : CARD.paddingX) - 4}
           top={slots.nameTop - 2}
           width={slots.innerWidth + 8}
           height={slots.nameLineHeight + 4}
@@ -125,6 +126,7 @@ export const NodeCard = memo(function NodeCard({
           className={styles.name}
           style={{
             top: slots.nameTop,
+            ...(slots.compact ? { left: slots.textLeft, right: COMPACT.paddingX } : null),
             fontSize: CARD.nameSize,
             lineHeight: `${slots.nameLineHeight}px`,
             height: item.nameLines.length * slots.nameLineHeight,
@@ -143,9 +145,15 @@ export const NodeCard = memo(function NodeCard({
 
       <div
         className={styles.caption}
-        style={{ top: slots.captionBaselineTop, fontSize: CARD.captionSize, lineHeight: `${CARD.captionLineHeight}px` }}
+        style={{
+          top: slots.captionBaselineTop,
+          ...(slots.compact ? { left: slots.textLeft, right: COMPACT.paddingX } : null),
+          fontSize: CARD.captionSize,
+          lineHeight: `${CARD.captionLineHeight}px`,
+        }}
+        title={slots.compact ? item.caption : undefined}
       >
-        {item.caption}
+        {slots.compact ? slots.meta : item.caption}
       </div>
 
       {slots.chips.map((chip, index) => (
@@ -367,7 +375,7 @@ function KindTile({ item, selected, logoUrl, onCycleKind }: KindTileProps) {
 
   const content =
     slots.logo === null ? (
-      <Icon name={spec.icon} tint={spec.tint} size={CARD.iconSize - 6} />
+      <Icon name={spec.icon} tint={spec.tint} size={slots.icon.width - 6} />
     ) : (
       <>
         {logoUrl === null ? (
