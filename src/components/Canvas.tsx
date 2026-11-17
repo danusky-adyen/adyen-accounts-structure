@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from 'react';
@@ -38,6 +39,17 @@ function capturePointer(element: HTMLElement | null, pointerId: number): void {
 }
 
 const DRAG_THRESHOLD_PX = 5;
+
+/**
+ * What a press landed on, for telling a real double-click from two quick
+ * clicks on different things: a card, a group frame, a button, or the canvas.
+ */
+function pressZone(target: EventTarget | null): string {
+  if (!(target instanceof Element)) return 'background';
+  if (target.closest('button, input, textarea, a')) return 'control';
+  const card = target.closest<HTMLElement>('[data-node-id], [data-group-id]');
+  return card ? `card:${card.dataset['nodeId'] ?? card.dataset['groupId'] ?? ''}` : 'background';
+}
 const GRID_SIZE = 26;
 
 const noop = (): void => {};
@@ -125,6 +137,8 @@ export function Canvas({
   const toggleGroup = useStore((state) => state.toggleGroup);
 
   const interaction = useRef<Interaction | null>(null);
+  /** The zones of the last two presses, oldest first. */
+  const presses = useRef<readonly [string | null, string | null]>([null, null]);
   const [panning, setPanning] = useState(false);
   /** The card under the pointer, explained while Explain mode is on. */
   const [explainedId, setExplainedId] = useState<string | null>(null);
@@ -190,6 +204,27 @@ export function Canvas({
   );
 
   const handleCancelEdit = useCallback(() => setEditing(null), [setEditing]);
+
+  const handlePressCapture = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    presses.current = [presses.current[1], pressZone(event.target)];
+  }, []);
+
+  // The browser counts two quick clicks as a double-click wherever they land.
+  // Clicking + or × twice moves the card out from under the second click, which
+  // then fell on the canvas and fitted the whole diagram to the screen, or on
+  // a neighbour and started renaming it. A double-click only counts when both
+  // presses hit the same card, or both hit the empty canvas.
+  const handleDoubleClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    const [first, second] = presses.current;
+    if (first !== second || second === 'control') event.stopPropagation();
+  }, []);
+
+  const handleBackgroundDoubleClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (pressZone(event.target) === 'background') view.fit();
+    },
+    [view],
+  );
 
   // Folding a group away under the selection would leave nothing selected on
   // screen, so the selection moves up to the parent first.
@@ -370,7 +405,9 @@ export function Canvas({
       onPointerCancel={finishInteraction}
       onPointerOver={handlePointerOver}
       onPointerLeave={handlePointerLeave}
-      onDoubleClick={view.fit}
+      onPointerDownCapture={handlePressCapture}
+      onDoubleClickCapture={handleDoubleClickCapture}
+      onDoubleClick={handleBackgroundDoubleClick}
     >
       <div ref={gridRef} className={styles.grid} />
 

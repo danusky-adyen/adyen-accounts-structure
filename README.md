@@ -435,3 +435,11 @@ Dragging a card by its middle links it to another node, or moves it inside one;
 dragging it by its left or right edge reorders it among its siblings.
 Dropping a card anywhere on a group's frame moves it into that group, and the
 arrow keys walk a group's grid row by row.
+
+The card a change happens under holds still on screen. Adding or removing a
+store keeps its merchant account, and so its `+` button, exactly where it was,
+and opening or folding a group keeps the group's owner in place; any other edit
+pins the root (`layout/anchor.ts`). The view itself only moves when a new card
+would land off-screen. A double-click fits the diagram only when both clicks hit
+the empty canvas, so clicking `+` or `×` twice in quick succession no longer
+zooms out or starts renaming the card that slid under the pointer.

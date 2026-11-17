@@ -539,10 +539,22 @@ function childrenWidth(children: readonly SizedChild[]): number {
   );
 }
 
+/** A card and the canvas point its top-left corner should land on. */
+export interface LayoutAnchor {
+  readonly id: NodeId;
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface LayoutOptions {
   readonly measure: TextMeasurer;
   /** Parents whose collapsed group is shown in full. */
   readonly expandedGroups?: ReadonlySet<NodeId>;
+  /**
+   * The whole drawing is shifted so the first of these cards that is laid out
+   * lands on its point. Without one the tree starts at the origin.
+   */
+  readonly anchors?: readonly LayoutAnchor[];
 }
 
 const NO_GROUPS: ReadonlySet<NodeId> = new Set();
@@ -659,6 +671,41 @@ export function layoutDocument(doc: StructureDocument, options: LayoutOptions): 
   };
   place(sized, 0, 0, null, false);
 
+  // Shifting before the connectors are drawn keeps every path in step for free.
+  const shift = anchorShift(nodes, options.anchors);
+  const shiftedNodes = shift === null ? nodes : nodes.map((item) => ({ ...item, x: item.x + shift.x, y: item.y + shift.y }));
+  const shiftedGroups =
+    shift === null
+      ? groups
+      : groups.map((group) => ({
+          ...group,
+          x: group.x + shift.x,
+          y: group.y + shift.y,
+          more: group.more === null ? null : { ...group.more, x: group.more.x + shift.x, y: group.more.y + shift.y },
+        }));
+  const shiftedRowTop = shift === null ? rowTop : rowTop.map((top) => top + shift.y);
+
+  return finishLayout(doc, shiftedNodes, shiftedGroups, shiftedRowTop);
+}
+
+function anchorShift(nodes: readonly LayoutNode[], anchors: readonly LayoutAnchor[] | undefined): Point | null {
+  if (!anchors) return null;
+  for (const anchor of anchors) {
+    const item = nodes.find((node) => node.id === anchor.id);
+    if (!item) continue;
+    const x = anchor.x - item.x;
+    const y = anchor.y - item.y;
+    return x === 0 && y === 0 ? null : { x, y };
+  }
+  return null;
+}
+
+function finishLayout(
+  doc: StructureDocument,
+  nodes: readonly LayoutNode[],
+  groups: readonly LayoutGroup[],
+  rowTop: readonly number[],
+): Layout {
   const byId = new Map(nodes.map((node) => [node.id, node] as const));
   const edges = buildEdges(nodes, groups, byId, rowTop);
   const links = buildLinks(doc, nodes, byId, rowTop);
@@ -748,7 +795,7 @@ function buildLinks(
     );
   if (pairs.length === 0) return [];
 
-  const treeBottom = nodes.reduce((lowest, node) => Math.max(lowest, rectBottom(node)), 0);
+  const treeBottom = nodes.reduce((lowest, node) => Math.max(lowest, rectBottom(node)), -Infinity);
 
   const lateral: typeof pairs = [];
   const channel: typeof pairs = [];
