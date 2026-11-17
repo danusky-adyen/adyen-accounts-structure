@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import type { NodeId, StructureDocument } from '../src/domain/document';
 import { addChild, addLink, removeNode, renameNode } from '../src/domain/operations';
+import { cardToReveal } from '../src/hooks/useKeepInView';
 import { layoutDocument, type Layout } from '../src/layout';
 import { chooseAnchors, type LaidOut } from '../src/layout/anchor';
 import { estimateTextWidth } from '../src/layout/measure';
@@ -122,5 +123,37 @@ describe('a pinned layout', () => {
     const other = doc(node('company', named('pos', 'Elsewhere')));
     const replaced = next(state, other);
     expect(replaced.layout.nodes).toEqual(first(other).layout.nodes);
+  });
+});
+
+describe('keeping new cards in view', () => {
+  function grown(): { before: LaidOut; after: LaidOut; retail: NodeId; created: NodeId } {
+    const before = first(sample());
+    const retail = byName(before.doc, 'Retail').id;
+    const { doc: added, createdId } = addChild(before.doc, retail, 'store');
+    if (createdId === null) throw new Error('nothing added');
+    return { before, after: next(before, added), retail, created: createdId };
+  }
+
+  it('leaves the view alone when the card it was added under is on screen', () => {
+    const { before, after, created } = grown();
+    const known = new Set(before.layout.nodes.map((item) => item.id));
+    const onlyNewIsHidden = (id: string): boolean => id !== created;
+    expect(cardToReveal(after.layout, known, onlyNewIsHidden)).toBeNull();
+  });
+
+  it('still brings a new card into view when its parent is off-screen too', () => {
+    const { before, after, retail, created } = grown();
+    const known = new Set(before.layout.nodes.map((item) => item.id));
+    const bothHidden = (id: string): boolean => id !== created && id !== retail;
+    expect(cardToReveal(after.layout, known, bothHidden)).toBe(created);
+  });
+
+  it('counts a parent that is only partly on screen as on screen', () => {
+    const { before, after, retail, created } = grown();
+    const known = new Set(before.layout.nodes.map((item) => item.id));
+    const parentHalfVisible = (id: string, partly = false): boolean =>
+      id === retail ? partly : id !== created;
+    expect(cardToReveal(after.layout, known, parentHalfVisible)).toBeNull();
   });
 });

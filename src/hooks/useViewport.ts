@@ -27,10 +27,11 @@ export interface ViewportController {
   /** Pans the smallest amount that brings a node fully into view. */
   readonly reveal: (nodeId: string) => void;
   /**
-   * Whether a node is fully inside the visible part of the canvas. Unknown ids
-   * count as visible: there is nothing to bring into view.
+   * Whether a node is fully inside the visible part of the canvas, or with
+   * `partly`, whether any of it is. Unknown ids count as visible: there is
+   * nothing to bring into view.
    */
-  readonly isVisible: (nodeId: string) => boolean;
+  readonly isVisible: (nodeId: string, partly?: boolean) => boolean;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -149,7 +150,7 @@ export function useViewport(containerRef: RefObject<HTMLElement | null>, layout:
         if (dx !== 0 || dy !== 0) setViewport({ ...current, x: current.x + dx, y: current.y + dy });
       },
 
-      isVisible: (nodeId) => {
+      isVisible: (nodeId, partly = false) => {
         const rect = bounds();
         const item = layoutRef.current.byId.get(nodeId);
         if (!rect || !item) return true;
@@ -161,6 +162,14 @@ export function useViewport(containerRef: RefObject<HTMLElement | null>, layout:
 
         const left = item.x * current.scale + current.x;
         const top = item.y * current.scale + current.y;
+        if (partly) {
+          return (
+            left + item.width * current.scale > leftEdge &&
+            top + item.height * current.scale > padding &&
+            left < rightEdge &&
+            top < rect.height - padding
+          );
+        }
         return (
           left >= leftEdge &&
           top >= padding &&

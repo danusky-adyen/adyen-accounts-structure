@@ -439,7 +439,10 @@ arrow keys walk a group's grid row by row.
 The card a change happens under holds still on screen. Adding or removing a
 store keeps its merchant account, and so its `+` button, exactly where it was,
 and opening or folding a group keeps the group's owner in place; any other edit
-pins the root (`layout/anchor.ts`). The view itself only moves when a new card
-would land off-screen. A double-click fits the diagram only when both clicks hit
+pins the root (`layout/anchor.ts`). The view does not pan after a new card
+either, even when it lands past the edge of the window, as long as the card it
+was added under is on screen: that is where you are working, and panning would
+move the button you are about to click again. It only pans to a new card when
+its parent is off-screen as well. A double-click fits the diagram only when both clicks hit
 the empty canvas, so clicking `+` or `×` twice in quick succession no longer
 zooms out or starts renaming the card that slid under the pointer.
